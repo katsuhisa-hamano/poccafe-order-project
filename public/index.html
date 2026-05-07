@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ぽっカフェ 注文管理</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app">
+        <!-- ナビゲーション -->
+        <nav class="bg-orange-600 text-white p-4 flex justify-between">
+            <h1 class="font-bold cursor-pointer" onclick="router.go('home')">ぽっカフェ</h1>
+            <div id="nav-links">
+                <button onclick="router.go('admin')" class="text-xs border px-2 py-1 rounded">管理者</button>
+            </div>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <div id="view-home" class="view p-4">
+            <input type="date" id="order-date" class="w-full mb-4 p-2 rounded border" onchange="app.loadMenus()">
+            <div id="menu-list" class="grid grid-cols-2 gap-4"></div>
+            <button onclick="app.confirmOrder()" class="fixed bottom-4 right-4 bg-orange-500 text-white p-4 rounded-full shadow-xl">注文確定</button>
+        </div>
+
+        <!-- 管理者画面 -->
+        <div id="view-admin" class="view p-4 hidden">
+            <h2 class="font-bold mb-4">当日注文一覧</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="date" id="admin-date-filter" class="border p-2" onchange="app.loadAdminOrders()">
+                <input type="month" id="admin-month-filter" class="border p-2" onchange="app.loadAdminOrders('month')">
+            </div>
+            <div id="admin-order-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <!-- 注文確認モーダル -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-lg w-full max-w-sm">
+            <h3 class="font-bold mb-4">内容を確認してください</h3>
+            <div id="modal-content" class="text-sm mb-4"></div>
+            <div class="flex justify-end gap-2">
+                <button onclick="app.closeModal()" class="text-gray-500">戻る</button>
+                <button onclick="app.submitOrder()" class="bg-orange-600 text-white px-4 py-2 rounded">送信</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

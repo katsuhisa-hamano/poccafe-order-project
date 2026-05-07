@@ -1,0 +1,9 @@
+project-root/
+├── schema.sql              # D1初期化用
+├── public/                 # 静的ファイル（Cloudflare Pages）
+│   ├── index.html          # メイン画面・管理画面（SPA構成）
+│   ├── app.js              # フロントエンドロジック
+│   └── styles.css          # スタイル
+└── functions/              # サーバーレスAPI
+    └── api/
+        └── [[path]].js     # すべてのAPIリクエストを処理
