@@ -63,6 +63,66 @@ export async function onRequest(context) {
       return new Response(JSON.stringify(results));
     }
 
+    // POST /api/auth/register - 仮登録 & 認証メール送信
+    if (path === '/api/auth/register' && method === 'POST') {
+      const { email, name, tel } = await request.json();
+      const token = crypto.randomUUID(); // 認証用トークン
+      const expiry = Date.now() + 3600000; // 1時間有効
+
+      // 一時的なユーザーデータをD1に保存（status: 'pending'）
+      // 本来は別テーブルか、usersテーブルに仮フラグで保存
+      await env.DB.prepare(`
+        INSERT INTO users (square_customer_id, email, name, tel, status) 
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(token, email, name, tel, 'pending').run();
+
+      // 認証URLの構築 (環境変数からドメイン取得)
+      const authLink = `${new URL(request.url).origin}/api/auth/verify?token=${token}`;
+
+      // メール送信ロジック (Resend API等の例)
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'Po-Cafe <onboarding@yourdomain.com>',
+          to: email,
+          subject: '【ぽっカフェ】アカウント登録を完了してください',
+          html: `<p>${name}様</p><p>以下のリンクをクリックして登録を完了してください：</p><a href="${authLink}">${authLink}</a>`
+        })
+      });
+
+      return new Response(JSON.stringify({ success: true }));
+    }
+
+    // GET /api/auth/verify - メールリンククリック時の処理
+    if (path === '/api/auth/verify' && method === 'GET') {
+      const token = url.searchParams.get('token');
+      
+      // トークンでユーザー情報を取得
+      const user = await env.DB.prepare("SELECT * FROM users WHERE square_customer_id = ? AND status = 'pending'").bind(token).first();
+      if (!user) return new Response("無効なリンクです", { status: 400 });
+
+      // --- Square APIで顧客作成 ---
+      const sqRes = await fetch('https://connect.squareup.com/v2/customers', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          given_name: user.name,
+          email_address: user.email,
+          phone_number: user.tel
+        })
+      });
+      const sqData = await sqRes.json();
+      const squareId = sqData.customer.id;
+
+      // D1の情報を更新（仮IDをSquare IDに書き換え、ステータスを本登録に）
+      await env.DB.prepare("UPDATE users SET square_customer_id = ?, status = 'active' WHERE square_customer_id = ?")
+        .bind(squareId, token).run();
+
+      // 完了後、ログイン済みの状態でトップへリダイレクト
+      return Response.redirect(`${new URL(request.url).origin}/#login_success`);
+    }
+
     return new Response("Not Found", { status: 404 });
   } catch (err) {
     return new Response(err.stack, { status: 500 });

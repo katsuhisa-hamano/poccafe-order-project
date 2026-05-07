@@ -17,6 +17,47 @@
         <button onclick="router.go('history')" class="text-xs font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-full">注文履歴</button>
     </header>
 
+    <!-- ログイン・登録用ビュー -->
+    <section id="view-login" class="view p-6 animate-in">
+        <div class="text-center mb-10">
+            <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-3xl">☕</span>
+            </div>
+            <h2 class="text-2xl font-black">ぽっカフェ ログイン</h2>
+            <p class="text-gray-400 text-sm">注文にはアカウントが必要です</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-bold text-gray-400 ml-2">メールアドレス</label>
+                <input type="email" id="login-email" class="w-full p-4 rounded-2xl bg-white border-0 shadow-sm" placeholder="example@mail.com">
+            </div>
+            <button onclick="app.login()" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold shadow-lg">ログイン</button>
+            
+            <div class="relative py-4">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+                <div class="relative flex justify-center text-xs uppercase"><span class="bg-gray-100 px-2 text-gray-400">初めての方</span></div>
+            </div>
+
+            <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-2xl font-bold shadow-sm border border-gray-200">新規アカウント作成</button>
+        </div>
+    </section>
+
+    <!-- アカウント作成モーダル（スライドアップ） -->
+    <div id="register-modal" class="hidden fixed inset-0 z-[70] flex items-end">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeRegister()"></div>
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up">
+            <h3 class="text-xl font-bold mb-6">アカウント作成</h3>
+            <div class="space-y-4 mb-8">
+                <input type="text" id="reg-name" placeholder="お名前" class="w-full p-4 rounded-xl bg-gray-50 border-0">
+                <input type="email" id="reg-email" placeholder="メールアドレス" class="w-full p-4 rounded-xl bg-gray-50 border-0">
+                <input type="tel" id="reg-tel" placeholder="電話番号" class="w-full p-4 rounded-xl bg-gray-50 border-0">
+            </div>
+            <p class="text-[10px] text-gray-400 mb-6 text-center">登録ボタンを押すと、認証メールが送信されます。</p>
+            <button onclick="app.submitRegister()" id="reg-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">メールを送る</button>
+        </div>
+    </div>
+
     <div id="app">
         <!-- 注文画面 -->
         <section id="view-home" class="view p-4">

@@ -92,6 +92,58 @@ const app = {
         this.closeModal();
     },
 
+    showRegister() {
+        document.getElementById('register-modal').classList.remove('hidden');
+    },
+
+    closeRegister() {
+        document.getElementById('register-modal').classList.add('hidden');
+    },
+
+    async submitRegister() {
+        const btn = document.getElementById('reg-submit-btn');
+        const data = {
+            name: document.getElementById('reg-name').value,
+            email: document.getElementById('reg-email').value,
+            tel: document.getElementById('reg-tel').value
+        };
+
+        if(!data.name || !data.email) return alert("必須項目を入力してください");
+
+        btn.innerText = "送信中...";
+        btn.disabled = true;
+
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            alert("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
+            this.closeRegister();
+        } else {
+            alert("エラーが発生しました。");
+            btn.innerText = "メールを送る";
+            btn.disabled = false;
+        }
+    },
+
+    async login() {
+        const email = document.getElementById('login-email').value;
+        // 簡易ログイン処理（本来はパスワードやマジックリンクが必要）
+        // ここではメールアドレスが登録済みか確認し、IDをlocalStorageに保持
+        const res = await fetch(`/api/auth/login?email=${email}`);
+        if (res.ok) {
+            const user = await res.json();
+            localStorage.setItem('cafe_user_id', user.square_customer_id);
+            localStorage.setItem('cafe_user_name', user.name);
+            router.go('home');
+        } else {
+            alert("アカウントが見つかりません。新規作成してください。");
+        }
+    },
+
     closeModal() { document.getElementById('modal').classList.add('hidden'); }
 };
 
