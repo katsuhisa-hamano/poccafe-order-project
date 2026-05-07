@@ -7,100 +7,105 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="animate-in">
+<body class="animate-in bg-gray-50">
 
-    <header class="bg-white/80 sticky top-0 z-40 border-b p-4 flex justify-between items-center">
-        <div>
-            <h1 class="text-lg font-black text-orange-600">ぽっカフェ</h1>
-            <p id="userDisplay" class="text-[10px] text-gray-400">ログイン中: ポポ様</p>
+    <!-- ヘッダー：ログイン後のみ表示（CSS/JSで制御） -->
+    <header id="main-header" class="hidden bg-white/80 sticky top-0 z-40 border-b p-4 flex justify-between items-center backdrop-blur-md">
+        <div class="flex flex-col">
+            <h1 class="text-lg font-black text-orange-600 leading-none">ぽっカフェ</h1>
+            <p id="userDisplay" class="text-[10px] text-gray-400 mt-1">ログイン中: --様</p>
         </div>
-        <button onclick="router.go('history')" class="text-xs font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-full">注文履歴</button>
+        <div class="flex gap-2">
+            <button onclick="router.go('history')" class="text-[11px] font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-full">履歴</button>
+            <button onclick="app.logout()" class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full">ログアウト</button>
+        </div>
     </header>
 
-    <!-- ログイン・登録用ビュー -->
-    <section id="view-login" class="view p-6 animate-in">
-        <div class="text-center mb-10">
-            <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="text-3xl">☕</span>
-            </div>
-            <h2 class="text-2xl font-black">ぽっカフェ ログイン</h2>
-            <p class="text-gray-400 text-sm">注文にはアカウントが必要です</p>
-        </div>
-
-        <div class="space-y-4">
-            <div>
-                <label class="text-xs font-bold text-gray-400 ml-2">メールアドレス</label>
-                <input type="email" id="login-email" class="w-full p-4 rounded-2xl bg-white border-0 shadow-sm" placeholder="example@mail.com">
-            </div>
-            <button onclick="app.login()" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold shadow-lg">ログイン</button>
-            
-            <div class="relative py-4">
-                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
-                <div class="relative flex justify-center text-xs uppercase"><span class="bg-gray-100 px-2 text-gray-400">初めての方</span></div>
+    <main id="app">
+        <!-- 1. 初期画面：ログイン・登録ビュー -->
+        <section id="view-login" class="view min-h-screen flex flex-col justify-center p-6 animate-in">
+            <div class="text-center mb-10">
+                <div class="w-24 h-24 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
+                    <span class="text-4xl">☕</span>
+                </div>
+                <h2 class="text-3xl font-black text-gray-800">ぽっカフェ</h2>
+                <p class="text-gray-400 mt-2">おいしい時間を、事前注文で。</p>
             </div>
 
-            <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-2xl font-bold shadow-sm border border-gray-200">新規アカウント作成</button>
-        </div>
-    </section>
+            <div class="space-y-4 max-w-sm mx-auto w-full">
+                <div class="bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
+                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase">Email Address</label>
+                    <input type="email" id="login-email" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-lg" placeholder="example@mail.com">
+                </div>
+                <button onclick="app.login()" class="w-full bg-orange-500 text-white py-4 rounded-3xl font-bold shadow-lg shadow-orange-200 active:scale-95 transition-transform">
+                    ログインして注文する
+                </button>
+                
+                <div class="relative py-6">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+                    <div class="relative flex justify-center text-xs"><span class="bg-gray-50 px-4 text-gray-400 font-medium">初めての方</span></div>
+                </div>
 
-    <!-- アカウント作成モーダル（スライドアップ） -->
-    <div id="register-modal" class="hidden fixed inset-0 z-[70] flex items-end">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeRegister()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up">
-            <h3 class="text-xl font-bold mb-6">アカウント作成</h3>
-            <div class="space-y-4 mb-8">
-                <input type="text" id="reg-name" placeholder="お名前" class="w-full p-4 rounded-xl bg-gray-50 border-0">
-                <input type="email" id="reg-email" placeholder="メールアドレス" class="w-full p-4 rounded-xl bg-gray-50 border-0">
-                <input type="tel" id="reg-tel" placeholder="電話番号" class="w-full p-4 rounded-xl bg-gray-50 border-0">
+                <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-3xl font-bold shadow-sm border border-gray-200 active:bg-gray-50">
+                    新規アカウント作成
+                </button>
             </div>
-            <p class="text-[10px] text-gray-400 mb-6 text-center">登録ボタンを押すと、認証メールが送信されます。</p>
-            <button onclick="app.submitRegister()" id="reg-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">メールを送る</button>
-        </div>
-    </div>
+        </section>
 
-    <div id="app">
-        <!-- 注文画面 -->
-        <section id="view-home" class="view p-4">
+        <!-- 2. メイン：注文画面 -->
+        <section id="view-home" class="view p-4 hidden animate-in">
             <div class="mb-6">
-                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">受取希望日</label>
-                <input type="date" id="order-date" class="w-full bg-white border-0 shadow-sm p-4 rounded-2xl text-lg font-bold" onchange="app.loadMenus()">
+                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">受取希望日</label>
+                <div class="relative">
+                    <input type="date" id="order-date" class="w-full bg-white border-0 shadow-sm p-4 rounded-2xl text-lg font-bold focus:ring-2 focus:ring-orange-500" onchange="app.loadMenus()">
+                </div>
             </div>
 
-            <div id="menu-list" class="space-y-4">
+            <div id="menu-list" class="space-y-4 pb-20">
                 <!-- app.jsから動的に挿入 -->
             </div>
         </section>
 
-        <!-- 管理者画面 -->
-        <section id="view-admin" class="view p-4 hidden">
+        <!-- 3. 管理者画面 -->
+        <section id="view-admin" class="view p-4 hidden animate-in">
             <h2 class="text-xl font-bold mb-4">店舗管理</h2>
-            <!-- フィルタ・リスト省略 -->
         </section>
-    </div>
+    </main>
 
-    <!-- カートバー -->
-    <div id="cart-bar" class="fixed bottom-0 left-0 right-0 bg-white p-4 pb-6 z-50">
+    <!-- カートバー：注文画面のみ表示 -->
+    <div id="cart-bar" class="hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg p-4 pb-8 z-50 border-t border-gray-100">
         <div class="max-w-md mx-auto flex items-center justify-between gap-4">
             <div class="flex-1">
-                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">合計金額</p>
+                <p class="text-[10px] text-gray-400 font-bold uppercase">合計</p>
                 <p id="cart-total-display" class="text-2xl font-black text-orange-600">¥0</p>
             </div>
-            <button onclick="app.confirmOrder()" class="bg-orange-500 text-white font-bold px-10 py-4 rounded-2xl shadow-lg active:bg-orange-600">
+            <button onclick="app.confirmOrder()" class="bg-orange-500 text-white font-bold px-10 py-4 rounded-2xl shadow-lg active:scale-95 transition-all">
                 注文を確認
             </button>
         </div>
     </div>
 
-    <!-- スライドアップモーダル -->
+    <!-- モーダル・登録モーダル等は前回同様のため省略（構造は維持） -->
+    <div id="register-modal" class="hidden fixed inset-0 z-[70] flex items-end">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeRegister()"></div>
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up">
+            <h3 class="text-xl font-bold mb-6">アカウント作成</h3>
+            <div class="space-y-4 mb-8">
+                <input type="text" id="reg-name" placeholder="お名前" class="w-full p-4 rounded-xl bg-gray-50">
+                <input type="email" id="reg-email" placeholder="メールアドレス" class="w-full p-4 rounded-xl bg-gray-50">
+                <input type="tel" id="reg-tel" placeholder="電話番号" class="w-full p-4 rounded-xl bg-gray-50">
+            </div>
+            <button onclick="app.submitRegister()" id="reg-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">認証メールを送る</button>
+        </div>
+    </div>
+
     <div id="modal" class="hidden fixed inset-0 z-[60] flex items-end">
         <div class="absolute inset-0 bg-black/40" onclick="app.closeModal()"></div>
         <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up">
             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8"></div>
             <h3 class="text-xl font-black mb-6">注文内容の確認</h3>
             <div id="modal-content" class="max-h-[40vh] overflow-y-auto mb-8 hide-scrollbar"></div>
-            <button onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg shadow-xl">
-                注文を確定する
-            </button>
+            <button onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg">注文を確定する</button>
         </div>
     </div>
 
