@@ -1,0 +1,102 @@
+/* モバイル向け基本設定 */
+:root {
+  --orange-primary: #f97316;
+  --orange-dark: #ea580c;
+  --bg-gray: #f3f4f6;
+  --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--bg-gray);
+  color: #1f2937;
+  line-height: 1.5;
+  margin: 0;
+  padding-bottom: calc(80px + var(--safe-area-bottom)); /* カートバーの高さ分を確保 */
+}
+
+/* アニメーション */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* フォーム要素のモバイル最適化 */
+input[type="date"], input[type="month"], input[type="number"] {
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 16px; /* iPhoneでズームされないための最小サイズ */
+}
+
+/* カスタムスクロールバー（非表示にする場合） */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* メニューカードのインタラクション */
+.menu-card {
+  transition: transform 0.1s ease, border-color 0.2s ease;
+}
+
+.menu-card:active {
+  transform: scale(0.98);
+}
+
+/* ボトムカートバーの装飾 */
+#cart-bar {
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* プラス・マイナスボタンの押しやすさ */
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: bold;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.qty-btn-minus {
+  border: 2px solid #e5e7eb;
+  background: white;
+}
+
+.qty-btn-plus {
+  background: #1f2937;
+  color: white;
+}
+
+.qty-btn:active {
+  background: #d1d5db;
+}
+
+/* モーダルのオーバーレイ */
+#modal {
+  transition: opacity 0.3s ease;
+}
+
+/* 管理者画面用スタイル */
+.admin-card {
+  border-left: 4px solid var(--orange-primary);
+}
