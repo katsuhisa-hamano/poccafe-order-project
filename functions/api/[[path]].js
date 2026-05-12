@@ -87,8 +87,39 @@ export async function onRequest(context) {
       // 4. 認証リンクの作成
       const authLink = `${url.origin}/api/auth/verify?token=${token}`;
 
+      // 5. Resend メール送信部分
+      try {
+        const emailRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'onboarding@resend.dev', // 混ぜ物なしのデフォルト
+            to: [email],
+            subject: 'Test',
+            html: '<p>Test</p>'
+          })
+        });
+
+        if (!emailRes.ok) {
+          // ★ここがポイント：Resendが何と言っているか直接ブラウザに返す
+          const errorDetail = await emailRes.text();
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: `Resend Error: ${emailRes.status} - ${errorDetail}` 
+          }), { status: 500, headers: corsHeaders });
+        }
+      } catch (e) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: `Fetch Exception: ${e.message}` 
+        }), { status: 500, headers: corsHeaders });
+      }
+
       // 5. Resend APIを使ってメールを送信
-      const emailRes = await fetch('https://api.resend.com/emails', {
+/*      const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${env.RESEND_API_KEY}`,
@@ -119,7 +150,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: false, message: "メール送信に失敗しました。時間をおいて再度お試しください。" }), { status: 500, headers: corsHeaders });
       }
 
-      return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      return new Response(JSON.stringify({ success: true }), { headers: corsHeaders }); */
     }
 
     // ---------------------------------------------------------
