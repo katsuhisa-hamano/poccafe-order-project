@@ -45,7 +45,7 @@ export async function onRequest(context) {
       if (existingUser && existingUser.status === 'pending') {
         // UPDATE処理
         await env.DB.prepare(
-          "UPDATE users SET square_customer_id = ?, name = ?, tel = ?, created_at = CURRENT_TIMESTAMP WHERE email = ? AND status = 'pending'"
+          "UPDATE users SET square_customer_id = ?, name = ?, tel = ? WHERE email = ? AND status = 'pending'"
         ).bind(token, name, tel, email).run();
       } else {
         // INSERT処理
