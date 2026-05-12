@@ -60,6 +60,23 @@ export async function onRequest(context) {
       // 古いpendingデータがある場合は削除、または REPLACE INTO で新しいトークンを発行
       const token = crypto.randomUUID();
       
+      if (existingUser && existingUser.status === 'pending') {
+        // 3a. 古い pending データがある場合は UPDATE
+        await env.DB.prepare(`
+          UPDATE users 
+          SET square_customer_id = ?, name = ?, tel = ?, created_at = CURRENT_TIMESTAMP 
+          WHERE email = ? AND status = 'pending'
+        `).bind(token, name, tel, email).run();
+        console.log("Existing pending user updated");
+      } else {
+        // 3b. 全くの新規データの場合は INSERT
+        await env.DB.prepare(`
+          INSERT INTO users (square_customer_id, email, name, tel, status) 
+          VALUES (?, ?, ?, ?, 'pending')
+        `).bind(token, email, name, tel).run();
+        console.log("New pending user inserted");
+      }
+      
       // D1の操作：既存のメールアドレスがあれば削除して新しく作り直す（トークンと情報の更新）
       await env.DB.batch([
         env.DB.prepare("DELETE FROM users WHERE email = ? AND status = 'pending'").bind(email),
