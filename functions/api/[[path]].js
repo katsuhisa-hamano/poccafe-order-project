@@ -1,7 +1,7 @@
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
-  const path = url.pathname.replace(/\/$/, "");
+  const path = url.pathname.replace(/^\/|\/$/g, "");
   const method = request.method;
 
   const corsHeaders = {
@@ -208,6 +208,16 @@ export async function onRequest(context) {
     return new Response("API Endpoint Not Found", { status: 404, headers: corsHeaders });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+    //return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+    
+    return new Response(JSON.stringify({ 
+      error: "API Endpoint Not Found",
+      receivedPath: path,    // サーバーが認識したパス
+      receivedMethod: method // サーバーが認識したメソッド
+    }), { 
+      status: 404, 
+      headers: corsHeaders 
+    });
+
   }
 }
