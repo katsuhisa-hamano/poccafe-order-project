@@ -36,6 +36,8 @@ export async function onRequest(context) {
     // ---------------------------------------------------------
     if (path === '/api/auth/register' && method === 'POST') {
       const { email, name, tel } = await request.json();
+      console.log("Input data:", { email, name, tel });
+      console.log("DB instance:", !!env.DB);
 
       // D1重複チェック
       const localUser = await env.DB.prepare("SELECT email FROM users WHERE email = ?").bind(email).first();
