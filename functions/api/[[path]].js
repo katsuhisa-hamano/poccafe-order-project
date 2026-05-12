@@ -36,16 +36,16 @@ export async function onRequest(context) {
     // ---------------------------------------------------------
     if (path === '/api/auth/register' && method === 'POST') {
       const { email, name, tel } = await request.json();
-      console.log("Input data:", { email, name, tel });
-      console.log("DB instance:", !!env.DB);
-
-      // D1重複チェック
-      const localUser = await env.DB.prepare("SELECT email FROM users WHERE email = ?").bind(email).first();
-      if (localUser) {
-        return new Response(JSON.stringify({ success: false, message: "既に登録されています。" }), { status: 409, headers: corsHeaders });
+      
+      // 1. D1重複チェック
+      const localUser = await env.DB.prepare("SELECT status FROM users WHERE email = ?").bind(email).first();
+      
+      // すでに本登録(active)済みの場合はエラーを返す
+      if (localUser && localUser.status === 'active') {
+        return new Response(JSON.stringify({ success: false, message: "このメールアドレスは既に登録されています。ログインしてください。" }), { status: 409, headers: corsHeaders });
       }
 
-      // Square API重複チェック
+      // 2. Square API重複チェック (Square側に顧客がいないか確認)
       const sqSearch = await fetch('https://connect.squareup.com/v2/customers/search', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
@@ -53,18 +53,55 @@ export async function onRequest(context) {
       });
       const sqData = await sqSearch.json();
       if (sqData.customers?.length > 0) {
-        return new Response(JSON.stringify({ success: false, message: "Squareレジに既存のアカウントが存在します。" }), { status: 409, headers: corsHeaders });
+        return new Response(JSON.stringify({ success: false, message: "Squareレジに既存のアカウントが存在します。管理者に連絡してください。" }), { status: 409, headers: corsHeaders });
       }
 
-      // 仮登録保存
+      // 3. 仮登録保存（上書き対応）
+      // 古いpendingデータがある場合は削除、または REPLACE INTO で新しいトークンを発行
       const token = crypto.randomUUID();
-      await env.DB.prepare("INSERT INTO users (square_customer_id, email, name, tel, status) VALUES (?, ?, ?, ?, 'pending')")
-        .bind(token, email, name, tel).run();
+      
+      // D1の操作：既存のメールアドレスがあれば削除して新しく作り直す（トークンと情報の更新）
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM users WHERE email = ? AND status = 'pending'").bind(email),
+        env.DB.prepare("INSERT INTO users (square_customer_id, email, name, tel, status) VALUES (?, ?, ?, ?, 'pending')")
+          .bind(token, email, name, tel)
+      ]);
 
-      // 本来はここで認証メールを送信 (Resend等を利用)
-      // await sendVerificationEmail(email, token, env);
+      // 4. 認証リンクの作成
+      const authLink = `${url.origin}/api/auth/verify?token=${token}`;
 
-      console.log(`Verification URL: ${url.origin}/api/auth/verify?token=${token}`);
+      // 5. Resend APIを使ってメールを送信
+      const emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'Cafe Order <onboarding@resend.dev>',
+          to: [email],
+          subject: '【ぽっカフェ】メール認証を完了してください',
+          html: `
+            <div style="font-family: sans-serif; color: #333;">
+              <h2 style="color: #ea580c;">ぽっカフェへようこそ！</h2>
+              <p>${name} 様</p>
+              <p>注文用アカウントの登録を完了するには、以下のボタンをクリックしてください。</p>
+              <div style="margin: 30px 0;">
+                <a href="${authLink}" style="background: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">メール認証を完了する</a>
+              </div>
+              <p style="font-size: 12px; color: #666;">※ボタンが表示されない場合は、以下のリンクをブラウザに貼り付けてください：<br>${authLink}</p>
+              <p style="font-size: 12px; color: #999; margin-top: 20px;">※このメールに心当たりがない場合は、お手数ですが破棄をお願いいたします。</p>
+            </div>
+          `
+        })
+      });
+
+      if (!emailRes.ok) {
+        const error = await emailRes.text();
+        console.error("Email send error:", error);
+        return new Response(JSON.stringify({ success: false, message: "メール送信に失敗しました。時間をおいて再度お試しください。" }), { status: 500, headers: corsHeaders });
+      }
+
       return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
     }
 
