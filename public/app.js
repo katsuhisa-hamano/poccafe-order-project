@@ -183,27 +183,40 @@ const app = {
 
     // 起動時の認証チェック
     init() {
-        // URLのパラメータから "?token=xxxx" を取得
+        // 現在のURL全体をコンソールに表示（確認用）
+        console.log("現在のURL:", window.location.href);
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         
-        // 【修正】tokenがURLパラメータ（クエリ）に存在していれば、一瞬でリセット画面を開く
+        console.log("検出されたトークン:", token);
+
+        // トークンが存在する場合（最優先ルート）
         if (token) {
             this.state.resetToken = token;
             
-            // ページ全体の読み込み完了を待ってからモーダルを表示（念のための安全策）
-            setTimeout(() => {
+            // 1秒ごとにモーダルの存在をチェックして、見つけ次第強制表示する
+            const forceShowInterval = setInterval(() => {
                 const resetModal = document.getElementById('reset-modal');
                 if (resetModal) {
+                    console.log("reset-modalを発見。表示を試みます。");
+                    
+                    // Tailwindの hidden クラスを削除し、強制的に表示
                     resetModal.classList.remove('hidden');
+                    resetModal.style.display = 'flex'; // flexで強制上書き
+                    resetModal.style.zIndex = '9999'; // 最前面へ
+                    
+                    clearInterval(forceShowInterval); // 表示できたらループ終了
                 } else {
-                    console.error("reset-modal が見つかりません");
+                    console.log("reset-modal がHTML内にまだ見つかりません。再試行します...");
                 }
-            }, 100);
-            
-            // ログインチェックや日付自動入力などの以降の処理はスキップ、または並行して実行
+            }, 200);
+
+            // 5秒経っても表示されなければ諦めるタイマー
+            setTimeout(() => clearInterval(forceShowInterval), 5000);
+
             document.getElementById('order-date').valueAsDate = new Date();
-            return; // ログイン画面への自動遷移を防ぐためにここで処理を抜ける
+            return; // 通常のログイン遷移を絶対に防ぐ
         }
 
         // --- 以下は通常の起動時（トークンがない時）の処理 ---
