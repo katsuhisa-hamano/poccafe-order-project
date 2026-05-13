@@ -17,6 +17,9 @@ export async function onRequest(context) {
   }
 
   try {
+    // ---------------------------------------------------------
+    // 1. 登録処理 (POST /api/auth/register)
+    // ---------------------------------------------------------
     // パスの判定（スラッシュの有無に依存しないよう /api/auth/register で判定）
     if (path === '/api/auth/register' && method === 'POST') {
       const { email, name, tel } = await request.json();
@@ -81,6 +84,43 @@ export async function onRequest(context) {
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+    }
+
+    // ---------------------------------------------------------
+    // 2. メール認証処理 (GET /api/auth/verify)
+    // ---------------------------------------------------------
+    // パラメータを除外した path が verify で終わるか、または完全に一致するかをチェック
+    if ((path.endsWith('/api/auth/verify') || path === '/api/auth/verify') && method === 'GET') {
+      try {
+        // URLから直接 token を取得
+        const token = url.searchParams.get('token');
+
+        if (!token) {
+          return new Response("認証トークンが見つかりません。", { status: 400 });
+        }
+
+        // トークンに一致する pending ユーザーを探す
+        if (!env.DB) throw new Error("DB binding is missing");
+        
+        const user = await env.DB.prepare(
+          "SELECT email FROM users WHERE square_customer_id = ? AND status = 'pending'"
+        ).bind(token).first();
+
+        if (!user) {
+          return new Response("無効なトークンか、既に認証期限が切れています。", { status: 400 });
+        }
+
+        // ステータスを active に更新
+        await env.DB.prepare(
+          "UPDATE users SET status = 'active' WHERE square_customer_id = ?"
+        ).bind(token).run();
+
+        // 認証成功後、フロントエンドのログイン画面などへリダイレクト
+        return Response.redirect(`${url.origin}/login.html?verified=true`, 302);
+
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     // どのパスにも該当しない場合
