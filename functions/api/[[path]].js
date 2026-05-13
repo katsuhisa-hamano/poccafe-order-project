@@ -139,6 +139,47 @@ export async function onRequest(context) {
       }
     }
 
+    // ---------------------------------------------------------
+    // 3. ログイン処理 (POST /api/auth/login)
+    // ---------------------------------------------------------
+    if (path === '/api/auth/login' && method === 'POST') {
+      try {
+        const { email } = await request.json();
+
+        if (!env.DB) {
+          throw new Error("Database binding 'DB' is missing.");
+        }
+
+        // ステータスが 'active'（認証済み）のユーザーを検索
+        const user = await env.DB.prepare(
+          "SELECT * FROM users WHERE email = ? AND status = 'active'"
+        ).bind(email).first();
+
+        // ユーザーが見つからない、または仮登録（pending）のままの場合
+        if (!user) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: "ユーザーが見veつからないか、メール認証が完了していません。" 
+          }), { status: 401, headers: corsHeaders });
+        }
+
+        // ログイン成功：フロントエンドに必要なユーザー情報を返す
+        return new Response(JSON.stringify({ 
+          success: true, 
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            tel: user.tel,
+            square_customer_id: user.square_customer_id
+          }
+        }), { headers: corsHeaders });
+
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのパスにも該当しない場合
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
