@@ -22,7 +22,7 @@ export async function onRequest(context) {
     // ---------------------------------------------------------
     // パスの判定（スラッシュの有無に依存しないよう /api/auth/register で判定）
     if (path === '/api/auth/register' && method === 'POST') {
-      const { email, name, tel } = await request.json();
+      const { email, name, tel, password } = await request.json();
 
       // 1. D1 接続確認
       if (!env.DB) {
@@ -42,19 +42,28 @@ export async function onRequest(context) {
         }), { status: 409, headers: corsHeaders });
       }
 
+      // パスワードを安全にハッシュ化する関数
+      async function hashPassword(pwd) {
+        const msgUint8 = new TextEncoder().encode(pwd);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      const pwdHash = await hashPassword(password);
       const token = crypto.randomUUID();
 
       // 4. DB更新または挿入
       if (existingUser && existingUser.status === 'pending') {
         // UPDATE処理
         await env.DB.prepare(
-          "UPDATE users SET square_customer_id = ?, name = ?, tel = ? WHERE email = ? AND status = 'pending'"
-        ).bind(token, name, tel, email).run();
+          "UPDATE users SET square_customer_id = ?, name = ?, tel = ?, password_hash = ? WHERE email = ? AND status = 'pending'"
+        ).bind(token, name, tel, pwdHash, email).run();
       } else {
         // INSERT処理
         await env.DB.prepare(
-          "INSERT INTO users (square_customer_id, email, name, tel, status) VALUES (?, ?, ?, ?, 'pending')"
-        ).bind(token, email, name, tel).run();
+          "INSERT INTO users (square_customer_id, email, name, tel, password_hash, status) VALUES (?, ?, ?, ?, ?, 'pending')"
+        ).bind(token, email, name, tel, pwdHash).run();
       }
 
       // 5. メール送信処理 (Resend)
@@ -186,6 +195,27 @@ export async function onRequest(context) {
           }), { status: 401, headers: corsHeaders });
         }
 
+        async function hashPassword(pwd) {
+          const msgUint8 = new TextEncoder().encode(pwd);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // フロントから POST もしくは GET パラメータで password が届く前提
+        let inputPassword = method === 'GET' ? url.searchParams.get('password') : bodyData?.password;
+
+        if (!inputPassword) {
+          return new Response(JSON.stringify({ success: false, message: "パスワードを入力してください。" }), { status: 400, headers: corsHeaders });
+        }
+
+        const inputHash = await hashPassword(inputPassword);
+
+        // DBのハッシュ値と比較
+        if (user.password_hash !== inputHash) {
+          return new Response(JSON.stringify({ success: false, message: "メールアドレスまたはパスワードが間違っています。" }), { status: 401, headers: corsHeaders });
+        }
+
         // ログイン成功：フロントエンドに必要なユーザー情報を返す
         return new Response(JSON.stringify({ 
           success: true, 
@@ -198,6 +228,84 @@ export async function onRequest(context) {
           }
         }), { headers: corsHeaders });
 
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 4. パスワードリセット申請 (POST /api/auth/forgot-password)
+    // ---------------------------------------------------------
+    if (path === '/api/auth/forgot-password' && method === 'POST') {
+      try {
+        const { email } = await request.json();
+        if (!env.DB || !env.RESEND_API_KEY) throw new Error("環境変数が不足しています。");
+
+        const user = await env.DB.prepare("SELECT name FROM users WHERE email = ? AND status = 'active'").bind(email).first();
+        
+        // セキュリティ上、ユーザーが見つからなくても「送信しました」と嘘をつくのが一般的ですが、
+        // 開発を分かりやすくするため、ここではエラーを返します。
+        if (!user) {
+          return new Response(JSON.stringify({ success: false, message: "登録されていないメールアドレスです。" }), { status: 404, headers: corsHeaders });
+        }
+
+        const resetToken = crypto.randomUUID();
+        // 有効期限を 1時間後に設定 (SQLiteの表記に合わせる)
+        const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+        await env.DB.prepare(
+          "UPDATE users SET reset_token = ?, reset_expiry = ? WHERE email = ?"
+        ).bind(resetToken, expiry, email).run();
+
+        // Resendでリセット用リンクを送信
+        const resetLink = `${url.origin}/?token=${resetToken}`;
+        
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'Cafe Order <order@pokkapoka.net>',
+            to: [email],
+            subject: '【ぽっカフェ】パスワードの再設定',
+            html: `<p>${user.name} 様</p><p>以下のリンクから新しいパスワードを設定してください（有効期限: 1時間）。</p><p><a href="${resetLink}">${resetLink}</a></p>`
+          })
+        });
+
+        return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 5. パスワード再設定実行 (POST /api/auth/reset-password)
+    // ---------------------------------------------------------
+    if (path === '/api/auth/reset-password' && method === 'POST') {
+      try {
+        const { token, newPassword } = await request.json();
+        if (!env.DB) throw new Error("DB binding is missing");
+
+        // トークンが一致し、かつ有効期限内のユーザーを探す
+        const user = await env.DB.prepare(
+          "SELECT email FROM users WHERE reset_token = ? AND reset_expiry > datetime('now')"
+        ).bind(token).first();
+
+        if (!user) {
+          return new Response(JSON.stringify({ success: false, message: "トークンが無効か、有効期限が切れています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // 新しいパスワードをハッシュ化
+        const msgUint8 = new TextEncoder().encode(newPassword);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const newPwdHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // パスワードを更新し、トークンをクリアする
+        await env.DB.prepare(
+          "UPDATE users SET password_hash = ?, reset_token = NULL, reset_expiry = NULL WHERE email = ?"
+        ).bind(newPwdHash, user.email).run();
+
+        return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。新しいパスワードでログインしてください。" }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
       }

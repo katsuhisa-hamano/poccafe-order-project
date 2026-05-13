@@ -1,13 +1,10 @@
 const router = {
     go(view) {
-        // 全ビューを隠す
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         
-        // 指定ビューを表示
         const target = document.getElementById(`view-${view}`);
         if (target) target.classList.remove('hidden');
 
-        // UIパーツの表示制御
         const header = document.getElementById('main-header');
         const cartBar = document.getElementById('cart-bar');
 
@@ -16,7 +13,6 @@ const router = {
             cartBar.classList.add('hidden');
         } else {
             header.classList.remove('hidden');
-            // ホーム画面かつカートに何か入っていれば表示（簡易的に常に表示設定）
             if (view === 'home') cartBar.classList.remove('hidden');
             else cartBar.classList.add('hidden');
         }
@@ -32,18 +28,24 @@ const app = {
     state: { 
         menus: [], 
         cart: {}, 
-        user: { id: null, name: null } 
+        user: { id: null, name: null },
+        resetToken: null // パスワードリセット用一時保管
     },
 
-    // ログイン処理
+    // ログイン処理（パスワード対応）
     async login() {
         const email = document.getElementById('login-email').value;
-        if (!email) return alert("メールアドレスを入力してください");
+        const password = document.getElementById('login-password').value;
+
+        if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
 
         try {
-            const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}`);
-            if (res.ok) {
-                const user = await res.json();
+            // 安全のため、GETパラメータにパスワードを付与して送信（既存のサーバー構造を維持）
+            const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                const user = result.user;
                 this.state.user.id = user.square_customer_id;
                 this.state.user.name = user.name;
                 
@@ -53,7 +55,7 @@ const app = {
                 document.getElementById('userDisplay').innerText = `ログイン中: ${user.name}様`;
                 router.go('home');
             } else {
-                alert("アカウントが見つかりません。新規登録をお願いします。");
+                alert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
             }
         } catch (e) {
             alert("ログイン通信に失敗しました");
@@ -70,15 +72,17 @@ const app = {
         router.go('login');
     },
 
+    // 新規登録申請（パスワードをペイロードに含む）
     async submitRegister() {
         const btn = document.getElementById('reg-submit-btn');
         const data = {
             name: document.getElementById('reg-name').value,
             email: document.getElementById('reg-email').value,
-            tel: document.getElementById('reg-tel').value
+            tel: document.getElementById('reg-tel').value,
+            password: document.getElementById('reg-password').value // 追加
         };
 
-        if(!data.name || !data.email) return alert("必須項目を入力してください");
+        if(!data.name || !data.email || !data.password) return alert("必須項目（名前・メール・パスワード）を入力してください");
 
         btn.innerText = "照合中...";
         btn.disabled = true;
@@ -93,7 +97,6 @@ const app = {
             const result = await res.json();
 
             if (res.status === 409) {
-                // 既存アカウントが存在する場合
                 alert(`【登録不可】\n${result.message}`);
                 this.closeRegister();
             } else if (res.ok) {
@@ -110,8 +113,87 @@ const app = {
         }
     },
 
+    // パスワードリセットメール申請の送信
+    async submitForgotPassword() {
+        const btn = document.getElementById('forgot-submit-btn');
+        const email = document.getElementById('forgot-email').value;
+
+        if (!email) return alert("メールアドレスを入力してください");
+
+        btn.innerText = "送信中...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("再設定用メールを送信しました。メール内のリンクをご確認ください。");
+                this.closeForgotPassword();
+            } else {
+                alert(result.message || "送信に失敗しました。");
+            }
+        } catch(e) {
+            alert("通信エラーが発生しました。");
+        } finally {
+            btn.innerText = "再設定メールを送る";
+            btn.disabled = false;
+        }
+    },
+
+    // パスワードの再設定（実行）
+    async submitResetPassword() {
+        const btn = document.getElementById('reset-submit-btn');
+        const newPassword = document.getElementById('reset-new-password').value;
+
+        if (!newPassword) return alert("新しいパスワードを入力してください");
+        if (!this.state.resetToken) return alert("トークンが無効です。メールのリンクから再度やり直してください。");
+
+        btn.innerText = "更新中...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: this.state.resetToken, newPassword })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("パスワードを更新しました！新しいパスワードでログインしてください。");
+                document.getElementById('reset-modal').classList.add('hidden');
+                // URLパラメータをクリアしてログイン画面へ
+                window.history.replaceState({}, document.title, window.location.pathname);
+                router.go('login');
+            } else {
+                alert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
+            }
+        } catch(e) {
+            alert("通信エラーが発生しました。");
+        } finally {
+            btn.innerText = "パスワードを更新する";
+            btn.disabled = false;
+        }
+    },
+
     // 起動時の認証チェック
     init() {
+        // パスワードリセット用メールから飛んできたか判定
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        // もしURLの末尾が /api/auth/verify ではなくリセット用HTML（またはパラメータ付き）だった場合、モーダルを展開
+        if (token && window.location.pathname.includes('token')) {
+            // 汎用的に動くよう、tokenが存在していればリセット画面を開く
+            this.state.resetToken = token;
+            document.getElementById('reset-modal').classList.remove('hidden');
+        }
+
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
         
@@ -126,6 +208,13 @@ const app = {
         
         document.getElementById('order-date').valueAsDate = new Date();
     },
+
+    // モーダル表示切り替え
+    showRegister() { document.getElementById('register-modal').classList.remove('hidden'); },
+    closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
+    showForgotPassword() { document.getElementById('forgot-modal').classList.remove('hidden'); },
+    closeForgotPassword() { document.getElementById('forgot-modal').classList.add('hidden'); },
+    closeModal() { document.getElementById('modal').classList.add('hidden'); },
 
     // --- 以下、既存の注文ロジック ---
     async loadMenus() {
@@ -195,11 +284,7 @@ const app = {
         if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
         document.getElementById('modal').classList.remove('hidden');
-    },
-
-    showRegister() { document.getElementById('register-modal').classList.remove('hidden'); },
-    closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
-    closeModal() { document.getElementById('modal').classList.add('hidden'); }
+    }
 };
 
 // 起動
