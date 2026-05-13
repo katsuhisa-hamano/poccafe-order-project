@@ -152,7 +152,7 @@ export async function onRequest(context) {
 
         // ステータスが 'active'（認証済み）のユーザーを検索
         const user = await env.DB.prepare(
-          "SELECT * FROM users WHERE email = ? AND status = 'active'"
+          "SELECT * FROM users WHERE email = ?" // AND status = 'active'"
         ).bind(email).first();
 
         // ユーザーが見つからない、または仮登録（pending）のままの場合
