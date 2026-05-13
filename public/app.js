@@ -183,17 +183,30 @@ const app = {
 
     // 起動時の認証チェック
     init() {
-        // パスワードリセット用メールから飛んできたか判定
+        // URLのパラメータから "?token=xxxx" を取得
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         
-        // もしURLの末尾が /api/auth/verify ではなくリセット用HTML（またはパラメータ付き）だった場合、モーダルを展開
-        if (token && window.location.pathname.includes('token')) {
-            // 汎用的に動くよう、tokenが存在していればリセット画面を開く
+        // 【修正】tokenがURLパラメータ（クエリ）に存在していれば、一瞬でリセット画面を開く
+        if (token) {
             this.state.resetToken = token;
-            document.getElementById('reset-modal').classList.remove('hidden');
+            
+            // ページ全体の読み込み完了を待ってからモーダルを表示（念のための安全策）
+            setTimeout(() => {
+                const resetModal = document.getElementById('reset-modal');
+                if (resetModal) {
+                    resetModal.classList.remove('hidden');
+                } else {
+                    console.error("reset-modal が見つかりません");
+                }
+            }, 100);
+            
+            // ログインチェックや日付自動入力などの以降の処理はスキップ、または並行して実行
+            document.getElementById('order-date').valueAsDate = new Date();
+            return; // ログイン画面への自動遷移を防ぐためにここで処理を抜ける
         }
 
+        // --- 以下は通常の起動時（トークンがない時）の処理 ---
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
         
