@@ -261,7 +261,7 @@ export async function onRequest(context) {
         ).bind(resetToken, expiry, email).run();
 
         // Resendでリセット用リンクを送信
-        const resetLink = `${url.origin}/?token=${resetToken}`;
+        const resetLink = `${url.origin}/#token=${resetToken}`;
         
         await fetch('https://api.resend.com/emails', {
           method: 'POST',

@@ -179,29 +179,27 @@ const app = {
         }
     },
 
-    // 起動時の認証チェック（徹底検証ログ付き）
+    // 起動時の認証チェック（ハッシュ対応版）
     init() {
         console.log("=== app.js が正常に起動しました ===");
-        console.log("現在のURL:", window.location.href);
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
         
-        console.log("URLから検出したトークン:", token);
+        // URLの「#token=xxxx」の部分を解析する
+        let token = null;
+        if (window.location.hash && window.location.hash.startsWith('#token=')) {
+            token = window.location.hash.split('=')[1];
+        }
+
+        console.log("ハッシュから検出したトークン:", token);
 
         // トークンが存在する場合（最優先パスワードリセット画面表示）
         if (token) {
             this.state.resetToken = token;
             
-            // 安全なタイミングで確実にモーダルを表示
             setTimeout(() => {
                 const resetModal = document.getElementById('reset-modal');
                 if (resetModal) {
-                    console.log("reset-modal の hidden クラスを削除します。");
                     resetModal.classList.remove('hidden');
                     resetModal.style.display = 'flex'; // 強制表示
-                } else {
-                    console.error("HTML側に 'reset-modal' というIDの要素が見つかりません。");
                 }
             }, 300);
 
@@ -211,7 +209,7 @@ const app = {
             return; // ログイン画面への自動遷移を防ぐ
         }
 
-        // 通常ルート
+        // --- 以下、通常の通常ルート（変更なし） ---
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
         
