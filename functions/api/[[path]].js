@@ -18,149 +18,81 @@ export async function onRequest(context) {
 
   try {
     // ---------------------------------------------------------
-    // 1. 新規アカウント登録申請 (POST /api/auth/register)
+    // 1. 登録処理 (POST /api/auth/register)
     // ---------------------------------------------------------
+    // パスの判定（スラッシュの有無に依存しないよう /api/auth/register で判定）
     if (path === '/api/auth/register' && method === 'POST') {
-      try {
-        const { name, email, tel, password } = await request.json();
+      const { email, name, tel, password } = await request.json();
 
-        if (!name || !email || !password) {
-          return new Response(JSON.stringify({ success: false, message: "必須項目が不足しています。" }), { status: 400, headers: corsHeaders });
-        }
+      // 1. D1 接続確認
+      if (!env.DB) {
+        throw new Error("Database binding 'DB' is missing.");
+      }
 
-        if (!env.DB) throw new Error("Database binding 'DB' is missing.");
+      // 2. 既存ユーザーの取得（ここで existingUser を確実に定義）
+      const existingUser = await env.DB.prepare(
+        "SELECT status FROM users WHERE email = ?"
+      ).bind(email).first();
 
-        // ① 既にアプリ側のDBに登録（かつアクティブ）がないか確認
-        const existingUser = await env.DB.prepare(
-          "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'"
-        ).bind(email.trim()).first();
+      // 3. 本登録済みチェック
+      if (existingUser && existingUser.status === 'active') {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: "このメールアドレスは既に登録されています。" 
+        }), { status: 409, headers: corsHeaders });
+      }
 
-        if (existingUser) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: "このメールアドレスは既に登録されています。ログインするか、パスワード再設定をお試しください。" 
-          }), { status: 409, headers: corsHeaders });
-        }
-
-        // --- Square連携ロジック（追加） ---
-        let squareCustomerId = null;
-        const squareToken = env.SQUARE_ACCESS_TOKEN; // Cloudflareの環境変数から取得
-
-        if (squareToken) {
-          try {
-            // ② Squareレジに同じメールアドレスの顧客がいるか検索（修正版）
-            const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${squareToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                query: {
-                  filter: {
-                    email_address: {
-                      exact: email.trim().toLowerCase()
-                    }
-                  }
-                }
-              })
-            });
-
-            // ーーー 【念のための安全追加】 ーーー
-            // もしSquare検索が400エラー等で転んだ場合も、処理全体を500エラーにせず、
-            // 新規作成ルートに逃がしてシステムを止めないようにガードを入れます
-            if (!searchRes.ok) {
-              const errLog = await searchRes.text();
-              console.error("Square顧客検索でエラーが発生しました:", errLog);
-              // エラーの時は強制的に「見つからなかった」扱いにして新規作成へ進める
-              throw new Error("Square Search Fallback"); 
-            }
-            // ーーーーーーーーーーーーーーーーーー
-
-            const searchData = await searchRes.json();
-            if (searchData.customers && searchData.customers.length > 0) {
-              squareCustomerId = searchData.customers[0].id;
-              console.log(`Squareに既存の顧客を発見: ${squareCustomerId}`);
-            }
-
-            // ③ Squareに存在しなかった場合のみ、新規で顧客登録する
-            if (!squareCustomerId) {
-              const createRes = await fetch('https://connect.squareup.com/v2/customers', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${squareToken}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  given_name: name.trim(),
-                  email_address: email.trim().toLowerCase(),
-                  phone_number: tel ? tel.trim() : undefined
-                })
-              });
-
-              if (createRes.ok) {
-                const createData = await createRes.json();
-                squareCustomerId = createData.customer.id;
-                console.log(`Squareに新規顧客を作成しました: ${squareCustomerId}`);
-              } else {
-                console.error("Square顧客作成に失敗しました。一時的な仮IDを発行します。");
-              }
-            }
-          } catch (sqErr) {
-            console.error("Squareとの通信でエラーが発生しました:", sqErr);
-          }
-        }
-
-        // Squareトークンがない、または通信エラー時は、後から紐付けられるよう仮の文字列を入れる
-        if (!squareCustomerId) {
-          squareCustomerId = "PENDING_" + Date.now();
-        }
-
-        // パスワードのハッシュ化 (SHA-256)
-        const msgUint8 = new TextEncoder().encode(password);
+      // パスワードを安全にハッシュ化する関数
+      async function hashPassword(pwd) {
+        const msgUint8 = new TextEncoder().encode(pwd);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-        // 本登録メール用の仮トークン生成
-        const verifyToken = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24時間有効
-
-        // DBに「承認待ち(pending)」の状態で保存
-        // ※ 既存のpendingデータがあれば上書き、なければ新規挿入
-        await env.DB.prepare(`
-          INSERT OR REPLACE INTO users (name, email, tel, password_hash, square_customer_id, status, verify_token, token_expires_at)
-          VALUES (?, LOWER(?), ?, ?, ?, 'pending', ?, ?)
-        `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
-
-        // ④ 本登録確認メールの送信処理（D1から読み込んで仮登録完了メールを送る処理へ続く...）
-        const url = new URL(request.url);
-        const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
-
-        if (env.SENDGRID_API_KEY) {
-          await fetch('https://api.sendgrid.com/v3/mail/send', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              personalizations: [{ to: [{ email: email.trim() }] }],
-              from: { email: 'noreply@pokkapoka.net', name: 'ぽっカフェ' },
-              subject: '【ぽっカフェ】アカウント作成の確認',
-              content: [{
-                type: 'text/plain',
-                value: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`
-              }]
-            })
-          });
-        }
-
-        return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
-
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       }
+
+      const pwdHash = await hashPassword(password);
+      const token = crypto.randomUUID();
+
+      // 4. DB更新または挿入
+      if (existingUser && existingUser.status === 'pending') {
+        // UPDATE処理
+        await env.DB.prepare(
+          "UPDATE users SET square_customer_id = ?, name = ?, tel = ?, password_hash = ? WHERE email = ? AND status = 'pending'"
+        ).bind(token, name, tel, pwdHash, email).run();
+      } else {
+        // INSERT処理
+        await env.DB.prepare(
+          "INSERT INTO users (square_customer_id, email, name, tel, password_hash, status) VALUES (?, ?, ?, ?, ?, 'pending')"
+        ).bind(token, email, name, tel, pwdHash).run();
+      }
+
+      // 5. メール送信処理 (Resend)
+      const authLink = `${url.origin}/api/auth/verify?token=${token}`;
+      
+      if (!env.RESEND_API_KEY) {
+        throw new Error("RESEND_API_KEY is not defined in environment variables.");
+      }
+
+      const emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'Cafe Order <order@pokkapoka.net>',
+          to: [email],
+          subject: '【ぽっカフェ】メール認証を完了してください',
+          html: `<p>${name} 様</p><p>登録完了リンク: <a href="${authLink}">${authLink}</a></p>`
+        })
+      });
+
+      if (!emailRes.ok) {
+        const emailErr = await emailRes.text();
+        throw new Error(`Email Service Error: ${emailRes.status} ${emailErr}`);
+      }
+
+      return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
     }
 
     // ---------------------------------------------------------
