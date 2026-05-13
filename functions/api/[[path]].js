@@ -116,7 +116,23 @@ export async function onRequest(context) {
         ).bind(token).run();
 
         // 認証成功後、フロントエンドのログイン画面などへリダイレクト
-        return Response.redirect(`${url.origin}/?verified=true`, 302);
+        //return Response.redirect(`${url.origin}/?verified=true`, 302);
+        // 既存の Response.redirect(...) を消して以下に差し替え
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>認証完了</title>
+              <style>body { font-family: sans-serif; text-align: center; padding-top: 50px; }</style>
+            </head>
+            <body>
+              <h2>メール認証が完了しました！</h2>
+              <p>アカウントが有効になりました。元のアプリ画面に戻るか、トップページからログインしてください。</p>
+              <a href="${url.origin}">トップページへ戻る</a>
+            </body>
+          </html>
+        `, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
