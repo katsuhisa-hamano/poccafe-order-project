@@ -48,7 +48,7 @@ export async function onRequest(context) {
 
         if (squareToken) {
           try {
-            // ② Squareレジに同じメールアドレスの顧客がいるか検索
+            // ② Squareレジに同じメールアドレスの顧客がいるか検索（修正版）
             const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
               method: 'POST',
               headers: {
@@ -66,13 +66,21 @@ export async function onRequest(context) {
               })
             });
 
-            if (searchRes.ok) {
-              const searchData = await searchRes.json();
-              if (searchData.customers && searchData.customers.length > 0) {
-                // 既存の顧客が見つかった場合は、そのIDを利用する
-                squareCustomerId = searchData.customers[0].id;
-                console.log(`Squareに既存の顧客を発見: ${squareCustomerId}`);
-              }
+            // ーーー 【念のための安全追加】 ーーー
+            // もしSquare検索が400エラー等で転んだ場合も、処理全体を500エラーにせず、
+            // 新規作成ルートに逃がしてシステムを止めないようにガードを入れます
+            if (!searchRes.ok) {
+              const errLog = await searchRes.text();
+              console.error("Square顧客検索でエラーが発生しました:", errLog);
+              // エラーの時は強制的に「見つからなかった」扱いにして新規作成へ進める
+              throw new Error("Square Search Fallback"); 
+            }
+            // ーーーーーーーーーーーーーーーーーー
+
+            const searchData = await searchRes.json();
+            if (searchData.customers && searchData.customers.length > 0) {
+              squareCustomerId = searchData.customers[0].id;
+              console.log(`Squareに既存の顧客を発見: ${squareCustomerId}`);
             }
 
             // ③ Squareに存在しなかった場合のみ、新規で顧客登録する
