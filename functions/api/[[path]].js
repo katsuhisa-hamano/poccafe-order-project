@@ -149,20 +149,23 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 3. ログイン処理 (GET または POST /api/auth/login) 【ハイブリッド版】
+    // 3. ログイン処理 (GET または POST /api/auth/login)
     // ---------------------------------------------------------
     if (path === '/api/auth/login') {
       try {
         let email = null;
+        let inputPassword = null;
 
         if (method === 'GET') {
-          // URLのパラメータ (?email=...) から取得
+          // URLのパラメータ (?email=...&password=...) から取得
           email = url.searchParams.get('email');
+          inputPassword = url.searchParams.get('password'); // ★ここを確実に取得
         } else if (method === 'POST') {
           // リクエストのBody（JSON）から取得
           try {
             const bodyData = await request.json();
             email = bodyData.email;
+            inputPassword = bodyData.password;
           } catch(e) {
             // Bodyが空、またはJSONじゃない場合
           }
@@ -172,11 +175,19 @@ export async function onRequest(context) {
           return new Response("Method Not Allowed", { status: 405 });
         }
 
-        // メールアドレスが取得できなかった場合
+        // メールアドレスのチェック
         if (!email) {
           return new Response(JSON.stringify({ 
             success: false, 
             message: "メールアドレスが指定されていません。" 
+          }), { status: 400, headers: corsHeaders });
+        }
+
+        // ★【ここが原因でした】パスワードのチェック
+        if (!inputPassword) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: "パスワードを入力してください。" 
           }), { status: 400, headers: corsHeaders });
         }
 
@@ -195,25 +206,17 @@ export async function onRequest(context) {
           }), { status: 401, headers: corsHeaders });
         }
 
-        async function hashPassword(pwd) {
-          const msgUint8 = new TextEncoder().encode(pwd);
-          const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
+        // パスワードのハッシュ化照合処理
+        const msgUint8 = new TextEncoder().encode(inputPassword);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const inputHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // フロントから POST もしくは GET パラメータで password が届く前提
-        let inputPassword = method === 'GET' ? url.searchParams.get('password') : bodyData?.password;
-
-        if (!inputPassword) {
-          return new Response(JSON.stringify({ success: false, message: "パスワードを入力してください。" }), { status: 400, headers: corsHeaders });
-        }
-
-        const inputHash = await hashPassword(inputPassword);
-
-        // DBのハッシュ値と比較
         if (user.password_hash !== inputHash) {
-          return new Response(JSON.stringify({ success: false, message: "メールアドレスまたはパスワードが間違っています。" }), { status: 401, headers: corsHeaders });
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: "メールアドレスまたはパスワードが間違っています。" 
+          }), { status: 401, headers: corsHeaders });
         }
 
         // ログイン成功：フロントエンドに必要なユーザー情報を返す
