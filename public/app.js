@@ -165,8 +165,14 @@ const app = {
 
             if (res.ok && result.success) {
                 alert("パスワードを更新しました！新しいパスワードでログインしてください。");
+                
+                // モーダルを閉じる
                 document.getElementById('reset-modal').classList.add('hidden');
-                window.location.href = window.location.pathname;
+                
+                // 【修正】URLのトークン（?token= や #token=）を完全に消し去り、
+                // ページをごそっと初期状態（ログイン画面）にリロードする
+                window.location.href = window.location.pathname; 
+                
             } else {
                 alert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
             }
