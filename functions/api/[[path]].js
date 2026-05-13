@@ -116,7 +116,7 @@ export async function onRequest(context) {
         ).bind(token).run();
 
         // 認証成功後、フロントエンドのログイン画面などへリダイレクト
-        return Response.redirect(`${url.origin}/login.html?verified=true`, 302);
+        return Response.redirect(`${url.origin}/?verified=true`, 302);
 
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
