@@ -68,7 +68,7 @@ export async function onRequest(context) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'Cafe Order <onboarding@resend.dev>',
+          from: 'Cafe Order <order@pokkapoka.net>',
           to: [email],
           subject: '【ぽっカフェ】メール認証を完了してください',
           html: `<p>${name} 様</p><p>登録完了リンク: <a href="${authLink}">${authLink}</a></p>`
