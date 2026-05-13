@@ -140,52 +140,62 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 3. ログイン処理 (POST /api/auth/login) 【デバッグ版】
+    // 3. ログイン処理 (GET または POST /api/auth/login) 【ハイブリッド版】
     // ---------------------------------------------------------
-    if (path === '/api/auth/login' && method === 'POST') {
+    if (path === '/api/auth/login') {
       try {
-        // フロントから届いたデータを丸ごとテキストとして一度取得
-        const rawBody = await request.text();
-        
-        let bodyData;
-        try {
-          bodyData = JSON.parse(rawBody);
-        } catch(e) {
-          return new Response(JSON.stringify({
-            success: false,
-            message: `JSONの解析に失敗しました。届いた生データ: ${rawBody}`
-          }), { status: 400, headers: corsHeaders });
+        let email = null;
+
+        if (method === 'GET') {
+          // URLのパラメータ (?email=...) から取得
+          email = url.searchParams.get('email');
+        } else if (method === 'POST') {
+          // リクエストのBody（JSON）から取得
+          try {
+            const bodyData = await request.json();
+            email = bodyData.email;
+          } catch(e) {
+            // Bodyが空、またはJSONじゃない場合
+          }
+        } else if (method === 'OPTIONS') {
+          return new Response(null, { headers: corsHeaders });
+        } else {
+          return new Response("Method Not Allowed", { status: 405 });
         }
 
-        // 送られてきた email を取得
-        const email = bodyData.email;
-
-        // ★【デバッグ】もし email が空っぽ、または想定外のデータなら、中身を画面に突き返す
+        // メールアドレスが取得できなかった場合
         if (!email) {
           return new Response(JSON.stringify({ 
             success: false, 
-            message: `サーバーは 'email' を受け取れませんでした。画面から届いたデータはこれです: ${rawBody}` 
+            message: "メールアドレスが指定されていません。" 
           }), { status: 400, headers: corsHeaders });
         }
 
         if (!env.DB) throw new Error("Database binding 'DB' is missing.");
 
-        // 安全のため、全ユーザーを対象に検索（大文字小文字を無視するために LOWER を使用）
+        // 大文字小文字・前後の空白を無視して、ステータスが 'active' のユーザーを検索
         const user = await env.DB.prepare(
-          "SELECT * FROM users WHERE LOWER(email) = LOWER(?)"
+          "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'"
         ).bind(email.trim()).first();
 
+        // ユーザーが見つからない場合
         if (!user) {
           return new Response(JSON.stringify({ 
             success: false, 
-            message: `DBに '${email}' というアドレスは見つかりませんでした。現在DBにあるデータを確かめてください。` 
+            message: `アカウントが見つかりません。新規登録をお願いします。` 
           }), { status: 401, headers: corsHeaders });
         }
 
-        // ログイン成功
+        // ログイン成功：フロントエンドに必要なユーザー情報を返す
         return new Response(JSON.stringify({ 
           success: true, 
-          user: { name: user.name, email: user.email }
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            tel: user.tel,
+            square_customer_id: user.square_customer_id
+          }
         }), { headers: corsHeaders });
 
       } catch (err) {
