@@ -9,12 +9,12 @@ const router = {
         const cartBar = document.getElementById('cart-bar');
 
         if (view === 'login') {
-            header.classList.add('hidden');
-            cartBar.classList.add('hidden');
+            if (header) header.classList.add('hidden');
+            if (cartBar) cartBar.classList.add('hidden');
         } else {
-            header.classList.remove('hidden');
-            if (view === 'home') cartBar.classList.remove('hidden');
-            else cartBar.classList.add('hidden');
+            if (header) header.classList.remove('hidden');
+            if (view === 'home' && cartBar) cartBar.classList.remove('hidden');
+            else if (cartBar) cartBar.classList.add('hidden');
         }
 
         if (view === 'admin') app.loadAdminOrders();
@@ -29,10 +29,10 @@ const app = {
         menus: [], 
         cart: {}, 
         user: { id: null, name: null },
-        resetToken: null // パスワードリセット用一時保管
+        resetToken: null
     },
 
-    // ログイン処理（パスワード対応）
+    // ログイン処理
     async login() {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
@@ -40,7 +40,6 @@ const app = {
         if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
 
         try {
-            // 安全のため、GETパラメータにパスワードを付与して送信（既存のサーバー構造を維持）
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
             const result = await res.json();
 
@@ -72,14 +71,14 @@ const app = {
         router.go('login');
     },
 
-    // 新規登録申請（パスワードをペイロードに含む）
+    // 新規登録申請
     async submitRegister() {
         const btn = document.getElementById('reg-submit-btn');
         const data = {
             name: document.getElementById('reg-name').value,
             email: document.getElementById('reg-email').value,
             tel: document.getElementById('reg-tel').value,
-            password: document.getElementById('reg-password').value // 追加
+            password: document.getElementById('reg-password').value
         };
 
         if(!data.name || !data.email || !data.password) return alert("必須項目（名前・メール・パスワード）を入力してください");
@@ -113,7 +112,7 @@ const app = {
         }
     },
 
-    // パスワードリセットメール申請の送信
+    // パスワードリセットメール申請
     async submitForgotPassword() {
         const btn = document.getElementById('forgot-submit-btn');
         const email = document.getElementById('forgot-email').value;
@@ -167,7 +166,6 @@ const app = {
             if (res.ok && result.success) {
                 alert("パスワードを更新しました！新しいパスワードでログインしてください。");
                 document.getElementById('reset-modal').classList.add('hidden');
-                // URLパラメータをクリアしてログイン画面へ
                 window.history.replaceState({}, document.title, window.location.pathname);
                 router.go('login');
             } else {
@@ -181,58 +179,55 @@ const app = {
         }
     },
 
-    // 起動時の認証チェック
+    // 起動時の認証チェック（徹底検証ログ付き）
     init() {
-        // 現在のURL全体をコンソールに表示（確認用）
+        console.log("=== app.js が正常に起動しました ===");
         console.log("現在のURL:", window.location.href);
 
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         
-        console.log("検出されたトークン:", token);
+        console.log("URLから検出したトークン:", token);
 
-        // トークンが存在する場合（最優先ルート）
+        // トークンが存在する場合（最優先パスワードリセット画面表示）
         if (token) {
             this.state.resetToken = token;
             
-            // 1秒ごとにモーダルの存在をチェックして、見つけ次第強制表示する
-            const forceShowInterval = setInterval(() => {
+            // 安全なタイミングで確実にモーダルを表示
+            setTimeout(() => {
                 const resetModal = document.getElementById('reset-modal');
                 if (resetModal) {
-                    console.log("reset-modalを発見。表示を試みます。");
-                    
-                    // Tailwindの hidden クラスを削除し、強制的に表示
+                    console.log("reset-modal の hidden クラスを削除します。");
                     resetModal.classList.remove('hidden');
-                    resetModal.style.display = 'flex'; // flexで強制上書き
-                    resetModal.style.zIndex = '9999'; // 最前面へ
-                    
-                    clearInterval(forceShowInterval); // 表示できたらループ終了
+                    resetModal.style.display = 'flex'; // 強制表示
                 } else {
-                    console.log("reset-modal がHTML内にまだ見つかりません。再試行します...");
+                    console.error("HTML側に 'reset-modal' というIDの要素が見つかりません。");
                 }
-            }, 200);
+            }, 300);
 
-            // 5秒経っても表示されなければ諦めるタイマー
-            setTimeout(() => clearInterval(forceShowInterval), 5000);
-
-            document.getElementById('order-date').valueAsDate = new Date();
-            return; // 通常のログイン遷移を絶対に防ぐ
+            if (document.getElementById('order-date')) {
+                document.getElementById('order-date').valueAsDate = new Date();
+            }
+            return; // ログイン画面への自動遷移を防ぐ
         }
 
-        // --- 以下は通常の起動時（トークンがない時）の処理 ---
+        // 通常ルート
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
         
         if (savedId && savedName) {
             this.state.user.id = savedId;
             this.state.user.name = savedName;
-            document.getElementById('userDisplay').innerText = `ログイン中: ${savedName}様`;
+            const display = document.getElementById('userDisplay');
+            if (display) display.innerText = `ログイン中: ${savedName}様`;
             router.go('home');
         } else {
             router.go('login');
         }
         
-        document.getElementById('order-date').valueAsDate = new Date();
+        if (document.getElementById('order-date')) {
+            document.getElementById('order-date').valueAsDate = new Date();
+        }
     },
 
     // モーダル表示切り替え
@@ -242,9 +237,11 @@ const app = {
     closeForgotPassword() { document.getElementById('forgot-modal').classList.add('hidden'); },
     closeModal() { document.getElementById('modal').classList.add('hidden'); },
 
-    // --- 以下、既存の注文ロジック ---
+    // 注文ロジック
     async loadMenus() {
-        const date = document.getElementById('order-date').value;
+        const dateElement = document.getElementById('order-date');
+        if (!dateElement) return;
+        const date = dateElement.value;
         const res = await fetch(`/api/menus?date=${date}`);
         this.state.menus = await res.json();
         this.renderMenus();
@@ -253,6 +250,7 @@ const app = {
     changeQty(id, delta) {
         const current = this.state.cart[id] || 0;
         const menu = this.state.menus.find(m => m.square_item_id === id);
+        if (!menu) return;
         const next = Math.max(0, Math.min(30, Math.min(menu.remaining, current + delta)));
         this.state.cart[id] = next;
         this.renderMenus();
@@ -265,12 +263,16 @@ const app = {
             const m = this.state.menus.find(x => x.square_item_id === id);
             if(m) total += m.price * this.state.cart[id];
         }
-        document.getElementById('cart-total-display').innerText = `¥${total.toLocaleString()}`;
-        document.getElementById('cart-bar').style.opacity = total > 0 ? "1" : "0.6";
+        const totalDisplay = document.getElementById('cart-total-display');
+        if (totalDisplay) totalDisplay.innerText = `¥${total.toLocaleString()}`;
+        
+        const cartBar = document.getElementById('cart-bar');
+        if (cartBar) cartBar.style.opacity = total > 0 ? "1" : "0.6";
     },
 
     renderMenus() {
         const container = document.getElementById('menu-list');
+        if (!container) return;
         container.innerHTML = this.state.menus.map(m => {
             const qty = this.state.cart[m.square_item_id] || 0;
             return `
@@ -296,6 +298,7 @@ const app = {
 
     confirmOrder() {
         const content = document.getElementById('modal-content');
+        if (!content) return;
         let html = '';
         for(let id in this.state.cart) {
             if(this.state.cart[id] > 0) {
@@ -309,9 +312,10 @@ const app = {
         }
         if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
-        document.getElementById('modal').classList.remove('hidden');
+        const modal = document.getElementById('modal');
+        if (modal) modal.classList.remove('hidden');
     }
 };
 
-// 起動
+// 起動確認
 app.init();
