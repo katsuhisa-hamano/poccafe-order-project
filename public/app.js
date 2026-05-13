@@ -166,8 +166,7 @@ const app = {
             if (res.ok && result.success) {
                 alert("パスワードを更新しました！新しいパスワードでログインしてください。");
                 document.getElementById('reset-modal').classList.add('hidden');
-                window.history.replaceState({}, document.title, window.location.pathname);
-                router.go('login');
+                window.location.href = window.location.pathname;
             } else {
                 alert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
             }
