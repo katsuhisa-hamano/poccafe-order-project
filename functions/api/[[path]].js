@@ -140,39 +140,52 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 3. ログイン処理 (POST /api/auth/login)
+    // 3. ログイン処理 (POST /api/auth/login) 【デバッグ版】
     // ---------------------------------------------------------
     if (path === '/api/auth/login' && method === 'POST') {
       try {
-        const { email } = await request.json();
-
-        if (!env.DB) {
-          throw new Error("Database binding 'DB' is missing.");
+        // フロントから届いたデータを丸ごとテキストとして一度取得
+        const rawBody = await request.text();
+        
+        let bodyData;
+        try {
+          bodyData = JSON.parse(rawBody);
+        } catch(e) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: `JSONの解析に失敗しました。届いた生データ: ${rawBody}`
+          }), { status: 400, headers: corsHeaders });
         }
 
-        // ステータスが 'active'（認証済み）のユーザーを検索
-        const user = await env.DB.prepare(
-          "SELECT * FROM users WHERE email = ?" // AND status = 'active'"
-        ).bind(email).first();
+        // 送られてきた email を取得
+        const email = bodyData.email;
 
-        // ユーザーが見つからない、または仮登録（pending）のままの場合
+        // ★【デバッグ】もし email が空っぽ、または想定外のデータなら、中身を画面に突き返す
+        if (!email) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: `サーバーは 'email' を受け取れませんでした。画面から届いたデータはこれです: ${rawBody}` 
+          }), { status: 400, headers: corsHeaders });
+        }
+
+        if (!env.DB) throw new Error("Database binding 'DB' is missing.");
+
+        // 安全のため、全ユーザーを対象に検索（大文字小文字を無視するために LOWER を使用）
+        const user = await env.DB.prepare(
+          "SELECT * FROM users WHERE LOWER(email) = LOWER(?)"
+        ).bind(email.trim()).first();
+
         if (!user) {
           return new Response(JSON.stringify({ 
             success: false, 
-            message: "ユーザーが見veつからないか、メール認証が完了していません。" 
+            message: `DBに '${email}' というアドレスは見つかりませんでした。現在DBにあるデータを確かめてください。` 
           }), { status: 401, headers: corsHeaders });
         }
 
-        // ログイン成功：フロントエンドに必要なユーザー情報を返す
+        // ログイン成功
         return new Response(JSON.stringify({ 
           success: true, 
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            tel: user.tel,
-            square_customer_id: user.square_customer_id
-          }
+          user: { name: user.name, email: user.email }
         }), { headers: corsHeaders });
 
       } catch (err) {
