@@ -287,13 +287,21 @@ const app = {
             const item = this.state.cart[key];
             total += item.price * item.qty;
             count += item.qty;
-            currentTargetDate = item.orderDate; // カートに入っている日付を取得
+            currentTargetDate = item.orderDate;
         }
         
         const totalDisplay = document.getElementById('cart-total-display');
         if (totalDisplay) {
             if (count > 0) {
-                totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
+                // ★ 合計金額の横に「カートを空にする」ボタンを配置
+                totalDisplay.innerHTML = `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full px-4 text-white">
+                        <span class="font-bold text-sm sm:text-base">【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}</span>
+                        <button onclick="app.clearCart()" class="text-xs text-red-300 underline font-medium hover:text-red-400 pt-1 sm:pt-0 text-left sm:text-right transition">
+                            カートを空にする
+                        </button>
+                    </div>
+                `;
             } else {
                 totalDisplay.innerText = `¥0`;
             }
@@ -308,6 +316,16 @@ const app = {
                 cartBar.classList.add('hidden');
             }
         }
+    },
+
+    // ★ カートの中身をすべて削除してリセットする
+    clearCart() {
+        if (!confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日も変更できるようになります）")) return;
+        
+        this.state.cart = {}; // カートを空っぽにする
+        this.updateCartBar();  // 画面下のバーを非表示にする
+        
+        alert("カートを空にしました。");
     },
 
     renderMenus() {
