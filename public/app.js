@@ -295,37 +295,43 @@ const app = {
         const cartBar = document.getElementById('cart-bar');
         
         if (count > 0) {
-            // 1. 金額と日付のテキストだけを安全に書き換える（HTMLを破壊しない）
+            // 1. 金額と日付のテキストを表示
             if (totalDisplay) {
                 totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
             }
             
-            // 2. 「カートを空にする」ボタンがまだバーの中に無ければ、1つだけ新しく追加する
+            // 2. 「カートを空にする」ボタンの制御（その場で処理を完結させる）
             let clearBtn = document.getElementById('cart-clear-btn');
             if (!clearBtn && cartBar) {
                 clearBtn = document.createElement('button');
                 clearBtn.id = 'cart-clear-btn';
                 clearBtn.innerText = 'カートを空にする';
-                // 既存のバーのデザインに馴染むスタイル（赤系の文字・アンダーライン）
                 clearBtn.className = 'text-xs text-red-200 underline font-medium hover:text-red-300 ml-4 focus:outline-none transition z-50 cursor-pointer';
+                
+                // ★ 別の関数を呼ばずに、この中で直接カートをクリアする
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); // バー自体のクリックイベントと競合するのを防ぐ
-                    app.clearCart();
+                    
+                    if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日も変更できるようになります）")) {
+                        app.state.cart = {}; // カートを空っぽにする
+                        app.updateCartBar(); // 自分自身を再実行してバーを隠す
+                        alert("カートを空にしました。");
+                    }
                 };
-                // バーの中にボタンを合流させる
+                
                 cartBar.appendChild(clearBtn);
             }
 
-            // カートバーを表示
+            // バーを表示するスタイル調整
             if (cartBar) {
                 cartBar.classList.remove('hidden');
                 cartBar.style.opacity = "1";
-                cartBar.style.display = "flex"; // 横並びを保証
-                cartBar.style.justifyContent = "between"; // 両端にきれいに分ける
+                cartBar.style.display = "flex"; 
+                cartBar.style.justifyContent = "between"; 
                 cartBar.style.alignItems = "center";
             }
         } else {
-            // カートが空ならテキストを戻し、追加したボタンも消してバーを隠す
+            // カートが空なら綺麗にお掃除して隠す
             if (totalDisplay) totalDisplay.innerText = '¥0';
             
             const clearBtn = document.getElementById('cart-clear-btn');
