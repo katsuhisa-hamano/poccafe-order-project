@@ -361,17 +361,17 @@ const app = {
 
             const item = data.item;
 
+            // ★ HTML構造と閉じタグを完全に整理した安全なテンプレート
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto p-6 relative flex flex-col justify-between">
-                    <div>
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
+                    <div class="flex-grow overflow-y-auto mb-6 pr-1">
                         <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
-                        <p class="text-gray-500 text-sm mb-4">${item.description || ''}</p>
+                        <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
                         
                         <div class="mb-6 text-left">
                             <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-main pl-2">サイズ / 種類 (必須)</label>
                             <div class="space-y-2">
                                 ${item.variations.map((v, idx) => {
-                                    // 【修正】idを綺麗にクレンジングしてinputとlabelをガチガチに紐付け
                                     const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
                                     return `
                                     <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
@@ -394,18 +394,22 @@ const app = {
 
                         ${item.options.map((optList, oIdx) => `
                             <div class="mb-6 text-left">
-                                <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-gray-400 pl-2">${optList.name}</label>
+                                <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-gray-400 pl-2">
+                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つまで・再タップで解除可)' : '(複数選択可)'}
+                                </label>
                                 <div class="space-y-2">
                                     ${optList.modifiers.map((m, mIdx) => {
                                         const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}_${oIdx}_${mIdx}`;
+                                        const inputType = optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox';
                                         return `
                                         <label for="${checkId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
                                             <span class="flex items-center">
-                                                <input type="${optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox'}" 
+                                                <input type="${inputType}" 
                                                        id="${checkId}"
                                                        name="square_modifier_${optList.id}" 
                                                        value="${m.id}" 
                                                        data-price="${m.price}" 
+                                                       onclick="app.handleModifierClick(this, '${inputType}')"
                                                        class="mr-3 h-4 w-4 text-main focus:ring-main cursor-pointer">
                                                 <span class="text-gray-700">${m.name}</span>
                                             </span>
@@ -418,7 +422,7 @@ const app = {
                         `).join('')}
                     </div>
 
-                    <div class="mt-6 flex space-x-3">
+                    <div class="flex space-x-3 pt-4 border-t border-gray-100 bg-white sticky bottom-0">
                         <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
                             キャンセル
                         </button>
@@ -433,7 +437,26 @@ const app = {
         }
     },
 
-    // カートへの最終追加処理
+    // ★ カスタマイズオプションをクリックしたときの「解除」制御用関数
+    handleModifierClick(input, type) {
+        // 単一選択（radio）の場合のみ、現在のチェック状態を反転させる
+        if (type === 'radio') {
+            if (input.dataset.wasChecked === 'true') {
+                input.checked = false;
+                input.dataset.wasChecked = 'false';
+            } else {
+                // 同じグループの他のラジオボタンの記憶をすべてクリアする
+                const name = input.getAttribute('name');
+                document.querySelectorAll(`input[name="${name}"]`).forEach(el => {
+                    el.dataset.wasChecked = 'false';
+                });
+                // 自分をチェック済みにする
+                input.dataset.wasChecked = 'true';
+            }
+        }
+    },
+
+    // カートへの最終追加処理（変更なし・念のため同梱）
     confirmAddToCart(itemId, itemName) {
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
