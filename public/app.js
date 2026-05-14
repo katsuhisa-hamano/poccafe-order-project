@@ -249,28 +249,26 @@ const app = {
         if (!dateElement) return;
         const date = dateElement.value;
 
-        try {
-            // メニュー読み込み中はリストを一度空にする（またはローディング表示）
-            const container = document.getElementById('menu-list');
-            if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">読み込み中...</p>';
+        // 読み込み中表示（メニューが消えたままになるのを防ぐ）
+        const container = document.getElementById('menu-list');
+        if (container) container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューを読み込み中...</p>';
 
+        try {
             const res = await fetch(`/api/menus?date=${date}`);
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
             
             const data = await res.json();
-            // サーバーからのレスポンスを正しくセット
+            // APIのレスポンス形式に合わせて調整
             this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
             
-            this.renderMenus();
+            this.renderMenus(); // 取得したデータで画面を書き換え
         } catch (e) {
             console.error("メニューロードエラー:", e);
-            this.state.menus = []; 
-            const container = document.getElementById('menu-list');
-            if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">メニューを読み込めませんでした。</p>';
+            if (container) container.innerHTML = '<p class="text-center text-red-500 py-8">メニューの読み込みに失敗しました。</p>';
         }
     },
 
-    // カートが空かどうかを判定するヘルパー
+    // app オブジェクトの中に追記
     isCartEmpty() {
         return Object.keys(this.state.cart).length === 0;
     },
@@ -576,28 +574,24 @@ app.init();
     });
 })();
 
-// 日付変更を監視してブロックする処理
-document.addEventListener('DOMContentLoaded', () => {
-    const dateInput = document.getElementById('order-date');
-    if (dateInput) {
-        // 前の値を記録しておくための変数
-        let lastValue = dateInput.value;
+// 日付操作の監視
+document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'order-date') {
+        const dateInput = e.target;
+        
+        // カートに商品があるかチェック（this.state.cart の中身があるか）
+        const cartCount = Object.keys(app.state.cart).length;
 
-        dateInput.addEventListener('focus', (e) => {
-            lastValue = e.target.value;
-        });
-
-        dateInput.addEventListener('change', (e) => {
-            // app.state.cart に何か入っているか確認
-            if (!app.isCartEmpty()) {
-                alert("カートに商品が入っています。日付を変更する場合は、一度ログアウトするかカートを空にしてください。");
-                e.target.value = lastValue; // 元の日付に戻す
-                return false;
-            }
+        if (cartCount > 0) {
+            alert("カートに商品が入っているため、日付を変更できません。\n日付を変える場合は、一度ログアウトしてカートを空にしてください。");
             
-            // カートが空ならメニューを読み直す
-            lastValue = e.target.value;
-            app.loadMenus();
-        });
+            // 日付を無理やり今日（または直前の値）に戻す
+            // 直前の値を保持していない場合は一旦今日に戻す処理
+            dateInput.valueAsDate = new Date(); 
+            return;
+        }
+
+        // カートが空なら、新しい日付のメニューを読み込む
+        app.loadMenus();
     }
 });
