@@ -361,7 +361,6 @@ const app = {
 
             const item = data.item;
 
-            // ★ HTML構造と閉じタグを完全に整理した安全なテンプレート
             modal.innerHTML = `
                 <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
                     <div class="flex-grow overflow-y-auto mb-6 pr-1">
@@ -369,7 +368,7 @@ const app = {
                         <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
                         
                         <div class="mb-6 text-left">
-                            <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-main pl-2">サイズ / 種類 (必須)</label>
+                            <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-emerald-600 pl-2">サイズ / 種類 (必須)</label>
                             <div class="space-y-2">
                                 ${item.variations.map((v, idx) => {
                                     const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
@@ -381,8 +380,9 @@ const app = {
                                                    name="square_variation" 
                                                    value="${v.id}" 
                                                    data-price="${v.price}" 
+                                                   onchange="app.calculateModalPrice()"
                                                    ${idx === 0 ? 'checked' : ''} 
-                                                   class="mr-3 h-4 w-4 text-main focus:ring-main cursor-pointer">
+                                                   class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
                                             <span class="text-gray-800 font-bold">${v.name}</span>
                                         </span>
                                         <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
@@ -410,7 +410,7 @@ const app = {
                                                        value="${m.id}" 
                                                        data-price="${m.price}" 
                                                        onclick="app.handleModifierClick(this, '${inputType}')"
-                                                       class="mr-3 h-4 w-4 text-main focus:ring-main cursor-pointer">
+                                                       class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
                                                 <span class="text-gray-700">${m.name}</span>
                                             </span>
                                             <span class="text-gray-500 text-sm font-medium">+¥${Number(m.price).toLocaleString()}</span>
@@ -422,41 +422,72 @@ const app = {
                         `).join('')}
                     </div>
 
+                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
+                        <span class="font-bold text-sm">現在の選択合計</span>
+                        <span id="modal-total-price" class="text-xl font-black">¥0</span>
+                    </div>
+
                     <div class="flex space-x-3 pt-4 border-t border-gray-100 bg-white sticky bottom-0">
                         <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
                             キャンセル
                         </button>
-                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-main text-white py-3 rounded-full font-bold hover:bg-opacity-90 transition shadow-sm">
+                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-emerald-600 text-white py-3 rounded-full font-black hover:bg-emerald-700 transition shadow-md block text-center text-base tracking-wider z-50">
                             カートに追加
                         </button>
                     </div>
                 </div>
             `;
+
+            // モーダルを開いた瞬間に初回の価格計算を実行
+            this.calculateModalPrice();
+
         } catch (e) {
             modal.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-md w-full text-center text-red-500 font-bold">エラー: ${e.message}</div>`;
         }
     },
 
-    // ★ カスタマイズオプションをクリックしたときの「解除」制御用関数
+    // ★ カスタマイズオプションをクリックしたときの「解除」制御 ＋ 金額再計算
     handleModifierClick(input, type) {
-        // 単一選択（radio）の場合のみ、現在のチェック状態を反転させる
         if (type === 'radio') {
             if (input.dataset.wasChecked === 'true') {
                 input.checked = false;
                 input.dataset.wasChecked = 'false';
             } else {
-                // 同じグループの他のラジオボタンの記憶をすべてクリアする
                 const name = input.getAttribute('name');
                 document.querySelectorAll(`input[name="${name}"]`).forEach(el => {
                     el.dataset.wasChecked = 'false';
                 });
-                // 自分をチェック済みにする
                 input.dataset.wasChecked = 'true';
             }
         }
+        // ポチポチ押されるたびにリアルタイムに金額を計算し直す
+        this.calculateModalPrice();
     },
 
-    // カートへの最終追加処理（変更なし・念のため同梱）
+    // ★ モーダル内の選択状況から「現在の価格」をリアルタイム計算する関数
+    calculateModalPrice() {
+        let total = 0;
+
+        // 1. 選択されているバリエーション（サイズ）の価格を加算
+        const selectedVar = document.querySelector('input[name="square_variation"]:checked');
+        if (selectedVar) {
+            total += Number(selectedVar.getAttribute('data-price')) || 0;
+        }
+
+        // 2. チェックされているすべてのトッピング（マディファイア）の価格を加算
+        const checkedModifiers = document.querySelectorAll('input[name^="square_modifier_"]:checked');
+        checkedModifiers.forEach(input => {
+            total += Number(input.getAttribute('data-price')) || 0;
+        });
+
+        // 3. 画面の金額表示を書き換え
+        const priceDisplay = document.getElementById('modal-total-price');
+        if (priceDisplay) {
+            priceDisplay.innerText = `¥${total.toLocaleString()}`;
+        }
+    },
+
+    // カートへの最終追加処理（アラートの金額バグを防ぐため、ここでも再クレンジング）
     confirmAddToCart(itemId, itemName) {
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
