@@ -287,27 +287,29 @@ const app = {
     renderMenus() {
         const container = document.getElementById('menu-list');
         if (!container) return;
-        container.innerHTML = this.state.menus.map(m => {
-            const qty = this.state.cart[m.square_item_id] || 0;
-            return `
-            <div class="bg-white flex p-4 rounded-3xl shadow-sm border-2 ${qty > 0 ? 'border-orange-500' : 'border-transparent'} transition-all active:scale-[0.98]">
-                <img src="${m.image_url || 'https://via.placeholder.com/100'}" class="w-20 h-20 object-cover rounded-2xl bg-gray-100">
-                <div class="flex-1 ml-4 flex flex-col justify-between">
+
+        if (this.state.menus.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
+            return;
+        }
+
+        container.innerHTML = this.state.menus.map(item => `
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
+                ${item.image_url ? `<img src="${item.image_url}" class="w-full h-40 object-cover">` : ''}
+                <div class="p-4 flex flex-col flex-grow justify-between">
                     <div>
-                        <h3 class="font-bold text-sm leading-tight text-gray-800">${m.name}</h3>
-                        <p class="text-orange-600 font-black text-lg">¥${m.price}</p>
+                        <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
+                        <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description}</p>
                     </div>
-                    <div class="flex items-center justify-between mt-2">
-                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">残り ${m.remaining}</span>
-                        <div class="flex items-center gap-3 bg-gray-50 rounded-full p-1 border border-gray-100">
-                            <button onclick="app.changeQty('${m.square_item_id}', -1)" class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-gray-500">-</button>
-                            <span class="w-4 text-center font-black text-sm">${qty}</span>
-                            <button onclick="app.changeQty('${m.square_item_id}', 1)" class="w-8 h-8 rounded-full bg-gray-800 text-white shadow-sm flex items-center justify-center font-bold">+</button>
-                        </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
+                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold hover:bg-opacity-90 transition">
+                            選択する
+                        </button>
                     </div>
                 </div>
-            </div>`;
-        }).join('');
+            </div>
+        `).join('');
     },
 
     confirmOrder() {
@@ -328,6 +330,105 @@ const app = {
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
+    },
+
+    // Squareからリアルタイムにバリエーションとオプションを取得して画面に出す
+    async openOptionModal(squareItemId) {
+        // 画面上にダイアログ（モーダル）の枠が無い場合は作成する
+        let modal = document.getElementById('option-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'option-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden';
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center">読み込み中...</div>';
+        modal.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message);
+
+            const item = data.item;
+
+            // モーダルの中身をリッチに書き換え
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto p-6 relative flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
+                        <p class="text-gray-500 text-sm mb-4">${item.description}</p>
+                        
+                        <div class="mb-4 text-left">
+                            <label class="block text-gray-700 font-bold mb-2">サイズ / 種類</label>
+                            <div class="space-y-2">
+                                ${item.variations.map((v, idx) => `
+                                    <label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                        <span class="flex items-center">
+                                            <input type="radio" name="square_variation" value="${v.id}" data-price="${v.price}" ${idx === 0 ? 'checked' : ''} class="mr-2 text-main focus:ring-main">
+                                            ${v.name}
+                                        </span>
+                                        <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        ${item.options.map(optList => `
+                            <div class="mb-4 text-left">
+                                <label class="block text-gray-700 font-bold mb-2">${optList.name}</label>
+                                <div class="space-y-2">
+                                    ${optList.modifiers.map(m => `
+                                        <label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                            <span class="flex items-center">
+                                                <input type="${optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox'}" name="square_modifier_${optList.id}" value="${m.id}" data-price="${m.price}" class="mr-2 text-main focus:ring-main">
+                                                ${m.name}
+                                            </span>
+                                            <span class="text-gray-500 text-sm">+¥${Number(m.price).toLocaleString()}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="mt-6 flex space-x-3">
+                        <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50">
+                            キャンセル
+                        </button>
+                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-main text-white py-3 rounded-full font-bold hover:bg-opacity-90">
+                            カートに追加
+                        </button>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            modal.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-md w-full text-center text-red-500">エラー: ${e.message}</div>`;
+        }
+    },
+
+    // カントへの最終追加処理
+    confirmAddToCart(itemId, itemName) {
+        const selectedVar = document.querySelector('input[name="square_variation"]:checked');
+        if (!selectedVar) return alert("サイズを選択してください");
+
+        const variationId = selectedVar.value;
+        let totalPrice = Number(selectedVar.dataset.price);
+        
+        // 選択されたオプションの価格を加算
+        const selectedModifiers = [];
+        const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
+        modifierInputs.forEach(input => {
+            totalPrice += Number(input.dataset.price);
+            selectedModifiers.push(input.value);
+        });
+
+        // ここであなたのカートオブジェクトにデータを保存します
+        console.log("カート投入:", { itemId, itemName, variationId, selectedModifiers, totalPrice });
+        
+        alert(`${itemName} をカートに追加しました！ (合計: ¥${totalPrice.toLocaleString()})`);
+        document.getElementById('option-modal').classList.add('hidden');
     }
 };
 

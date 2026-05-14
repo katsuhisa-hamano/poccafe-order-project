@@ -322,13 +322,110 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 【追加】6. メニュー取得用エンドポイントのフォールバック (GET /api/menus)
+    // 6. メニュー取得・詳細用エンドポイント (GET /api/menus)
     // ---------------------------------------------------------
     if (path === '/api/menus' && method === 'GET') {
-      // 本来のメニュー取得ロジックがここにあれば流用してください。
-      // もし他で処理している場合は、このブロックをすり抜けて下の404に落ちないためのガードです。
-      // ここでは仮として空配列を正常レスポンス(200)で返します。
-      return new Response(JSON.stringify([]), { headers: corsHeaders });
+      if (!env.DB || !env.SQUARE_ACCESS_TOKEN) {
+        return new Response(JSON.stringify({ error: "Bindings missing" }), { status: 500, headers: corsHeaders });
+      }
+
+      const searchDate = url.searchParams.get('date');
+      const squareItemId = url.searchParams.get('square_item_id'); // 詳細取得用
+
+      // 【パターンA】特定のSquareアイテムの詳細（バリエーション・オプション）をリアルタイム取得
+      if (squareItemId) {
+        try {
+          // Squareのカタログオブジェクト取得APIを叩く
+          const squareRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${squareItemId}?include_related_objects=true`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!squareRes.ok) {
+            return new Response(JSON.stringify({ success: false, message: "Squareからの商品取得に失敗" }), { status: 400, headers: corsHeaders });
+          }
+
+          const squareData = await squareRes.json();
+          
+          // フロントエンドが扱いやすいようにデータを整理して返す
+          const item = squareData.object.item_data;
+          const related = squareData.related_objects || [];
+
+          const result = {
+            id: squareData.object.id,
+            name: item.name,
+            description: item.description || '',
+            // バリエーション（サイズ、価格など）の抽出
+            variations: (item.variations || []).map(v => ({
+              id: v.id,
+              name: v.item_variation_data.name,
+              price: v.item_variation_data.price_money ? v.item_variation_data.price_money.amount : 0
+            })),
+            // オプション（トッピングなど、関連オブジェクトから抽出）
+            options: related
+              .filter(obj => obj.type === "MODIFIER_LIST")
+              .map(modList => ({
+                id: modList.id,
+                name: modList.modifier_list_data.name,
+                selection_type: modList.modifier_list_data.selection_type, // SINGLE または MULTIPLE
+                modifiers: (modList.modifier_list_data.modifiers || []).map(m => ({
+                  id: m.id,
+                  name: m.modifier_data.name,
+                  price: m.modifier_data.price_money ? m.modifier_data.price_money.amount : 0
+                }))
+              }))
+          };
+
+          return new Response(JSON.stringify({ success: true, item: result }), { headers: corsHeaders });
+
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: corsHeaders });
+        }
+      }
+
+      // 【パターンB】指定日のメニュー一覧を取得（従来通り）
+      let menus = [];
+      if (searchDate) {
+        const res = await env.DB.prepare("SELECT * FROM menus WHERE available_date = ?").bind(searchDate).all();
+        menus = res.results || [];
+      } else {
+        const res = await env.DB.prepare("SELECT * FROM menus").all();
+        menus = res.results || [];
+      }
+
+      // 各メニューに対して、名前や基本価格をSquareからリアルタイムに補完して一覧を作る
+      const fullMenus = [];
+      for (const m of menus) {
+        try {
+          const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}`, {
+            headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
+          });
+          if (sqRes.ok) {
+            const sqData = await sqRes.json();
+            const itemData = sqData.object.item_data;
+            // 最初のバリエーションの価格を基本価格とする
+            const firstVar = itemData.variations?.[0]?.item_variation_data;
+            const basePrice = firstVar?.price_money ? Number(firstVar.price_money.amount) : 0;
+
+            fullMenus.push({
+              id: m.id,
+              square_item_id: m.square_item_id,
+              name: itemData.name,
+              description: itemData.description || '',
+              price: basePrice,
+              image_url: m.image_url // 画像はD1に予め入っているものを流用
+            });
+          }
+        } catch(e) {
+          // 通信エラー時はスキップ、または仮データ
+          fullMenus.push({ id: m.id, square_item_id: m.square_item_id, name: "商品情報取得エラー", price: 0, image_url: m.image_url });
+        }
+      }
+
+      return new Response(JSON.stringify(fullMenus), { headers: corsHeaders });
     }
 
     // どのルートにも引っかからなかった場合 (404)
