@@ -322,3 +322,20 @@ const app = {
 
 // 起動確認
 app.init();
+
+// =========================================================
+// ブラウザの「戻る」ボタンを完全に無効化（ブロック）する処理
+// =========================================================
+(function() {
+    // 現在のページの履歴（ダミー）を新しく1つ歴史に差し込む
+    window.history.pushState(null, null, window.location.href);
+
+    // ユーザーがブラウザの「戻る」を押した瞬間をキャッチ
+    window.addEventListener('popstate', function(e) {
+        // 警告アラートを出す場合（必要なければ alert の行は消してOKです）
+        alert("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
+
+        // 強制的に歴史を1歩進めて、現在のURLに引き戻す
+        window.history.pushState(null, null, window.location.href);
+    });
+})();
