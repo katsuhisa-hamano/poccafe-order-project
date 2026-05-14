@@ -399,7 +399,7 @@ export async function onRequest(context) {
         }
       }
 
-      // 【パターンB】指定日のメニュー一覧を取得（従来通り）
+      // 【パターンB】指定日のメニュー一覧を取得
       let menus = [];
       if (searchDate) {
         const res = await env.DB.prepare("SELECT * FROM menus WHERE available_date = ?").bind(searchDate).all();
@@ -409,31 +409,48 @@ export async function onRequest(context) {
         menus = res.results || [];
       }
 
-      // 各メニューに対して、名前や基本価格をSquareからリアルタイムに補完して一覧を作る
+      // 各メニューに対して、一番安い価格（最小値）をSquareからリアルタイムに計算して補完
       const fullMenus = [];
       for (const m of menus) {
         try {
           const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}`, {
             headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
           });
+          
           if (sqRes.ok) {
             const sqData = await sqRes.json();
             const itemData = sqData.object.item_data;
-            // 最初のバリエーションの価格を基本価格とする
-            const firstVar = itemData.variations?.[0]?.item_variation_data;
-            const basePrice = firstVar?.price_money ? Number(firstVar.price_money.amount) : 0;
+            
+            // =========================================================
+            // ★【修正】すべてのバリエーションの中から「最小の価格」を見つける
+            // =========================================================
+            const variations = itemData.variations || [];
+            let minPrice = Infinity; // 一旦無限大で初期化
+
+            variations.forEach(v => {
+              if (v.item_variation_data && v.item_variation_data.price_money) {
+                const amt = Number(v.item_variation_data.price_money.amount);
+                if (amt < minPrice) {
+                  minPrice = amt; // より安い価格が見つかったら上書き
+                }
+              }
+            });
+
+            // 万が一価格が取得できなかった場合の安全ガード（0円にする）
+            if (minPrice === Infinity) {
+              minPrice = 0;
+            }
 
             fullMenus.push({
               id: m.id,
               square_item_id: m.square_item_id,
               name: itemData.name,
               description: itemData.description || '',
-              price: basePrice,
-              image_url: m.image_url // 画像はD1に予め入っているものを流用
+              price: minPrice, // ★ ここに一番安い価格（最小値）が入ります！
+              image_url: m.image_url
             });
           }
         } catch(e) {
-          // 通信エラー時はスキップ、または仮データ
           fullMenus.push({ id: m.id, square_item_id: m.square_item_id, name: "商品情報取得エラー", price: 0, image_url: m.image_url });
         }
       }
