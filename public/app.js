@@ -248,19 +248,31 @@ const app = {
         const dateElement = document.getElementById('order-date');
         if (!dateElement) return;
         const date = dateElement.value;
+
         try {
+            // メニュー読み込み中はリストを一度空にする（またはローディング表示）
+            const container = document.getElementById('menu-list');
+            if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">読み込み中...</p>';
+
             const res = await fetch(`/api/menus?date=${date}`);
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
             
             const data = await res.json();
-            this.state.menus = Array.isArray(data) ? data : []; 
+            // サーバーからのレスポンスを正しくセット
+            this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
+            
             this.renderMenus();
         } catch (e) {
-            console.error(e);
+            console.error("メニューロードエラー:", e);
             this.state.menus = []; 
             const container = document.getElementById('menu-list');
             if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">メニューを読み込めませんでした。</p>';
         }
+    },
+
+    // カートが空かどうかを判定するヘルパー
+    isCartEmpty() {
+        return Object.keys(this.state.cart).length === 0;
     },
 
     changeQty(id, delta) {
@@ -563,3 +575,29 @@ app.init();
         window.history.pushState(null, null, window.location.href);
     });
 })();
+
+// 日付変更を監視してブロックする処理
+document.addEventListener('DOMContentLoaded', () => {
+    const dateInput = document.getElementById('order-date');
+    if (dateInput) {
+        // 前の値を記録しておくための変数
+        let lastValue = dateInput.value;
+
+        dateInput.addEventListener('focus', (e) => {
+            lastValue = e.target.value;
+        });
+
+        dateInput.addEventListener('change', (e) => {
+            // app.state.cart に何か入っているか確認
+            if (!app.isCartEmpty()) {
+                alert("カートに商品が入っています。日付を変更する場合は、一度ログアウトするかカートを空にしてください。");
+                e.target.value = lastValue; // 元の日付に戻す
+                return false;
+            }
+            
+            // カートが空ならメニューを読み直す
+            lastValue = e.target.value;
+            app.loadMenus();
+        });
+    }
+});
