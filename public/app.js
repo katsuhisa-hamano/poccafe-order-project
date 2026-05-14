@@ -283,6 +283,7 @@ const app = {
         let count = 0;
         let currentTargetDate = '';
         
+        // カートの中身を集計
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
             total += item.price * item.qty;
@@ -291,41 +292,50 @@ const app = {
         }
         
         const totalDisplay = document.getElementById('cart-total-display');
-        if (totalDisplay) {
-            if (count > 0) {
-                // ★ 合計金額の横に「カートを空にする」ボタンを配置
-                totalDisplay.innerHTML = `
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full px-4 text-white">
-                        <span class="font-bold text-sm sm:text-base">【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}</span>
-                        <button onclick="app.clearCart()" class="text-xs text-red-300 underline font-medium hover:text-red-400 pt-1 sm:pt-0 text-left sm:text-right transition">
-                            カートを空にする
-                        </button>
-                    </div>
-                `;
-            } else {
-                totalDisplay.innerText = `¥0`;
-            }
-        }
-        
         const cartBar = document.getElementById('cart-bar');
-        if (cartBar) {
-            if (count > 0) {
+        
+        if (count > 0) {
+            // 1. 金額と日付のテキストだけを安全に書き換える（HTMLを破壊しない）
+            if (totalDisplay) {
+                totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
+            }
+            
+            // 2. 「カートを空にする」ボタンがまだバーの中に無ければ、1つだけ新しく追加する
+            let clearBtn = document.getElementById('cart-clear-btn');
+            if (!clearBtn && cartBar) {
+                clearBtn = document.createElement('button');
+                clearBtn.id = 'cart-clear-btn';
+                clearBtn.innerText = 'カートを空にする';
+                // 既存のバーのデザインに馴染むスタイル（赤系の文字・アンダーライン）
+                clearBtn.className = 'text-xs text-red-200 underline font-medium hover:text-red-300 ml-4 focus:outline-none transition z-50 cursor-pointer';
+                clearBtn.onclick = (e) => {
+                    e.stopPropagation(); // バー自体のクリックイベントと競合するのを防ぐ
+                    app.clearCart();
+                };
+                // バーの中にボタンを合流させる
+                cartBar.appendChild(clearBtn);
+            }
+
+            // カートバーを表示
+            if (cartBar) {
                 cartBar.classList.remove('hidden');
                 cartBar.style.opacity = "1";
-            } else {
+                cartBar.style.display = "flex"; // 横並びを保証
+                cartBar.style.justifyContent = "between"; // 両端にきれいに分ける
+                cartBar.style.alignItems = "center";
+            }
+        } else {
+            // カートが空ならテキストを戻し、追加したボタンも消してバーを隠す
+            if (totalDisplay) totalDisplay.innerText = '¥0';
+            
+            const clearBtn = document.getElementById('cart-clear-btn');
+            if (clearBtn) clearBtn.remove();
+            
+            if (cartBar) {
                 cartBar.classList.add('hidden');
+                cartBar.style.display = "none";
             }
         }
-    },
-
-    // ★ カートの中身をすべて削除してリセットする
-    clearCart() {
-        if (!confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日も変更できるようになります）")) return;
-        
-        this.state.cart = {}; // カートを空っぽにする
-        this.updateCartBar();  // 画面下のバーを非表示にする
-        
-        alert("カートを空にしました。");
     },
 
     renderMenus() {
