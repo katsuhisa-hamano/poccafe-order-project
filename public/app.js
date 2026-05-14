@@ -298,7 +298,9 @@ const app = {
         container.innerHTML = this.state.menus.map(item => `
             <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
                 ${item.image_url ? `
-                    <div class="w-full h-48 bg-gray-50 flex items-center justify-center p-2">
+                    <div onclick="app.openOptionModal('${item.square_item_id}')" 
+                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer hover:bg-gray-100 transition duration-200"
+                         title="クリックしてオプションを選択">
                         <img src="${item.image_url}" class="w-full h-full object-contain">
                     </div>
                 ` : ''}
