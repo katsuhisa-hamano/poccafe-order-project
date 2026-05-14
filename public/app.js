@@ -299,9 +299,11 @@ const app = {
             <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
                 ${item.image_url ? `
                     <div onclick="app.openOptionModal('${item.square_item_id}')" 
-                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer hover:bg-gray-100 transition duration-200"
-                         title="クリックしてオプションを選択">
-                        <img src="${item.image_url}" class="w-full h-full object-contain">
+                         role="button"
+                         tabindex="0"
+                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
+                         style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
+                        <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
                     </div>
                 ` : ''}
                 
@@ -312,7 +314,7 @@ const app = {
                     </div>
                     <div class="mt-4 flex justify-between items-center">
                         <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
-                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold hover:bg-opacity-90 transition">
+                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
                             選択する
                         </button>
                     </div>
