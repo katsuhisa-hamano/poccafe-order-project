@@ -399,15 +399,9 @@ export async function onRequest(context) {
         }
       }
 
-      // 【パターンB】指定日のメニュー一覧を取得
-      let menus = [];
-      if (searchDate) {
-        const res = await env.DB.prepare("SELECT * FROM menus WHERE available_date = ?").bind(searchDate).all();
-        menus = res.results || [];
-      } else {
-        const res = await env.DB.prepare("SELECT * FROM menus").all();
-        menus = res.results || [];
-      }
+      // 【パターンB】メニュー一覧をすべて取得（日付関係なし）
+      const res = await env.DB.prepare("SELECT * FROM menus").all();
+      const menus = res.results || [];
 
       // 各メニューに対して、一番安い価格（最小値）をSquareからリアルタイムに計算して補完
       const fullMenus = [];
@@ -421,32 +415,24 @@ export async function onRequest(context) {
             const sqData = await sqRes.json();
             const itemData = sqData.object.item_data;
             
-            // =========================================================
-            // ★【修正】すべてのバリエーションの中から「最小の価格」を見つける
-            // =========================================================
             const variations = itemData.variations || [];
-            let minPrice = Infinity; // 一旦無限大で初期化
+            let minPrice = Infinity;
 
             variations.forEach(v => {
               if (v.item_variation_data && v.item_variation_data.price_money) {
                 const amt = Number(v.item_variation_data.price_money.amount);
-                if (amt < minPrice) {
-                  minPrice = amt; // より安い価格が見つかったら上書き
-                }
+                if (amt < minPrice) minPrice = amt;
               }
             });
 
-            // 万が一価格が取得できなかった場合の安全ガード（0円にする）
-            if (minPrice === Infinity) {
-              minPrice = 0;
-            }
+            if (minPrice === Infinity) minPrice = 0;
 
             fullMenus.push({
               id: m.id,
               square_item_id: m.square_item_id,
               name: itemData.name,
               description: itemData.description || '',
-              price: minPrice, // ★ ここに一番安い価格（最小値）が入ります！
+              price: minPrice,
               image_url: m.image_url
             });
           }

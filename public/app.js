@@ -245,23 +245,18 @@ const app = {
 
     // 注文ロジック：メニューの読み込み
     async loadMenus() {
-        const dateElement = document.getElementById('order-date');
-        if (!dateElement) return;
-        const date = dateElement.value;
-
-        // 読み込み中表示（メニューが消えたままになるのを防ぐ）
         const container = document.getElementById('menu-list');
         if (container) container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューを読み込み中...</p>';
 
         try {
-            const res = await fetch(`/api/menus?date=${date}`);
+            // 日付パラメータをつけずに、常に全メニューを取得
+            const res = await fetch('/api/menus');
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
             
             const data = await res.json();
-            // APIのレスポンス形式に合わせて調整
             this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
             
-            this.renderMenus(); // 取得したデータで画面を書き換え
+            this.renderMenus(); 
         } catch (e) {
             console.error("メニューロードエラー:", e);
             if (container) container.innerHTML = '<p class="text-center text-red-500 py-8">メニューの読み込みに失敗しました。</p>';
@@ -286,27 +281,31 @@ const app = {
     updateCartBar() {
         let total = 0;
         let count = 0;
+        let currentTargetDate = '';
         
-        // カート内の全アイテムの（価格 × 数量）を合計する
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
             total += item.price * item.qty;
             count += item.qty;
+            currentTargetDate = item.orderDate; // カートに入っている日付を取得
         }
         
         const totalDisplay = document.getElementById('cart-total-display');
         if (totalDisplay) {
-            totalDisplay.innerText = `¥${total.toLocaleString()}`;
+            if (count > 0) {
+                totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
+            } else {
+                totalDisplay.innerText = `¥0`;
+            }
         }
         
         const cartBar = document.getElementById('cart-bar');
         if (cartBar) {
-            // カートに1つでも入っていれば表示、空なら隠す（または薄くする）
             if (count > 0) {
-                cartBar.classList.remove('hidden'); // hiddenクラスを外す
+                cartBar.classList.remove('hidden');
                 cartBar.style.opacity = "1";
             } else {
-                cartBar.style.opacity = "0.6";
+                cartBar.classList.add('hidden');
             }
         }
     },
@@ -516,6 +515,15 @@ const app = {
 
     // カートへの最終追加処理
     confirmAddToCart(itemId, itemName) {
+        // 画面上部のカレンダーから「受取希望日」を取得
+        const dateElement = document.getElementById('order-date');
+        const orderDate = dateElement ? dateElement.value : '';
+        
+        if (!orderDate) {
+            alert("受取日を選択してください。");
+            return;
+        }
+
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
             alert("サイズ・種類を選択してください。");
@@ -534,12 +542,12 @@ const app = {
             selectedModifiers.push({ id: input.value, name: modName });
         });
 
-        // --- ここからが追加・修正ポイント ---
-        // 同じ商品でもオプションが違えば別物として扱うためのキーを作成
-        const cartKey = `${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
+        // カートのキー（日付も組み合わせに含めることで、日付ごとの管理を確実に）
+        const cartKey = `${orderDate}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
+                orderDate, // ★「この商品は〇月〇日分」という情報を保持
                 itemId,
                 itemName,
                 variationId,
@@ -550,14 +558,13 @@ const app = {
             };
         }
         
-        this.state.cart[cartKey].qty += 1; // 数量をプラス1
+        this.state.cart[cartKey].qty += 1;
 
-        alert(`${itemName} (${variationName}) をカートに追加しました！\n金額: ¥${totalPrice.toLocaleString()}`);
-        
+        alert(`【${orderDate} 受取】\n${itemName} (${variationName}) をカートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
-        this.updateCartBar(); // 下のバーを更新
-    }
+        this.updateCartBar();
+    },
 };
 
 // 起動確認
@@ -574,24 +581,34 @@ app.init();
     });
 })();
 
-// 日付操作の監視
-document.addEventListener('change', (e) => {
-    if (e.target && e.target.id === 'order-date') {
-        const dateInput = e.target;
-        
-        // カートに商品があるかチェック（this.state.cart の中身があるか）
-        const cartCount = Object.keys(app.state.cart).length;
+// 日付操作の監視（カートに中身がある時は変更を絶対に許さない）
+(function() {
+    let lastCheckedDate = '';
 
-        if (cartCount > 0) {
-            alert("カートに商品が入っているため、日付を変更できません。\n日付を変える場合は、一度ログアウトしてカートを空にしてください。");
-            
-            // 日付を無理やり今日（または直前の値）に戻す
-            // 直前の値を保持していない場合は一旦今日に戻す処理
-            dateInput.valueAsDate = new Date(); 
-            return;
+    // 画面を開いたとき、またはログインしたときの初期日付を記憶
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const dateInput = document.getElementById('order-date');
+            if (dateInput) lastCheckedDate = dateInput.value;
+        }, 500);
+    });
+
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'order-date') {
+            const dateInput = e.target;
+            const cartCount = Object.keys(app.state.cart).length;
+
+            // カートに商品が入っている場合
+            if (cartCount > 0) {
+                alert("すでにカートに商品が入っているため、受取日を変更できません。\n日付を変更する場合は、一度ログアウトするかカートを空にしてください。");
+                // 変更前の日付に強制的に戻す
+                dateInput.value = lastCheckedDate;
+                return;
+            }
+
+            // カートが空なら、新しい日付を記憶（メニューは消さずにそのまま）
+            lastCheckedDate = dateInput.value;
+            console.log("受取希望日を変更しました:", lastCheckedDate);
         }
-
-        // カートが空なら、新しい日付のメニューを読み込む
-        app.loadMenus();
-    }
-});
+    });
+})();
