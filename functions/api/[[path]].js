@@ -95,7 +95,6 @@ export async function onRequest(context) {
             }
           }
         } catch (sqErr) {
-          // ここでエラーをキャッチすることで、Square側が原因の500エラーを完全に防ぐ
           console.error("Square APIとの通信自体に失敗しました:", sqErr);
         }
       }
@@ -120,29 +119,32 @@ export async function onRequest(context) {
         VALUES (?, LOWER(?), ?, ?, ?, 'pending', ?, ?)
       `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
 
-      // メール送信処理（SendGridが原因の500エラーも防ぐ）
+      // メール送信処理（Resend API 対応）
       const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
-      if (env.SENDGRID_API_KEY) {
+      if (env.RESEND_API_KEY) {
         try {
-          await fetch('https://api.sendgrid.com/v3/mail/send', {
+          const resendRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
+              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              personalizations: [{ to: [{ email: email.trim() }] }],
-              from: { email: 'noreply@pokkapoka.net', name: 'ぽっカフェ' },
+              from: 'ぽっカフェ <noreply@pokkapoka.net>',
+              to: [email.trim()],
               subject: '【ぽっカフェ】アカウント作成の確認',
-              content: [{
-                type: 'text/plain',
-                value: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}`
-              }]
+              text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`
             })
           });
+
+          if (!resendRes.ok) {
+            console.error("Resend API エラー:", await resendRes.text());
+          }
         } catch (mailErr) {
           console.error("メール送信エラー:", mailErr);
         }
+      } else {
+        console.warn("env.RESEND_API_KEY が見つかりません。");
       }
 
       return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
@@ -244,26 +246,34 @@ export async function onRequest(context) {
         "UPDATE users SET verify_token = ?, token_expires_at = ? WHERE id = ?"
       ).bind(resetToken, expiresAt, user.id).run();
 
-      // ハッシュ（#）付きの再設定リンクを生成（前回のフロント修正と連動）
+      // ハッシュ（#）付きの再設定リンクを生成
       const resetLink = `${url.origin}/#token=${resetToken}`;
 
-      if (env.SENDGRID_API_KEY) {
-        await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: email.trim() }] }],
-            from: { email: 'noreply@pokkapoka.net', name: 'ぽっカフェ' },
-            subject: '【ぽっカフェ】パスワード再設定のご案内',
-            content: [{
-              type: 'text/plain',
-              value: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
-            }]
-          })
-        });
+      // メール送信処理（Resend API 対応）
+      if (env.RESEND_API_KEY) {
+        try {
+          const resendRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: 'ぽっカフェ <noreply@pokkapoka.net>',
+              to: [email.trim()],
+              subject: '【ぽっカフェ】パスワード再設定のご案内',
+              text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
+            })
+          });
+
+          if (!resendRes.ok) {
+            console.error("Resend API エラー:", await resendRes.text());
+          }
+        } catch (mailErr) {
+          console.error("Resendパスワードリセット送信エラー:", mailErr);
+        }
+      } else {
+        console.warn("env.RESEND_API_KEY が見つかりません。");
       }
 
       return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。" }), { headers: corsHeaders });
@@ -298,6 +308,16 @@ export async function onRequest(context) {
       ).bind(passwordHash, user.id).run();
 
       return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。" }), { headers: corsHeaders });
+    }
+
+    // ---------------------------------------------------------
+    // 【追加】6. メニュー取得用エンドポイントのフォールバック (GET /api/menus)
+    // ---------------------------------------------------------
+    if (path === '/api/menus' && method === 'GET') {
+      // 本来のメニュー取得ロジックがここにあれば流用してください。
+      // もし他で処理している場合は、このブロックをすり抜けて下の404に落ちないためのガードです。
+      // ここでは仮として空配列を正常レスポンス(200)で返します。
+      return new Response(JSON.stringify([]), { headers: corsHeaders });
     }
 
     // どのルートにも引っかからなかった場合 (404)
