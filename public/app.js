@@ -38,13 +38,35 @@ const app = {
         resetToken: null
     },
 
-    // ログイン処理
+    // ログイン処理（管理者用の特別ルート付き）
     async login() {
-        const email = document.getElementById('login-email').value;
+        const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
         if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
 
+        // =========================================================
+        // ★【追加】管理者用（admin）の特別ログイン判定
+        // =========================================================
+        if (email === 'admin' && password === 'poccafe777') {
+            alert("管理者としてログインしました");
+            
+            // 管理者としての状態をセット
+            this.state.user.id = 'admin_user';
+            this.state.user.name = '管理者';
+            
+            localStorage.setItem('cafe_user_id', 'admin_user');
+            localStorage.setItem('cafe_user_name', '管理者');
+            
+            const display = document.getElementById('userDisplay');
+            if (display) display.innerText = `ログイン中: 管理者様`;
+
+            // 通常の「home」ではなく、直接「admin」画面へジャンプ！
+            router.go('admin');
+            return; // ここで処理を終了し、下の一般サーバー通信に行かせない
+        }
+
+        // --- ここから下は通常の一般ユーザー用ログイン通信 ---
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
             const result = await res.json();
@@ -60,13 +82,11 @@ const app = {
                 const display = document.getElementById('userDisplay');
                 if (display) display.innerText = `ログイン中: ${user.name}様`;
                 
-                // カレンダーの日付が空なら今日をセットしておく
                 const dateInput = document.getElementById('order-date');
                 if (dateInput && !dateInput.value) {
                     dateInput.valueAsDate = new Date();
                 }
 
-                // ホームへ移動（これで自動的にメニューがロードされます）
                 router.go('home');
             } else {
                 alert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
