@@ -363,15 +363,25 @@ const app = {
                         <div class="mb-4 text-left">
                             <label class="block text-gray-700 font-bold mb-2">サイズ / 種類</label>
                             <div class="space-y-2">
-                                ${item.variations.map((v, idx) => `
-                                    <label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                ${item.variations.map((v, idx) => {
+                                    // SquareのIDに記号が入っていてもHTMLが壊れないよう、ユニークな連番idをlabelに付与
+                                    const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
+                                    return `
+                                    <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white">
                                         <span class="flex items-center">
-                                            <input type="radio" name="square_variation" value="${v.id}" data-price="${v.price}" ${idx === 0 ? 'checked' : ''} class="mr-2 text-main focus:ring-main">
-                                            ${v.name}
+                                            <input type="radio" 
+                                                   id="${radioId}"
+                                                   name="square_variation" 
+                                                   value="${v.id}" 
+                                                   data-price="${v.price}" 
+                                                   ${idx === 0 ? 'checked' : ''} 
+                                                   class="mr-3 h-4 w-4 text-main focus:ring-main cursor-pointer">
+                                            <span class="text-gray-800 font-medium">${v.name}</span>
                                         </span>
                                         <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
@@ -410,24 +420,28 @@ const app = {
 
     // カントへの最終追加処理
     confirmAddToCart(itemId, itemName) {
+        // 現在チェックされているラジオボタンを取得
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
-        if (!selectedVar) return alert("サイズを選択してください");
+        if (!selectedVar) {
+            alert("サイズ・種類を選択してください。");
+            return;
+        }
 
         const variationId = selectedVar.value;
-        let totalPrice = Number(selectedVar.dataset.price);
+        // dataset.price から数値を確実に取得
+        let totalPrice = Number(selectedVar.getAttribute('data-price')) || 0;
         
-        // 選択されたオプションの価格を加算
+        // 選択されたオプション（マディファイア）の価格を加算
         const selectedModifiers = [];
-        const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
+        const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked, input[name^="square_modifier_"]:checked');
         modifierInputs.forEach(input => {
-            totalPrice += Number(input.dataset.price);
+            totalPrice += Number(input.getAttribute('data-price')) || 0;
             selectedModifiers.push(input.value);
         });
 
-        // ここであなたのカートオブジェクトにデータを保存します
-        console.log("カート投入:", { itemId, itemName, variationId, selectedModifiers, totalPrice });
+        console.log("カート投入データ:", { itemId, itemName, variationId, selectedModifiers, totalPrice });
         
-        alert(`${itemName} をカートに追加しました！ (合計: ¥${totalPrice.toLocaleString()})`);
+        alert(`${itemName} をカートに追加しました！\n金額: ¥${totalPrice.toLocaleString()}`);
         document.getElementById('option-modal').classList.add('hidden');
     }
 };

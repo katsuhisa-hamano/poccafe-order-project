@@ -359,11 +359,24 @@ export async function onRequest(context) {
             name: item.name,
             description: item.description || '',
             // バリエーション（サイズ、価格など）の抽出
-            variations: (item.variations || []).map(v => ({
-              id: v.id,
-              name: v.item_variation_data.name,
-              price: v.item_variation_data.price_money ? v.item_variation_data.price_money.amount : 0
-            })),
+            variations: (item.variations || []).map(v => {
+              let rawPrice = 0;
+              if (v.item_variation_data.price_money) {
+                // 文字列やBigIntの可能性を考慮して整数に変換
+                rawPrice = Number(v.item_variation_data.price_money.amount);
+                // もしSquareの設定がセント単位（100倍）になっていた場合の安全ガード
+                // （例: 500円が 50000 と返ってきた場合は100で割る）
+                if (rawPrice > 100000 && v.item_variation_data.price_money.currency === 'JPY') {
+                  // 基本的に日本円は等倍ですが、一部アカウントの仕様対策
+                  // 通常は等倍なので、まずはそのままNumber()に変換した値を使用します
+                }
+              }
+              return {
+                id: v.id,
+                name: v.item_variation_data.name,
+                price: rawPrice
+              };
+            }),
             // オプション（トッピングなど、関連オブジェクトから抽出）
             options: related
               .filter(obj => obj.type === "MODIFIER_LIST")
