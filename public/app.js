@@ -245,9 +245,20 @@ const app = {
         const dateElement = document.getElementById('order-date');
         if (!dateElement) return;
         const date = dateElement.value;
-        const res = await fetch(`/api/menus?date=${date}`);
-        this.state.menus = await res.json();
-        this.renderMenus();
+        try {
+            const res = await fetch(`/api/menus?date=${date}`);
+            if (!res.ok) throw new Error("メニューの取得に失敗しました");
+            
+            const data = await res.json();
+            // 確実に配列である場合のみ代入、そうでなければ空の配列にする
+            this.state.menus = Array.isArray(data) ? data : []; 
+            this.renderMenus();
+        } catch (e) {
+            console.error(e);
+            this.state.menus = []; // エラー時は空にする
+            const container = document.getElementById('menu-list');
+            if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">メニューを読み込めませんでした。</p>';
+        }
     },
 
     changeQty(id, delta) {

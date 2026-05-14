@@ -27,7 +27,9 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: false, message: "必須項目が不足しています。" }), { status: 400, headers: corsHeaders });
       }
 
-      if (!env.DB) throw new Error("Database binding 'DB' is missing.");
+      if (!env.DB) {
+        return new Response(JSON.stringify({ success: false, message: "データベース(DB)のバインドが見つかりません。Cloudflareの設定を確認してください。" }), { status: 500, headers: corsHeaders });
+      }
 
       // ① 既にアプリ側のDBに登録（かつアクティブ）がないか確認
       const existingUser = await env.DB.prepare(
@@ -37,14 +39,14 @@ export async function onRequest(context) {
       if (existingUser) {
         return new Response(JSON.stringify({ 
           success: false, 
-          message: "このメールアドレスは既に登録されています。ログインするか、パスワード再設定をお試しください。" 
+          message: "このメールアドレスは既に登録されています。" 
         }), { status: 409, headers: corsHeaders });
       }
 
       let squareCustomerId = null;
       const squareToken = env.SQUARE_ACCESS_TOKEN;
 
-      // ② Squareレジ連携
+      // ② Squareレジ連携（通信エラーが起きても全体を巻き添えにしないよう完全に隔離）
       if (squareToken) {
         try {
           // Squareレジに同じメールアドレスの顧客がいるか検索
@@ -55,22 +57,18 @@ export async function onRequest(context) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              query: {
-                filter: {
-                  email_address: {
-                    exact: email.trim().toLowerCase()
-                  }
-                }
-              }
+              query: { filter: { email_address: { exact: email.trim().toLowerCase() } } }
             })
           });
 
           if (searchRes.ok) {
             const searchData = await searchRes.json();
             if (searchData.customers && searchData.customers.length > 0) {
-              // 既存顧客がいればそのIDを採用
               squareCustomerId = searchData.customers[0].id;
+              console.log("既存のSquare顧客IDを取得:", squareCustomerId);
             }
+          } else {
+            console.error("Square検索APIがエラーを返しました:", await searchRes.text());
           }
 
           // ③ Squareに存在しなかった場合のみ新規作成
@@ -91,14 +89,18 @@ export async function onRequest(context) {
             if (createRes.ok) {
               const createData = await createRes.json();
               squareCustomerId = createData.customer.id;
+              console.log("新規Square顧客を作成:", squareCustomerId);
+            } else {
+              console.error("Square作成APIがエラーを返しました:", await createRes.text());
             }
           }
         } catch (sqErr) {
-          console.error("Square API Error:", sqErr);
+          // ここでエラーをキャッチすることで、Square側が原因の500エラーを完全に防ぐ
+          console.error("Square APIとの通信自体に失敗しました:", sqErr);
         }
       }
 
-      // トークン未設定や通信エラー時のフォールバックID
+      // Squareトークンがない、またはAPIが全滅した場合は、システムを止めずに一時的なIDを発行
       if (!squareCustomerId) {
         squareCustomerId = "PENDING_" + Date.now();
       }
@@ -112,31 +114,35 @@ export async function onRequest(context) {
       const verifyToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-      // DBへ仮登録（挿入または置換）
+      // DBへ仮登録
       await env.DB.prepare(`
         INSERT OR REPLACE INTO users (name, email, tel, password_hash, square_customer_id, status, verify_token, token_expires_at)
         VALUES (?, LOWER(?), ?, ?, ?, 'pending', ?, ?)
       `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
 
-      // メール送信処理
+      // メール送信処理（SendGridが原因の500エラーも防ぐ）
       const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
       if (env.SENDGRID_API_KEY) {
-        await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: email.trim() }] }],
-            from: { email: 'noreply@pokkapoka.net', name: 'ぽっカフェ' },
-            subject: '【ぽっカフェ】アカウント作成の確認',
-            content: [{
-              type: 'text/plain',
-              value: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}`
-            }]
-          })
-        });
+        try {
+          await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              personalizations: [{ to: [{ email: email.trim() }] }],
+              from: { email: 'noreply@pokkapoka.net', name: 'ぽっカフェ' },
+              subject: '【ぽっカフェ】アカウント作成の確認',
+              content: [{
+                type: 'text/plain',
+                value: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}`
+              }]
+            })
+          });
+        } catch (mailErr) {
+          console.error("メール送信エラー:", mailErr);
+        }
       }
 
       return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
