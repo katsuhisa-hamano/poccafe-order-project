@@ -275,15 +275,30 @@ const app = {
 
     updateCartBar() {
         let total = 0;
-        for (let id in this.state.cart) {
-            const m = this.state.menus.find(x => x.square_item_id === id);
-            if(m) total += m.price * this.state.cart[id];
+        let count = 0;
+        
+        // カート内の全アイテムの（価格 × 数量）を合計する
+        for (let key in this.state.cart) {
+            const item = this.state.cart[key];
+            total += item.price * item.qty;
+            count += item.qty;
         }
+        
         const totalDisplay = document.getElementById('cart-total-display');
-        if (totalDisplay) totalDisplay.innerText = `¥${total.toLocaleString()}`;
+        if (totalDisplay) {
+            totalDisplay.innerText = `¥${total.toLocaleString()}`;
+        }
         
         const cartBar = document.getElementById('cart-bar');
-        if (cartBar) cartBar.style.opacity = total > 0 ? "1" : "0.6";
+        if (cartBar) {
+            // カートに1つでも入っていれば表示、空なら隠す（または薄くする）
+            if (count > 0) {
+                cartBar.classList.remove('hidden'); // hiddenクラスを外す
+                cartBar.style.opacity = "1";
+            } else {
+                cartBar.style.opacity = "0.6";
+            }
+        }
     },
 
     renderMenus() {
@@ -489,7 +504,7 @@ const app = {
         }
     },
 
-    // カートへの最終追加処理（アラートの金額バグを防ぐため、ここでも再クレンジング）
+    // カートへの最終追加処理
     confirmAddToCart(itemId, itemName) {
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
@@ -498,19 +513,40 @@ const app = {
         }
 
         const variationId = selectedVar.value;
+        const variationName = selectedVar.closest('label').querySelector('.font-bold').innerText;
         let totalPrice = Number(selectedVar.getAttribute('data-price')) || 0;
         
         const selectedModifiers = [];
         const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
         modifierInputs.forEach(input => {
             totalPrice += Number(input.getAttribute('data-price')) || 0;
-            selectedModifiers.push(input.value);
+            const modName = input.closest('label').querySelector('.text-gray-700').innerText;
+            selectedModifiers.push({ id: input.value, name: modName });
         });
 
-        console.log("カート投入データ:", { itemId, itemName, variationId, selectedModifiers, totalPrice });
+        // --- ここからが追加・修正ポイント ---
+        // 同じ商品でもオプションが違えば別物として扱うためのキーを作成
+        const cartKey = `${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
         
-        alert(`${itemName} をカートに追加しました！\n金額: ¥${totalPrice.toLocaleString()}`);
+        if (!this.state.cart[cartKey]) {
+            this.state.cart[cartKey] = {
+                itemId,
+                itemName,
+                variationId,
+                variationName,
+                modifiers: selectedModifiers,
+                price: totalPrice,
+                qty: 0
+            };
+        }
+        
+        this.state.cart[cartKey].qty += 1; // 数量をプラス1
+
+        alert(`${itemName} (${variationName}) をカートに追加しました！\n金額: ¥${totalPrice.toLocaleString()}`);
+        
         document.getElementById('option-modal').classList.add('hidden');
+        
+        this.updateCartBar(); // 下のバーを更新
     }
 };
 
