@@ -1,29 +1,53 @@
 const router = {
     go(view) {
+        // すべての表示エリアを一度隠す
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         
         const target = document.getElementById(`view-${view}`);
-        if (target) target.classList.remove('hidden');
+        if (target) {
+            target.classList.remove('hidden');
+        } else {
+            console.error(`View "view-${view}" not found.`);
+            return;
+        }
 
         const header = document.getElementById('main-header');
         const cartBar = document.getElementById('cart-bar');
 
+        // --- 画面ごとのUI表示制御 ---
         if (view === 'login') {
+            // ログイン画面：ヘッダーもカートも出さない
             if (header) header.classList.add('hidden');
             if (cartBar) cartBar.classList.add('hidden');
-        } else {
+        } else if (view === 'admin' || view === 'menu-edit') {
+            // 管理者系画面：ヘッダーは出すが、カートは出さない
             if (header) header.classList.remove('hidden');
-            if (view === 'home' && cartBar) cartBar.classList.remove('hidden');
-            else if (cartBar) cartBar.classList.add('hidden');
+            if (cartBar) cartBar.classList.add('hidden');
+        } else if (view === 'home') {
+            // 一般ホーム画面：両方出す
+            if (header) header.classList.remove('hidden');
+            if (cartBar && Object.keys(app.state.cart).length > 0) {
+                cartBar.classList.remove('hidden');
+            }
         }
 
-        if (view === 'admin') app.loadAdminOrders();
-        
-        // ★ 画面が確実に切り替わってからメニューをロードするようにタイミングを1ミリ秒安全にずらす
-        if (view === 'home') {
-            setTimeout(() => {
-                app.loadMenus();
-            }, 1);
+        // --- 画面遷移時のデータロード処理 ---
+        switch (view) {
+            case 'home':
+                // メニュー一覧の読み込み
+                setTimeout(() => app.loadMenus(), 1);
+                break;
+            case 'admin':
+                // 注文一覧などの読み込み（必要に応じて）
+                app.loadAdminOrders(); 
+                break;
+            case 'menu-edit':
+                // Square商品と現在のメニューリストを読み込み
+                setTimeout(() => {
+                    app.loadSquareItems();
+                    app.loadAdminMenuList();
+                }, 1);
+                break;
         }
         
         window.scrollTo(0, 0);
