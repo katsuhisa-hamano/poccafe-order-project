@@ -886,128 +886,56 @@ const app = {
     // appオブジェクトの通信・ハンドリングロジック
     // =========================================================
 
-    // 1. Squareから「親商品・内包バリエーション」を取得して階層表示
+    // 1. 新規登録用に、Squareカタログから「上位アイテム(親商品)」の一覧を取得してセレクターを構築
     async loadSquareItems() {
         const select = document.getElementById('edit-square-item-select');
         if (!select) return;
 
         try {
             const res = await fetch('/api/admin/square-items');
-            if (!res.ok) throw new Error("Squareデータの取得失敗");
-            const parentItems = await res.json(); // 親商品(ITEM)の配列
+            if (!res.ok) throw new Error("Squareデータのロード失敗");
+            
+            // バックエンドから整形済みの親子オブジェクト配列が届く
+            this.state.squareItemsCache = await res.json(); 
 
-            if (parentItems.length === 0) {
-                select.innerHTML = '<option value="">利用可能なSquare商品がありません</option>';
+            if (this.state.squareItemsCache.length === 0) {
+                select.innerHTML = '<option value="">登録可能なSquare商品がありません</option>';
                 return;
             }
 
-            let html = '<option value="">選択してください...</option>';
-            parentItems.forEach(parent => {
-                html += `<optgroup label="${parent.name}">`;
-                parent.variations.forEach(v => {
-                    html += `
-                        <option value="${v.id}" data-name="${parent.name} - ${v.name}" data-price="${v.price}">
-                            ${v.name} (¥${v.price.toLocaleString()})
-                        </option>
-                    `;
-                });
-                html += `</optgroup>`;
+            let html = '<option value="">登録する商品を選択してください...</option>';
+            this.state.squareItemsCache.forEach((item, index) => {
+                html += `
+                    <option value="${item.square_item_id}" data-index="${index}">
+                        ${item.name} (${item.variations.length}個のバリエーションを含みます)
+                    </option>
+                `;
             });
-
             select.innerHTML = html;
         } catch (e) {
             console.error(e);
-            select.innerHTML = '<option value="">データの読み込みに失敗しました</option>';
+            select.innerHTML = '<option value="">商品の取得に失敗しました</option>';
         }
     },
 
-    // 2. 現在アプリDBに登録されているバリエーション一覧を表示
-    async loadAdminMenuList() {
-        const tbody = document.getElementById('admin-menu-list-tbody');
-        if (!tbody) return;
-
-        try {
-            const res = await fetch('/api/admin/menus');
-            if (!res.ok) throw new Error("メニュー管理リスト取得失敗");
-            const menus = await res.json();
-
-            if (menus.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのバリエーションはありません。</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = menus.map(menu => {
-                return `
-                    <tr class="hover:bg-gray-50/50 transition">
-                        <td class="p-4">
-                            <div class="font-bold text-gray-800">${menu.name}</div>
-                            <div class="text-[11px] text-gray-400 mt-0.5 font-mono">Variation ID: ${menu.square_item_id}</div>
-                        </td>
-                        <td class="p-4 text-center">
-                            <input type="number" id="qty-${menu.id}" value="${menu.remaining}" min="0" 
-                                class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none">
-                        </td>
-                        <td class="p-4 text-center">
-                            <select id="status-${menu.id}" class="border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-xs font-bold text-gray-700">
-                                <option value="1" ${menu.is_visible == 1 ? 'selected' : ''}>ON (表示)</option>
-                                <option value="0" ${menu.is_visible == 0 ? 'selected' : ''}>OFF (非表示)</option>
-                            </select>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="app.updateAdminMenu('${menu.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
-                                保存
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (e) {
-            console.error(e);
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読込に失敗しました。</td></tr>';
-        }
-    },
-
-    // 3. バリエーションの在庫数・表示フラグを更新
-    async updateAdminMenu(menuId) {
-        const remaining = parseInt(document.getElementById(`qty-${menuId}`).value, 10);
-        const isVisible = parseInt(document.getElementById(`status-${menuId}`).value, 10);
-
-        if (isNaN(remaining) || remaining < 0) return alert("正しい在庫数を入力してください");
-
-        try {
-            const res = await fetch(`/api/admin/menus/update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: menuId, remaining, is_visible: isVisible })
-            });
-            const result = await res.json();
-
-            if (res.ok && result.success) {
-                alert("バリエーション設定を保存しました");
-                this.loadAdminMenuList();
-            } else {
-                alert(result.message || "更新に失敗しました");
-            }
-        } catch (e) {
-            alert("通信エラーが発生しました");
-        }
-    },
-
-    // 4. バリエーション単位でのメニュー新規追加
+    // 2. メニューにアイテム単位で新規追加（バリエーションが同時展開されてDBに保存される）
     async addMenuFromSquare() {
         const select = document.getElementById('edit-square-item-select');
         const remainingInput = document.getElementById('edit-menu-remaining');
         const statusSelect = document.getElementById('edit-menu-status');
 
-        if (!select || select.value === "") return alert("登録するバリエーションを選択してください");
-        
-        const selectedOption = select.options[select.selectedIndex];
+        if (!select || select.value === "") return alert("登録する商品を選択してください");
+
+        const selectedIndex = select.options[select.selectedIndex].getAttribute('data-index');
+        const selectedItem = this.state.squareItemsCache[selectedIndex];
+
+        // 選択された親商品オブジェクトと、バリエーションの配列をそのまま送信
         const data = {
-            square_item_id: select.value, // これがVariation ID
-            name: selectedOption.getAttribute('data-name'), // 「商品名 - バリエーション名」
-            price: parseInt(selectedOption.getAttribute('data-price'), 10),
-            remaining: parseInt(remainingInput.value, 10) || 0,
-            is_visible: parseInt(statusSelect.value, 10)
+            square_item_id: selectedItem.square_item_id,
+            name: selectedItem.name,
+            variations: selectedItem.variations, // 子バリエーション配列
+            default_remaining: parseInt(remainingInput.value, 10) || 0,
+            default_is_visible: parseInt(statusSelect.value, 10)
         };
 
         try {
@@ -1019,10 +947,81 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("選択したバリエーションを登録しました。");
+                alert(`「${selectedItem.name}」とそのバリエーションを登録しました。`);
                 this.loadAdminMenuList();
             } else {
-                alert(result.message || "すでに登録されているバリエーションです。");
+                alert(result.message || "登録に失敗しました");
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 3. 管理画面用：バリエーション単位で在庫数・表示フラグを一覧に描画
+    async loadAdminMenuList() {
+        const tbody = document.getElementById('admin-menu-list-tbody');
+        if (!tbody) return;
+
+        try {
+            const res = await fetch('/api/admin/menus');
+            if (!res.ok) throw new Error("管理リストの取得に失敗しました");
+            const variationsList = await res.json();
+
+            if (variationsList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのメニューバリエーションはありません。</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = variationsList.map(item => `
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4">
+                        <div class="text-xs font-bold text-orange-600 uppercase tracking-wider">${item.parent_name}</div>
+                        <div class="font-bold text-gray-800 text-base mt-0.5">${item.variation_name}</div>
+                        <div class="text-xs text-gray-500 mt-1">価格: ¥${item.price.toLocaleString()}</div>
+                    </td>
+                    <td class="p-4 text-center">
+                        <input type="number" id="qty-${item.variation_db_id}" value="${item.remaining}" min="0" 
+                            class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </td>
+                    <td class="p-4 text-center">
+                        <select id="status-${item.variation_db_id}" class="border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-xs font-bold text-gray-700">
+                            <option value="1" ${item.is_visible === 1 ? 'selected' : ''}>ON (表示)</option>
+                            <option value="0" ${item.is_visible === 0 ? 'selected' : ''}>OFF (非表示)</option>
+                        </select>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="app.updateAdminMenu('${item.variation_db_id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
+                            保存
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読み込みに失敗しました。</td></tr>';
+        }
+    },
+
+    // 4. バリエーション単位での在庫数・表示フラグ（ON/OFF）更新を保存
+    async updateAdminMenu(variationDbId) {
+        const remaining = parseInt(document.getElementById(`qty-${variationDbId}`).value, 10);
+        const isVisible = parseInt(document.getElementById(`status-${variationDbId}`).value, 10);
+
+        if (isNaN(remaining) || remaining < 0) return alert("正しい在庫数を入力してください");
+
+        try {
+            const res = await fetch(`/api/admin/menus/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variation_db_id: variationDbId, remaining, is_visible: isVisible })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("バリエーション状態を更新しました");
+                this.loadAdminMenuList();
+            } else {
+                alert(result.message || "更新に失敗しました");
             }
         } catch (e) {
             alert("通信エラーが発生しました");

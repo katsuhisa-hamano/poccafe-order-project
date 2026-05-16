@@ -337,12 +337,14 @@ export async function onRequest(context) {
       }
 
       const searchDate = url.searchParams.get('date');
-      const squareItemId = url.searchParams.get('square_item_id'); // 詳細取得用
+      const squareItemId = url.searchParams.get('square_item_id'); // 詳細取得用（親商品のITEM ID）
 
-      // 【パターンA】特定のSquareアイテムの詳細（バリエーション・オプション）をリアルタイム取得
+      // =========================================================
+      // 【パターンA】特定のSquareアイテムの詳細（バリエーション・オプション）を取得
+      // =========================================================
       if (squareItemId) {
         try {
-          // Squareのカタログオブジェクト取得APIを叩く
+          // 1. Squareのカタログオブジェクト（親商品）をリアルタイム取得
           const squareRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${squareItemId}?include_related_objects=true`, {
             method: 'GET',
             headers: {
@@ -356,45 +358,49 @@ export async function onRequest(context) {
           }
 
           const squareData = await squareRes.json();
-          
-          // フロントエンドが扱いやすいようにデータを整理して返す
           const item = squareData.object.item_data;
           const related = squareData.related_objects || [];
 
+          // 2. アプリDB（menu_variations）から、この商品の全バリエーションの在庫数と表示フラグを取得
+          const { results: dbVariations } = await env.DB.prepare(`
+            SELECT square_variation_id, remaining, is_visible 
+            FROM menu_variations 
+            WHERE menu_id = (SELECT id FROM menus WHERE square_item_id = ?)
+          `).bind(squareItemId).all();
+
+          // 扱いやすいようにMap化（キー: SquareバリエーションID）
+          const dbVarMap = new Map((dbVariations || []).map(v => [v.square_variation_id, v]));
+
+          // 3. Squareのバリエーション情報に、アプリDBの「在庫数」「表示状態」をマージ
+          const variations = (item.variations || []).map(v => {
+            const dbInfo = dbVarMap.get(v.id) || { remaining: 0, is_visible: 0 }; // DBに未登録なら非表示扱い
+            const rawPrice = v.item_variation_data.price_money ? Number(v.item_variation_data.price_money.amount) : 0;
+
+            return {
+              id: v.id, // square_variation_id
+              name: v.item_variation_data.name === 'Regular' ? '通常' : v.item_variation_data.name,
+              price: rawPrice,
+              remaining: dbInfo.remaining,  // バリエーション単位の在庫
+              is_visible: dbInfo.is_visible // バリエーション単位の表示フラグ
+            };
+          }).filter(v => v.is_visible === 1); // 一般画面向けなので、非表示(0)のバリエーションは除外
+
           const result = {
-            id: squareData.object.id,
+            id: squareData.object.id, // square_item_id
             name: item.name,
             description: item.description || '',
-            // バリエーション（サイズ、価格など）の抽出
-            variations: (item.variations || []).map(v => {
-              let rawPrice = 0;
-              if (v.item_variation_data.price_money) {
-                // 文字列やBigIntの可能性を考慮して整数に変換
-                rawPrice = Number(v.item_variation_data.price_money.amount);
-                // もしSquareの設定がセント単位（100倍）になっていた場合の安全ガード
-                // （例: 500円が 50000 と返ってきた場合は100で割る）
-                if (rawPrice > 100000 && v.item_variation_data.price_money.currency === 'JPY') {
-                  // 基本的に日本円は等倍ですが、一部アカウントの仕様対策
-                  // 通常は等倍なので、まずはそのままNumber()に変換した値を使用します
-                }
-              }
-              return {
-                id: v.id,
-                name: v.item_variation_data.name,
-                price: rawPrice
-              };
-            }),
-            // オプション（トッピングなど、関連オブジェクトから抽出）
+            variations: variations, // 有効なバリエーションのみ
+            // オプション（トッピングなど）
             options: related
               .filter(obj => obj.type === "MODIFIER_LIST")
               .map(modList => ({
                 id: modList.id,
                 name: modList.modifier_list_data.name,
-                selection_type: modList.modifier_list_data.selection_type, // SINGLE または MULTIPLE
+                selection_type: modList.modifier_list_data.selection_type,
                 modifiers: (modList.modifier_list_data.modifiers || []).map(m => ({
                   id: m.id,
                   name: m.modifier_data.name,
-                  price: m.modifier_data.price_money ? m.modifier_data.price_money.amount : 0
+                  price: m.modifier_data.price_money ? Number(m.modifier_data.price_money.amount) : 0
                 }))
               }))
           };
@@ -406,49 +412,72 @@ export async function onRequest(context) {
         }
       }
 
-      // 【パターンB】メニュー一覧をすべて取得（日付関係なし）
-      const res = await env.DB.prepare("SELECT * FROM menus").all();
-      const menus = res.results || [];
+      // =========================================================
+      // 【パターンB】メニュー一覧をすべて取得
+      // =========================================================
+      try {
+        // 表示ON(1)かつ在庫が1以上あるバリエーションを最低1つ持っている親商品（menus）だけを取得
+        const { results: menus } = await env.DB.prepare(`
+          SELECT DISTINCT m.id, m.square_item_id
+          FROM menus m
+          JOIN menu_variations mv ON m.id = mv.menu_id
+          WHERE mv.is_visible = 1 AND mv.remaining > 0
+        `).all();
 
-      // 各メニューに対して、一番安い価格（最小値）をSquareからリアルタイムに計算して補完
-      const fullMenus = [];
-      for (const m of menus) {
-        try {
-          const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}`, {
-            headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
-          });
-          
-          if (sqRes.ok) {
-            const sqData = await sqRes.json();
-            const itemData = sqData.object.item_data;
+        const fullMenus = [];
+
+        // 各親商品に対して、表示可能なバリエーションの中から「最安値」をリアルタイム計算して一覧用データを補完
+        for (const m of (menus || [])) {
+          try {
+            const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}`, {
+              headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
+            });
             
-            const variations = itemData.variations || [];
-            let minPrice = Infinity;
+            if (sqRes.ok) {
+              const sqData = await sqRes.json();
+              const itemData = sqData.object.item_data;
+              const squareVariations = itemData.variations || [];
 
-            variations.forEach(v => {
-              if (v.item_variation_data && v.item_variation_data.price_money) {
-                const amt = Number(v.item_variation_data.price_money.amount);
-                if (amt < minPrice) minPrice = amt;
-              }
-            });
+              // 再度、この親商品に紐づく表示ON・在庫ありバリエーションのID一覧をDBから取得
+              const { results: activeVars } = await env.DB.prepare(`
+                SELECT square_variation_id 
+                FROM menu_variations 
+                WHERE menu_id = ? AND is_visible = 1 AND remaining > 0
+              `).bind(m.id).all();
 
-            if (minPrice === Infinity) minPrice = 0;
+              const activeVarIds = new Set((activeVars || []).map(av => av.square_variation_id));
 
-            fullMenus.push({
-              id: m.id,
-              square_item_id: m.square_item_id,
-              name: itemData.name,
-              description: itemData.description || '',
-              price: minPrice,
-              image_url: m.image_url
-            });
+              // 販売可能なバリエーションの中から「最安値」を算出
+              let minPrice = Infinity;
+              squareVariations.forEach(v => {
+                if (activeVarIds.has(v.id) && v.item_variation_data?.price_money) {
+                  const amt = Number(v.item_variation_data.price_money.amount);
+                  if (amt < minPrice) minPrice = amt;
+                }
+              });
+
+              if (minPrice === Infinity) continue; // もし有効なバリエーションの価格がなければ一覧には出さない
+
+              fullMenus.push({
+                id: m.id,
+                square_item_id: m.square_item_id,
+                name: itemData.name,
+                description: itemData.description || '',
+                price: minPrice, // 有効なバリエーションの中での最安値
+                image_url: m.image_url || '' // 既存の画像プロパティがあれば維持
+              });
+            }
+          } catch(e) {
+            // カタログ取得エラー時のセーフティ
+            // 一覧が完全に壊れるのを防ぐため、エラーの商品はスキップするか、プレースホルダーを挿入
           }
-        } catch(e) {
-          fullMenus.push({ id: m.id, square_item_id: m.square_item_id, name: "商品情報取得エラー", price: 0, image_url: m.image_url });
         }
-      }
 
-      return new Response(JSON.stringify(fullMenus), { headers: corsHeaders });
+        return new Response(JSON.stringify(fullMenus), { headers: corsHeaders });
+
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, error: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     // ---------------------------------------------------------
@@ -487,7 +516,7 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 管理者用：Square カタログの取得 (上位単位で抽出し、バリエーションを含める)
+    // A. 管理者用：Squareカタログから「親商品」を取得 (GET /api/admin/square-items)
     // ---------------------------------------------------------
     if (path === '/api/admin/square-items' && method === 'GET') {
       const squareToken = env.SQUARE_ACCESS_TOKEN;
@@ -496,47 +525,52 @@ export async function onRequest(context) {
       }
 
       try {
-        // カタログから ITEM(親商品) タイプをすべて取得
         const sqRes = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
-          headers: { 
-            'Authorization': `Bearer ${squareToken}`, 
-            'Content-Type': 'application/json' 
-          }
+          headers: { 'Authorization': `Bearer ${squareToken}`, 'Content-Type': 'application/json' }
         });
 
         if (!sqRes.ok) throw new Error(await sqRes.text());
         const data = await sqRes.json();
         
-        // 親(ITEM)の中に子(VARIATION)がぶら下がった、セレクトボックスに適したデータ構造に成形
-        const structuredItems = (data.objects || []).map(obj => {
-          const parentName = obj.item_data.name;
-          
-          const variations = (obj.item_data.variations || []).map(v => ({
-            id: v.id, // これがバリエーションの固有ID
-            name: v.item_variation_data.name === 'Regular' ? '通常' : v.item_variation_data.name,
-            price: Number(v.item_variation_data.price_money?.amount || 0)
-          }));
-
+        // フロントエンドのセレクター等で扱いやすい親子構造オブジェクトを生成
+        const items = (data.objects || []).map(obj => {
           return {
-            id: obj.id, // 親商品のID
-            name: parentName,
-            variations: variations
+            square_item_id: obj.id, // 親商品ID
+            name: obj.item_data.name,
+            variations: (obj.item_data.variations || []).map(v => ({
+              square_variation_id: v.id, // バリエーションID
+              name: v.item_variation_data.name === 'Regular' ? '通常' : v.item_variation_data.name,
+              price: Number(v.item_variation_data.price_money?.amount || 0)
+            }))
           };
-        }).filter(item => item.variations.length > 0); // バリエーションが空のものは除外
+        }).filter(item => item.variations.length > 0);
 
-        return new Response(JSON.stringify(structuredItems), { headers: corsHeaders });
+        return new Response(JSON.stringify(items), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
     }
 
     // ---------------------------------------------------------
-    // 管理者用：非表示を含むすべてのメニューを取得 (GET /api/admin/menus)
+    // B. 管理者用：親子リレーションで全メニュー＆バリエーションを取得 (GET /api/admin/menus)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus' && method === 'GET') {
       try {
-        // 一般用の「WHERE is_visible = 1」を外し、すべてを取得する
-        const { results } = await env.DB.prepare("SELECT * FROM menus ORDER BY id DESC").all();
+        // 親のメニュー名と、バリエーションの在庫・表示フラグを結合して全件取得
+        const { results } = await env.DB.prepare(`
+          SELECT 
+            mv.id AS variation_db_id,
+            m.name AS parent_name,
+            mv.name AS variation_name,
+            mv.price,
+            mv.remaining,
+            mv.is_visible,
+            mv.square_variation_id
+          FROM menu_variations mv
+          JOIN menus m ON mv.menu_id = m.id
+          ORDER BY m.id DESC, mv.id ASC
+        `).all();
+
         return new Response(JSON.stringify(results || []), { headers: corsHeaders });
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
@@ -544,35 +578,47 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 管理者用：メニューの新規登録 (POST /api/admin/menus/add)
+    // C. 管理者用：メニューおよび全バリエーションの登録 (POST /api/admin/menus/add)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus/add' && method === 'POST') {
-      const { square_item_id, name, price, remaining, is_visible } = await request.json();
-      
+      const { square_item_id, name, variations, default_remaining, default_is_visible } = await request.json();
+
       try {
+        // 1. 親商品を INSERT OR IGNORE (既に親が登録されていればそれを活用)
         await env.DB.prepare(`
-          INSERT INTO menus (square_item_id, name, price, remaining, is_visible)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(square_item_id, name, price, remaining, is_visible).run();
+          INSERT OR IGNORE INTO menus (square_item_id, name) VALUES (?, ?)
+        `).bind(square_item_id, name).run();
+
+        // 登録された、または既存の親メニューのIDを引く
+        const parentMenu = await env.DB.prepare(`SELECT id FROM menus WHERE square_item_id = ?`).bind(square_item_id).first();
+        const menuId = parentMenu.id;
+
+        // 2. 選択された親商品が持つ全バリエーションを登録
+        for (const v of variations) {
+          await env.DB.prepare(`
+            INSERT OR IGNORE INTO menu_variations (menu_id, square_variation_id, name, price, remaining, is_visible)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(menuId, v.square_variation_id, v.name, v.price, default_remaining, default_is_visible).run();
+        }
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {
-        return new Response(JSON.stringify({ success: false, message: "この商品は既に登録されているか、DBエラーが発生しました。" }), { status: 400, headers: corsHeaders });
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
       }
     }
 
     // ---------------------------------------------------------
-    // 管理者用：メニューの更新（在庫数・表示フラグ） (POST /api/admin/menus/update)
+    // D. 管理者用：バリエーション単位での在庫数・表示フラグ更新 (POST /api/admin/menus/update)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus/update' && method === 'POST') {
-      const { id, remaining, is_visible } = await request.json();
+      const { variation_db_id, remaining, is_visible } = await request.json();
 
       try {
         await env.DB.prepare(`
-          UPDATE menus 
+          UPDATE menu_variations 
           SET remaining = ?, is_visible = ? 
           WHERE id = ?
-        `).bind(remaining, is_visible, id).run();
+        `).bind(remaining, is_visible, variation_db_id).run();
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {
