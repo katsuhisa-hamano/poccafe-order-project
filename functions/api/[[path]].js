@@ -451,6 +451,41 @@ export async function onRequest(context) {
       return new Response(JSON.stringify(fullMenus), { headers: corsHeaders });
     }
 
+    // ---------------------------------------------------------
+    // 7. 管理者用：顧客リスト取得 (GET /api/admin/customers)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/customers' && method === 'GET') {
+      if (!env.DB) {
+        return new Response(JSON.stringify({ success: false, message: "データベースのバインドが見つかりません。" }), { status: 500, headers: corsHeaders });
+      }
+
+      try {
+        // usersテーブルから、代理注文の選択肢として必要な情報を取得
+        // ※ フロントが求めるキー名 (square_customer_id, name, email) にカラム名を合わせています
+        // ※ 本登録完了しているアクティブなユーザーのみを名前順（昇順）で取得します
+        const { results } = await env.DB.prepare(`
+          SELECT 
+            square_customer_id, 
+            name, 
+            email 
+          FROM users 
+          WHERE status = 'active'
+          ORDER BY name ASC
+        `).all();
+
+        // 取得した配列データをそのままフロントに返却
+        return new Response(JSON.stringify(results || []), { 
+          headers: corsHeaders 
+        });
+
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: `D1からの顧客リスト取得に失敗しました: ${dbErr.message}` 
+        }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
