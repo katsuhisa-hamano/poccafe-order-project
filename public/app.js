@@ -661,36 +661,36 @@ const app = {
             return;
         }
 
+        // 1行に1つのアイテムとして縦に並べるための親コンテナ設定
+        container.className = "flex flex-col gap-3 pb-28 w-full";
+
         container.innerHTML = this.state.menus.map(item => {
             const escapedName = item.name.replace(/'/g, "\\'");
             
             return `
-                <!-- 1行に1つのメニューカード -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex items-center justify-between gap-4">
+                <!-- 以前正常に動いていた「menu-card」クラスを維持しつつ、横長(flex-row)に変更 -->
+                <div class="menu-card bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-row items-center justify-between gap-4 w-full" data-id="${item.square_item_id}">
                     
-                    <!-- 画像と情報の塊（ここをタップするとサブ画面が開く） -->
-                    <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
-                        
-                        <!-- 左側：商品画像 -->
-                        <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-100">
-                            ${item.image_url ? `
-                                <img src="${item.image_url}" class="w-full h-full object-cover" alt="${item.name}">
-                            ` : `
-                                <span class="text-2xl">☕</span>
-                            `}
-                        </div>
-                        
-                        <!-- 中央：商品名・説明・価格 -->
-                        <div class="flex-1 min-w-0">
-                            <h3 class="font-black text-gray-800 text-sm truncate">${item.name}</h3>
-                            <p class="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-tight">${item.description || '美味しいカフェメニューです。'}</p>
-                            <p class="text-orange-500 font-black text-xs mt-1">¥${item.price.toLocaleString()}〜</p>
-                        </div>
+                    <!-- 左側：画像エリア（構造を変える前と同じイベントの当て方に修正） -->
+                    <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-50 cursor-pointer" 
+                        onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
+                        ${item.image_url ? `
+                            <img src="${item.image_url}" class="w-full h-full object-cover" alt="${item.name}">
+                        ` : `
+                            <span class="text-2xl">☕</span>
+                        `}
                     </div>
                     
-                    <!-- 右側：選択ボタン（念のためここをタップしてもサブ画面が開く） -->
+                    <!-- 中央：商品情報（タップでサブ画面へ） -->
+                    <div class="flex-1 min-w-0 cursor-pointer" onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
+                        <h3 class="font-black text-gray-800 text-sm truncate">${item.name}</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-tight">${item.description || '美味しいカフェメニューです。'}</p>
+                        <p class="text-orange-500 font-black text-xs mt-1">¥${item.price.toLocaleString()}〜</p>
+                    </div>
+                    
+                    <!-- 右側：選択ボタン -->
                     <div class="flex-shrink-0">
-                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all">
+                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm">
                             選択
                         </button>
                     </div>
