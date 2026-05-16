@@ -60,7 +60,13 @@
         </section>
 
         <section id="view-home" class="view p-4 hidden animate-in">
+            <div id="go-to-admin-btn" class="hidden p-4 bg-yellow-50 border-b border-yellow-200 text-center">
+                <button onclick="router.go('admin')" class="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-yellow-700 transition">
+                    ⚙️ 管理者画面へ移行する
+                </button>
+            </div>
             <div class="mb-6">
+                <div id="admin-customer-selector-wrapper" class="hidden"></div>
                 <label class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">受取希望日</label>
                 <div class="relative">
                     <input type="date" id="order-date" class="w-full bg-white border-0 shadow-sm p-4 rounded-2xl text-lg font-bold focus:ring-2 focus:ring-orange-500" onchange="app.loadMenus()">
@@ -70,8 +76,14 @@
         </section>
 
         <section id="view-admin" class="view p-4 hidden animate-in">
-            <h2 class="text-xl font-bold mb-4">店舗管理</h2>
+            <!-- ここにJavaScriptから管理画面の中身が注入されます -->
         </section>
+
+        <!-- メニュー編集用のセクションも下に並べて追加しておいてください -->
+        <section id="view-menu-edit" class="view p-4 hidden animate-in">
+            <!-- メニュー登録・編集画面の中身（前述の menuEditView.render() の内容） -->
+        </section>
+        
     </main>
 
     <div id="cart-bar" class="hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg p-4 pb-8 z-50 border-t border-gray-100">
