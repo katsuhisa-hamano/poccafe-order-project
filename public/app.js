@@ -80,44 +80,37 @@ const router = {
 
         // --- 画面ごとのUI表示制御 ---
         if (view === 'login') {
-            // ログイン画面：ヘッダーもカートも出さない
             if (header) header.classList.add('hidden');
             if (cartBar) cartBar.classList.add('hidden');
         } else if (view === 'admin' || view === 'menu-edit') {
-            // 管理者系画面：ヘッダーは出すが、カートは出さない
             if (header) header.classList.remove('hidden');
             if (cartBar) cartBar.classList.add('hidden');
         } else if (view === 'home') {
-            // 一般ホーム画面：両方出す
             if (header) header.classList.remove('hidden');
             if (cartBar && Object.keys(app.state.cart).length > 0) {
                 cartBar.classList.remove('hidden');
             }
+            // ★【追加】一般ホーム画面に戻った際、管理者ならセレクターを生成/描画する
+            app.renderAdminCustomerSelector();
         }
 
         // --- 画面遷移時のデータロード ＆ 画面生成処理 ---
         switch (view) {
             case 'admin':
-                // ★ 1. view-admin 要素を取得して、中身を adminView のデザインに書き換える
                 const adminTarget = document.getElementById('view-admin');
                 if (adminTarget && typeof adminView !== 'undefined') {
                     adminTarget.innerHTML = adminView.render();
                 }
-                
-                // 2. 既存の注文データなどの読み込み
                 if (typeof app.loadAdminOrders === 'function') {
                     app.loadAdminOrders(); 
                 }
                 break;
 
             case 'menu-edit':
-                // ★ 1. view-menu-edit 要素を取得して、中身を menuEditView のデザインに書き換える
                 const editTarget = document.getElementById('view-menu-edit');
                 if (editTarget && typeof menuEditView !== 'undefined') {
                     editTarget.innerHTML = menuEditView.render();
                 }
-
-                // 2. Square商品と現在のメニューリストを読み込み
                 setTimeout(() => {
                     if (typeof app.loadSquareItems === 'function') app.loadSquareItems();
                     if (typeof app.loadAdminMenuList === 'function') app.loadAdminMenuList();
@@ -141,10 +134,11 @@ const app = {
         menus: [], 
         cart: {}, 
         user: { id: null, name: null, isAdmin: false },
+        adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null
     },
 
-    // ログイン処理（管理者用の特別ルート付き）
+    // ログイン処理
     async login() {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
@@ -159,16 +153,15 @@ const app = {
                 const user = result.user;
                 this.state.user.id = user.square_customer_id;
                 this.state.user.name = user.name;
-                this.state.user.isAdmin = user.is_admin === 1; // ★ 管理者フラグを状態に保持
+                this.state.user.isAdmin = user.is_admin === 1; 
                 
                 localStorage.setItem('cafe_user_id', user.square_customer_id);
                 localStorage.setItem('cafe_user_name', user.name);
-                localStorage.setItem('cafe_user_is_admin', user.is_admin); // ローカルストレージにも保存
+                localStorage.setItem('cafe_user_is_admin', user.is_admin); 
 
                 const display = document.getElementById('userDisplay');
                 if (display) display.innerText = `ログイン中: ${user.name}様`;
                 
-                // ★ 管理者ボタンの表示切り替え
                 const adminBtn = document.getElementById('go-to-admin-btn');
                 if (adminBtn) {
                     if (this.state.user.isAdmin) {
@@ -183,7 +176,12 @@ const app = {
                     dateInput.valueAsDate = new Date();
                 }
 
-                router.go('home'); // 全員一律で初期画面（ホーム）へ
+                // ★【追加】管理者ログイン時、あらかじめ顧客リストをバックグラウンドで取得しておく
+                if (this.state.user.isAdmin) {
+                    await this.loadAdminCustomers();
+                }
+
+                router.go('home'); 
             } else {
                 alert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
             }
@@ -197,6 +195,7 @@ const app = {
         if (!confirm("ログアウトしますか？")) return;
         localStorage.clear();
         this.state.user = { id: null, name: null, isAdmin: false };
+        this.state.adminCustomers = []; // クリア
         this.state.cart = {};
         this.updateCartBar();
         router.go('login');
@@ -310,7 +309,7 @@ const app = {
     },
 
     // 起動時の認証チェック
-    init() {
+    async init() {
         console.log("=== app.js が正常に起動しました ===");
         
         let token = null;
@@ -334,7 +333,6 @@ const app = {
             return; 
         }
 
-        // ローカルストレージからユーザー情報と管理者フラグを取得
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
         const savedIsAdmin = localStorage.getItem('cafe_user_is_admin'); 
@@ -344,33 +342,86 @@ const app = {
         }
 
         if (savedId && savedName) {
-            // アプリの状態（state）を復元
             this.state.user.id = savedId;
             this.state.user.name = savedName;
             this.state.user.isAdmin = savedIsAdmin === '1'; 
 
-            // ログイン中の文字を表示
             const display = document.getElementById('userDisplay');
             if (display) display.innerText = `ログイン中: ${savedName}様`;
 
-            // ★【追加】管理者ボタンの表示切り替え制御
             const adminBtn = document.getElementById('go-to-admin-btn');
             if (adminBtn) {
                 if (this.state.user.isAdmin) {
-                    adminBtn.classList.remove('hidden'); // 管理者なら表示
+                    adminBtn.classList.remove('hidden'); 
                 } else {
-                    adminBtn.classList.add('hidden');    // 一般ユーザーなら隠す
+                    adminBtn.classList.add('hidden');    
                 }
+            }
+
+            // ★【追加】リロード（再起動）時も管理者なら自動で顧客リストを取得
+            if (this.state.user.isAdmin) {
+                await this.loadAdminCustomers();
             }
 
             router.go('home');
         } else {
-            // 未ログイン時は管理者ボタンを確実に隠す
             const adminBtn = document.getElementById('go-to-admin-btn');
             if (adminBtn) adminBtn.classList.add('hidden');
 
             router.go('login');
         }
+    },
+
+    // ★【追加】管理者用：APIから顧客（注文者）リストを取得する関数
+    async loadAdminCustomers() {
+        try {
+            // ※ backendに用意された顧客一覧取得APIエンドポイントを想定
+            const res = await fetch('/api/admin/customers'); 
+            if (!res.ok) throw new Error("顧客リストの取得に失敗しました");
+            const data = await res.json();
+            this.state.adminCustomers = Array.isArray(data) ? data : (data.customers || []);
+        } catch (e) {
+            console.error("顧客リストロードエラー:", e);
+            this.state.adminCustomers = [];
+        }
+    },
+
+    // ★【追加】管理者用：日付選択の上部に顧客一覧セレクターを動的に挿入・構築する関数
+    renderAdminCustomerSelector() {
+        // 配置用のラッパー（HTML側にあらかじめ <div id="admin-customer-selector-wrapper"></div> を設置してください）
+        const wrapper = document.getElementById('admin-customer-selector-wrapper');
+        if (!wrapper) return;
+
+        // 管理者でなければ、中身を空にして非表示にする
+        if (!this.state.user.isAdmin) {
+            wrapper.innerHTML = '';
+            wrapper.classList.add('hidden');
+            return;
+        }
+
+        wrapper.classList.remove('hidden');
+        
+        // すでにカートに商品がある場合は変更不可にするための属性制御
+        const isCartActive = Object.keys(this.state.cart).length > 0;
+        const disabledAttr = isCartActive ? 'disabled' : '';
+
+        wrapper.innerHTML = `
+            <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <label for="admin-customer-select" class="block text-amber-900 font-bold text-sm mb-1.5 flex items-center">
+                    <span class="bg-amber-600 text-white text-xs px-2 py-0.5 rounded font-black mr-2">管理者権限</span>
+                    代理注文：対象の顧客（注文者）を選択してください
+                </label>
+                <select id="admin-customer-select" ${disabledAttr} class="w-full bg-white border border-amber-300 h-11 px-3 rounded-md text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition">
+                    <option value="${this.state.user.id}">【本人として注文】 ${this.state.user.name}様</option>
+                    ${this.state.adminCustomers.map(cust => {
+                        // 本人以外を表示
+                        if (cust.square_customer_id === this.state.user.id) return '';
+                        return `<option value="${cust.square_customer_id}">${cust.name}様 (${cust.email || 'メールなし'})</option>`;
+                    }).join('')}
+                </select>
+                ${isCartActive ? `<p class="text-xs text-red-600 mt-1 font-bold">※カートに商品が入っているため、注文者を変更できません。</p>` : ''}
+            </div>
+        `;
     },
 
     // モーダル表示切り替え
@@ -399,7 +450,6 @@ const app = {
         }
     },
 
-    // 管理者画面用のダミー・拡張スタブ（エラー回避用）
     loadAdminOrders() {
         const listContainer = document.getElementById('admin-orders-list');
         if (listContainer) {
@@ -454,9 +504,10 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日も変更できるようになります）")) {
+                    if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
                         app.state.cart = {}; 
                         app.updateCartBar(); 
+                        app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
                         alert("カートを空にしました。");
                     }
                 };
@@ -679,6 +730,7 @@ const app = {
         }
     },
 
+    // カートへの最終追加処理
     confirmAddToCart(itemId, itemName) {
         const dateElement = document.getElementById('order-date');
         const orderDate = dateElement ? dateElement.value : '';
@@ -686,6 +738,18 @@ const app = {
         if (!orderDate) {
             alert("受取日を選択してください。");
             return;
+        }
+
+        // ★【追加】管理者モード時の注文主（顧客のID）を判別する
+        let targetCustomerId = this.state.user.id; // デフォルトは自分
+        let targetCustomerName = this.state.user.name;
+
+        if (this.state.user.isAdmin) {
+            const selectEl = document.getElementById('admin-customer-select');
+            if (selectEl) {
+                targetCustomerId = selectEl.value;
+                targetCustomerName = selectEl.options[selectEl.selectedIndex].text.replace('様', '').trim();
+            }
         }
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
@@ -706,11 +770,14 @@ const app = {
             selectedModifiers.push({ id: input.value, name: modName });
         });
 
-        const cartKey = `${orderDate}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
+        // カートのキー（注文主ごとに別のカートアイテムとして保持できるよう顧客IDも結合）
+        const cartKey = `${orderDate}_${targetCustomerId}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
                 orderDate, 
+                customerId: targetCustomerId,     // ★ カートの要素に注文対象の顧客IDを持たせる
+                customerName: targetCustomerName, // 表示用ネーム
                 itemId,
                 itemName,
                 variationId,
@@ -723,10 +790,11 @@ const app = {
         
         this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取】\n${itemName} (${variationName}) をカートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
+        this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
     },
 };
 
@@ -738,7 +806,6 @@ app.init();
 // =========================================================
 // 4. 特殊ブラウザイベント制御 (IIFE)
 // =========================================================
-// ブラウザの「戻る」ボタンを完全に無効化（ブロック）する処理
 (function() {
     window.history.pushState(null, null, window.location.href);
     window.addEventListener('popstate', function(e) {
@@ -747,7 +814,7 @@ app.init();
     });
 })();
 
-// 日付操作の監視（カートに中身がある時は変更を絶対に許さない）
+// 日付操作・顧客セレクターの変更を監視する処理
 (function() {
     let lastCheckedDate = '';
 
@@ -759,12 +826,13 @@ app.init();
     });
 
     document.addEventListener('change', (e) => {
+        // 1. 日付変更の監視
         if (e.target && e.target.id === 'order-date') {
             const dateInput = e.target;
             const cartCount = Object.keys(app.state.cart).length;
 
             if (cartCount > 0) {
-                alert("すでにカートに商品が入っているため、受取日を変更できません。\n日付を変更する場合は、一度ログアウトするかカートを空にしてください。");
+                alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                 dateInput.value = lastCheckedDate;
                 return;
             }
