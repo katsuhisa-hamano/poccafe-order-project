@@ -657,36 +657,47 @@ const app = {
         if (!container) return;
 
         if (this.state.menus.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
+            container.innerHTML = '<p class="text-center text-gray-400 py-8 text-xs font-bold">本日の提供メニューはありません。</p>';
             return;
         }
 
-        container.innerHTML = this.state.menus.map(item => `
-            <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
-                ${item.image_url ? `
-                    <div onclick="app.openOptionModal('${item.square_item_id}')" 
-                         role="button"
-                         tabindex="0"
-                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
-                         style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
-                        <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
+        container.innerHTML = this.state.menus.map(item => {
+            // シングルクォーテーションのエスケープ処理
+            const escapedName = item.name.replace(/'/g, "\\'");
+            
+            return `
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors">
+                    
+                    <!-- 左側：画像と商品情報（タップでサブ画面へ） -->
+                    <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
+                        
+                        <!-- 商品画像エリア（タップ領域） -->
+                        <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-50 select-none">
+                            ${item.image_url ? `
+                                <img src="${item.image_url}" class="w-full h-full object-cover" alt="${item.name}">
+                            ` : `
+                                <span class="text-2xl">☕</span>
+                            `}
+                        </div>
+                        
+                        <!-- 商品テキスト情報 -->
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-black text-gray-800 text-sm truncate">${item.name}</h3>
+                            <p class="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-tight">${item.description || '美味しいカフェメニューです。'}</p>
+                            <p class="text-orange-500 font-black text-xs mt-1.5">¥${item.price.toLocaleString()}〜</p>
+                        </div>
                     </div>
-                ` : ''}
-                
-                <div class="p-4 flex flex-col flex-grow justify-between">
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
-                        <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description || ''}</p>
-                    </div>
-                    <div class="mt-4 flex justify-between items-center">
-                        <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
-                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
-                            選択する
+                    
+                    <!-- 右側：選択ボタン -->
+                    <div class="flex-shrink-0">
+                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm">
+                            選択
                         </button>
                     </div>
+                    
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     },
 
     confirmOrder() {
