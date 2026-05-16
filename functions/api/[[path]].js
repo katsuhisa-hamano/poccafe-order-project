@@ -486,6 +486,92 @@ export async function onRequest(context) {
       }
     }
 
+    // ---------------------------------------------------------
+    // 管理者用：Squareのカタログ商品一覧を取得 (GET /api/admin/square-items)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/square-items' && method === 'GET') {
+      const squareToken = env.SQUARE_ACCESS_TOKEN;
+      if (!squareToken) {
+        return new Response(JSON.stringify([]), { headers: corsHeaders });
+      }
+
+      try {
+        // Square Catalog API から ITEM タイプのオブジェクトを取得
+        const sqRes = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
+          headers: { 'Authorization': `Bearer ${squareToken}`, 'Content-Type': 'application/json' }
+        });
+
+        if (!sqRes.ok) throw new Error(await sqRes.text());
+        const data = await sqRes.json();
+        
+        // アプリ側で扱いやすいシンプルな配列形式に整形して返却
+        const items = (data.objects || []).flatMap(obj => {
+          const name = obj.item_data.name;
+          return (obj.item_data.variations || []).map(v => ({
+            id: v.id, // SquareのバリエーションIDを商品キーとする
+            name: v.item_variation_data.name && v.item_variation_data.name !== 'Regular' 
+              ? `${name} (${v.item_variation_data.name})` 
+              : name,
+            price: Number(v.item_variation_data.price_money?.amount || 0)
+          }));
+        });
+
+        return new Response(JSON.stringify(items), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：非表示を含むすべてのメニューを取得 (GET /api/admin/menus)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/menus' && method === 'GET') {
+      try {
+        // 一般用の「WHERE is_visible = 1」を外し、すべてを取得する
+        const { results } = await env.DB.prepare("SELECT * FROM menus ORDER BY id DESC").all();
+        return new Response(JSON.stringify(results || []), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：メニューの新規登録 (POST /api/admin/menus/add)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/menus/add' && method === 'POST') {
+      const { square_item_id, name, price, remaining, is_visible } = await request.json();
+      
+      try {
+        await env.DB.prepare(`
+          INSERT INTO menus (square_item_id, name, price, remaining, is_visible)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(square_item_id, name, price, remaining, is_visible).run();
+
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: "この商品は既に登録されているか、DBエラーが発生しました。" }), { status: 400, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：メニューの更新（在庫数・表示フラグ） (POST /api/admin/menus/update)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/menus/update' && method === 'POST') {
+      const { id, remaining, is_visible } = await request.json();
+
+      try {
+        await env.DB.prepare(`
+          UPDATE menus 
+          SET remaining = ?, is_visible = ? 
+          WHERE id = ?
+        `).bind(remaining, is_visible, id).run();
+
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 

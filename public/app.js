@@ -60,6 +60,91 @@ const adminView = {
 };
 
 // =========================================================
+// 管理者：メニュー編集画面テンプレート定義 (menuEditView)
+// =========================================================
+const menuEditView = {
+    render: () => {
+        return `
+            <div class="max-w-6xl mx-auto px-4 py-8">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">メニュー管理・編集</h1>
+                        <p class="text-sm text-gray-500 mt-1">表示フラグの切り替えや、Squareカタログからの新規メニュー登録が行えます。</p>
+                    </div>
+                    <div class="mt-4 md:mt-0">
+                        <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
+                            ダッシュボードへ戻る
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-fit">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></span>
+                            新規メニュー登録
+                        </h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Square登録メニュー商品</label>
+                                <select id="edit-square-item-select" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <option value="">Squareの商品をロード中...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">初期残り個数（在庫）</label>
+                                <input type="number" id="edit-menu-remaining" value="30" min="0" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">初期表示フラグ</label>
+                                <select id="edit-menu-status" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <option value="1">ON (表示)</option>
+                                    <option value="0">OFF (非表示)</option>
+                                </select>
+                            </div>
+                            <button onclick="app.addMenuFromSquare()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 transition text-sm shadow-sm mt-2">
+                                メニューに登録する
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <h2 class="font-bold text-gray-800 flex items-center">
+                                <span class="w-2.5 h-2.5 bg-orange-500 rounded-full mr-2"></span>
+                                現在の登録メニュー一覧
+                            </h2>
+                            <button onclick="app.loadAdminMenuList()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 transition">
+                                リフレッシュ
+                            </button>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50/50 text-gray-400 font-bold border-b border-gray-100">
+                                        <th class="p-4">メニュー名 / 価格</th>
+                                        <th class="p-4 text-center">在庫数</th>
+                                        <th class="p-4 text-center">表示フラグ</th>
+                                        <th class="p-4 text-center">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-menu-list-tbody" class="divide-y divide-gray-100">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-gray-400 py-12">メニューデータを読み込んでいます...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
 const router = {
@@ -795,6 +880,148 @@ const app = {
         
         this.updateCartBar();
         this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
+    },
+
+    // =========================================================
+    // appオブジェクト内に以下4つの関数を追加または上書きしてください
+    // =========================================================
+
+    // 1. 新規登録用に、Squareのカタログ商品一覧を取得してセレクターに反映
+    async loadSquareItems() {
+        const select = document.getElementById('edit-square-item-select');
+        if (!select) return;
+
+        try {
+            const res = await fetch('/api/admin/square-items');
+            if (!res.ok) throw new Error("Squareアイテムの取得に失敗しました");
+            const items = await res.json();
+
+            if (items.length === 0) {
+                select.innerHTML = '<option value="">登録可能なSquare商品がありません</option>';
+                return;
+            }
+
+            select.innerHTML = items.map(item => `
+                <option value="${item.id}" data-name="${item.name}" data-price="${item.price}">
+                    ${item.name} (¥${item.price.toLocaleString()})
+                </option>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+            select.innerHTML = '<option value="">商品の取得に失敗しました</option>';
+        }
+    },
+
+    // 2. 管理者用メニュー一覧を読み込んでテーブルに描画
+    async loadAdminMenuList() {
+        const tbody = document.getElementById('admin-menu-list-tbody');
+        if (!tbody) return;
+
+        try {
+            // 表示オフ（一時非表示）の項目も含めてすべて取得する専用API
+            const res = await fetch('/api/admin/menus');
+            if (!res.ok) throw new Error("メニュー管理リストの取得に失敗しました");
+            const menus = await res.json();
+
+            if (menus.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのメニューはありません。</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = menus.map(menu => {
+                const isChecked = menu.status === 1 || menu.status === 'active' || menu.is_visible === 1; // 運用スキーマに合わせて調整
+                const currentStatus = (menu.is_visible !== undefined ? menu.is_visible : menu.status);
+                
+                return `
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-4">
+                            <div class="font-bold text-gray-800">${menu.name}</div>
+                            <div class="text-xs text-gray-400 mt-0.5">ID: ${menu.square_item_id || menu.id}</div>
+                        </td>
+                        <td class="p-4 text-center">
+                            <input type="number" id="qty-${menu.id}" value="${menu.remaining}" min="0" 
+                                class="w-16 border border-gray-200 rounded px-2 py-1 text-center font-medium bg-gray-50">
+                        </td>
+                        <td class="p-4 text-center">
+                            <select id="status-${menu.id}" class="border border-gray-200 rounded px-2 py-1 bg-white text-sm font-medium">
+                                <option value="1" ${currentStatus == 1 ? 'selected' : ''}>ON (表示)</option>
+                                <option value="0" ${currentStatus == 0 ? 'selected' : ''}>OFF (非表示)</option>
+                            </select>
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="app.updateAdminMenu('${menu.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded transition shadow-sm">
+                                保存
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読み込みに失敗しました。</td></tr>';
+        }
+    },
+
+    // 3. メニューの在庫数および表示フラグ（ON/OFF）の変更を保存
+    async updateAdminMenu(menuId) {
+        const remaining = parseInt(document.getElementById(`qty-${menuId}`).value, 10);
+        const isVisible = parseInt(document.getElementById(`status-${menuId}`).value, 10);
+
+        if (isNaN(remaining) || remaining < 0) return alert("有効な在庫数を入力してください");
+
+        try {
+            const res = await fetch(`/api/admin/menus/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: menuId, remaining, is_visible: isVisible })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("メニュー設定を更新しました");
+                this.loadAdminMenuList();
+            } else {
+                alert(result.message || "更新に失敗しました");
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 4. セレクターから選んだSquareの商品をアプリメニューへ新規追加
+    async addMenuFromSquare() {
+        const select = document.getElementById('edit-square-item-select');
+        const remainingInput = document.getElementById('edit-menu-remaining');
+        const statusSelect = document.getElementById('edit-menu-status');
+
+        if (!select || select.value === "") return alert("登録するSquareの商品を選択してください");
+        
+        const selectedOption = select.options[select.selectedIndex];
+        const data = {
+            square_item_id: select.value,
+            name: selectedOption.getAttribute('data-name'),
+            price: parseInt(selectedOption.getAttribute('data-price'), 10),
+            remaining: parseInt(remainingInput.value, 10) || 0,
+            is_visible: parseInt(statusSelect.value, 10)
+        };
+
+        try {
+            const res = await fetch('/api/admin/menus/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("新しいメニューを登録しました！");
+                this.loadAdminMenuList();
+            } else {
+                alert(result.message || "登録に失敗しました（既に登録済みの可能性があります）");
+            }
+        } catch (e) {
+            alert("登録通信エラーが発生しました");
+        }
     },
 };
 
