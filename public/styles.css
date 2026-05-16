@@ -49,12 +49,28 @@ input[type="date"], input[type="month"], input[type="number"] {
 }
 
 /* メニューカードのインタラクション */
+/* メニューカード全体のタップアニメーション（ボタン化に伴う調整） */
 .menu-card {
-  transition: transform 0.1s ease, border-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
 }
 
-.menu-card:active {
-  transform: scale(0.98);
+/* 画像がコンテナ内にきれいに収まるように設定 */
+.menu-card img {
+  transition: transform 0.3s ease;
+}
+
+.menu-card:hover img {
+  transform: scale(1.03); /* ホバー時に画像を少しズーム */
+}
+
+/* 2行以上の説明文を三点リーダーで綺麗に省略（Tailwindのline-clamp用セーフティ） */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
 }
 
 /* ボトムカートバーの装飾 */

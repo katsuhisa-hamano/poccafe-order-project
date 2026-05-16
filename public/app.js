@@ -518,20 +518,52 @@ const app = {
 
     // 注文ロジック：メニューの読み込み
     async loadMenus() {
-        const container = document.getElementById('menu-list');
-        if (container) container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューを読み込み中...</p>';
+        const container = document.getElementById('user-menu-container');
+        if (!container) return;
 
         try {
             const res = await fetch('/api/menus');
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
-            
-            const data = await res.json();
-            this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
-            
-            this.renderMenus(); 
+            const menus = await res.json();
+
+            if (menus.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-8">現在ご注文可能なメニューはありません。</p>`;
+                return;
+            }
+
+            // グリッドレイアウトで画像付きの「注文ボタン（カード）」を並べる
+            container.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    ${menus.map(item => `
+                        <button onclick="app.openMenuDetail('${item.square_item_id}')" 
+                            class="menu-card flex flex-col text-left bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md active:scale-[0.98] transition focus:outline-none">
+                            
+                            <div class="w-full aspect-square bg-gray-100 relative overflow-hidden">
+                                <img src="${item.image_url}" alt="${item.name}" class="w-full h-full object-cover">
+                                
+                                <span class="absolute bottom-2 right-2 bg-gray-900/80 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                                    ¥${item.price.toLocaleString()}〜
+                                </span>
+                            </div>
+
+                            <div class="p-3.5 flex flex-col flex-1 justify-between">
+                                <div>
+                                    <h3 class="font-black text-gray-800 text-sm leading-tight line-clamp-1">${item.name}</h3>
+                                    <p class="text-[11px] text-gray-400 mt-1 line-clamp-2 h-8">${item.description}</p>
+                                </div>
+                                
+                                <div class="mt-2 w-full bg-orange-50 text-orange-600 text-center py-1.5 rounded-xl font-bold text-xs group-hover:bg-orange-500 group-hover:text-white transition">
+                                    注文に進む
+                                </div>
+                            </div>
+
+                        </button>
+                    `).join('')}
+                </div>
+            `;
         } catch (e) {
-            console.error("メニューロードエラー:", e);
-            if (container) container.innerHTML = '<p class="text-center text-red-500 py-8">メニューの読み込みに失敗しました。</p>';
+            console.error(e);
+            container.innerHTML = `<p class="text-center text-red-500 py-8">メニューの読み込み中にエラーが発生しました。</p>`;
         }
     },
 

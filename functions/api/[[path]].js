@@ -426,10 +426,10 @@ export async function onRequest(context) {
 
         const fullMenus = [];
 
-        // 各親商品に対して、表示可能なバリエーションの中から「最安値」をリアルタイム計算して一覧用データを補完
         for (const m of (menus || [])) {
           try {
-            const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}`, {
+            // 画像情報を関連オブジェクト（include_related_objects=true）として一緒に取得する
+            const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}?include_related_objects=true`, {
               headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
             });
             
@@ -437,8 +437,21 @@ export async function onRequest(context) {
               const sqData = await sqRes.json();
               const itemData = sqData.object.item_data;
               const squareVariations = itemData.variations || [];
+              const relatedObjects = sqData.related_objects || [];
 
-              // 再度、この親商品に紐づく表示ON・在庫ありバリエーションのID一覧をDBから取得
+              // --- [追加分] Squareの商品画像URLを取得するロジック ---
+              let imageUrl = '';
+              if (itemData.image_ids && itemData.image_ids.length > 0) {
+                const firstImageId = itemData.image_ids[0];
+                // 関連オブジェクトの中から該当するIMAGEタイプを探索
+                const imgObj = relatedObjects.find(obj => obj.type === 'IMAGE' && obj.id === firstImageId);
+                if (imgObj && imgObj.image_data) {
+                  imageUrl = imgObj.image_data.url; // Squareにホストされている画像URL
+                }
+              }
+              // -----------------------------------------------------
+
+              // この親商品に紐づく、表示ON・在庫ありバリエーションのID一覧をDBから取得
               const { results: activeVars } = await env.DB.prepare(`
                 SELECT square_variation_id 
                 FROM menu_variations 
@@ -456,20 +469,19 @@ export async function onRequest(context) {
                 }
               });
 
-              if (minPrice === Infinity) continue; // もし有効なバリエーションの価格がなければ一覧には出さない
+              if (minPrice === Infinity) continue; // 有効なバリエーションがなければスキップ
 
               fullMenus.push({
                 id: m.id,
                 square_item_id: m.square_item_id,
                 name: itemData.name,
                 description: itemData.description || '',
-                price: minPrice, // 有効なバリエーションの中での最安値
-                image_url: m.image_url || '' // 既存の画像プロパティがあれば維持
+                price: minPrice, 
+                image_url: imageUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80' // 画像がない場合のプレースホルダー
               });
             }
           } catch(e) {
-            // カタログ取得エラー時のセーフティ
-            // 一覧が完全に壊れるのを防ぐため、エラーの商品はスキップするか、プレースホルダーを挿入
+            console.error(e);
           }
         }
 
