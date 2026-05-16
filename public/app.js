@@ -518,7 +518,7 @@ const app = {
 
     // 注文ロジック：メニューの読み込み
     async loadMenus() {
-        const container = document.getElementById('user-menu-container');
+        const container = document.getElementById('menu-list');
         if (!container) return;
 
         try {
