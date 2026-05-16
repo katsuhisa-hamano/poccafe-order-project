@@ -48,21 +48,39 @@ input[type="date"], input[type="month"], input[type="number"] {
   display: none;
 }
 
-/* メニューカードのインタラクション */
-/* メニューカード全体のタップアニメーション（ボタン化に伴う調整） */
+/* =========================================================
+   【修正】メニューリストとカードの1行化・タップ最適化
+   ========================================================= */
+
+/* HTML側の id="menu-list" コンテナがグリッド等で横並びになるのを完全に防ぐ */
+#menu-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+/* 1行に1つの横長レイアウトを強制 */
 .menu-card {
   -webkit-tap-highlight-color: transparent;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: row !important; /* 縦並びから横並びに修正 */
+  align-items: center !important;
+  width: 100% !important;
 }
 
-/* 画像がコンテナ内にきれいに収まるように設定 */
-.menu-card img {
-  transition: transform 0.3s ease;
+/* 【重要】画像がタップ（クリック）イベントを吸い込まないようにする */
+.menu-card img,
+#menu-list img {
+  pointer-events: none; /* 画像自体のクリックイベント透過 */
+  object-fit: cover;
+  transition: transform 0.2s ease;
 }
 
-.menu-card:hover img {
-  transform: scale(1.03); /* ホバー時に画像を少しズーム */
+/* タップ時に一瞬だけ画像領域が沈む視覚フィードバック（お好みで） */
+.menu-card div:active img,
+#menu-list div:active img {
+  transform: scale(0.96);
 }
 
 /* 2行以上の説明文を三点リーダーで綺麗に省略（Tailwindのline-clamp用セーフティ） */
@@ -72,6 +90,10 @@ input[type="date"], input[type="month"], input[type="number"] {
   -webkit-box-orient: vertical;  
   overflow: hidden;
 }
+
+/* =========================================================
+   UIパーツ・モーダル等
+   ========================================================= */
 
 /* ボトムカートバーの装飾 */
 #cart-bar {
