@@ -517,8 +517,9 @@ const app = {
     closeModal() { document.getElementById('modal').classList.add('hidden'); },
 
     // 注文ロジック：メニューの読み込み
+    // 注文ロジック：メニューの読み込み
     async loadMenus() {
-        const container = document.getElementById('menu-list');
+        const container = document.getElementById('user-menu-container');
         if (!container) return;
 
         try {
