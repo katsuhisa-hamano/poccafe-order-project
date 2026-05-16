@@ -68,8 +68,8 @@ const menuEditView = {
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-200 mb-8">
                     <div>
-                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">メニュー管理・編集</h1>
-                        <p class="text-sm text-gray-500 mt-1">表示フラグの切り替えや、Squareカタログからの新規メニュー登録が行えます。</p>
+                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">メニュー・バリエーション管理</h1>
+                        <p class="text-sm text-gray-500 mt-1">商品はSquareの上位単位で抽出し、在庫・非表示フラグはバリエーション単位で制御します。</p>
                     </div>
                     <div class="mt-4 md:mt-0">
                         <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
@@ -82,18 +82,18 @@ const menuEditView = {
                     <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-fit">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
                             <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></span>
-                            新規メニュー登録
+                            メニュー・バリエーション追加
                         </h2>
                         
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Square登録メニュー商品</label>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">対象バリエーションを選択</label>
                                 <select id="edit-square-item-select" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                    <option value="">Squareの商品をロード中...</option>
+                                    <option value="">Squareから商品データを読込中...</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">初期残り個数（在庫）</label>
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">バリエーション初期在庫数</label>
                                 <input type="number" id="edit-menu-remaining" value="30" min="0" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div>
@@ -104,7 +104,7 @@ const menuEditView = {
                                 </select>
                             </div>
                             <button onclick="app.addMenuFromSquare()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 transition text-sm shadow-sm mt-2">
-                                メニューに登録する
+                                バリエーションを登録
                             </button>
                         </div>
                     </div>
@@ -113,7 +113,7 @@ const menuEditView = {
                         <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                             <h2 class="font-bold text-gray-800 flex items-center">
                                 <span class="w-2.5 h-2.5 bg-orange-500 rounded-full mr-2"></span>
-                                現在の登録メニュー一覧
+                                登録済みバリエーション一覧
                             </h2>
                             <button onclick="app.loadAdminMenuList()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 transition">
                                 リフレッシュ
@@ -124,15 +124,15 @@ const menuEditView = {
                             <table class="w-full text-left border-collapse text-sm">
                                 <thead>
                                     <tr class="bg-gray-50/50 text-gray-400 font-bold border-b border-gray-100">
-                                        <th class="p-4">メニュー名 / 価格</th>
-                                        <th class="p-4 text-center">在庫数</th>
+                                        <th class="p-4">登録メニュー / バリエーション</th>
+                                        <th class="p-4 text-center">バリエーション在庫</th>
                                         <th class="p-4 text-center">表示フラグ</th>
                                         <th class="p-4 text-center">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-menu-list-tbody" class="divide-y divide-gray-100">
                                     <tr>
-                                        <td colspan="4" class="text-center text-gray-400 py-12">メニューデータを読み込んでいます...</td>
+                                        <td colspan="4" class="text-center text-gray-400 py-12">データを読み込んでいます...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -883,73 +883,78 @@ const app = {
     },
 
     // =========================================================
-    // appオブジェクト内に以下4つの関数を追加または上書きしてください
+    // appオブジェクトの通信・ハンドリングロジック
     // =========================================================
 
-    // 1. 新規登録用に、Squareのカタログ商品一覧を取得してセレクターに反映
+    // 1. Squareから「親商品・内包バリエーション」を取得して階層表示
     async loadSquareItems() {
         const select = document.getElementById('edit-square-item-select');
         if (!select) return;
 
         try {
             const res = await fetch('/api/admin/square-items');
-            if (!res.ok) throw new Error("Squareアイテムの取得に失敗しました");
-            const items = await res.json();
+            if (!res.ok) throw new Error("Squareデータの取得失敗");
+            const parentItems = await res.json(); // 親商品(ITEM)の配列
 
-            if (items.length === 0) {
-                select.innerHTML = '<option value="">登録可能なSquare商品がありません</option>';
+            if (parentItems.length === 0) {
+                select.innerHTML = '<option value="">利用可能なSquare商品がありません</option>';
                 return;
             }
 
-            select.innerHTML = items.map(item => `
-                <option value="${item.id}" data-name="${item.name}" data-price="${item.price}">
-                    ${item.name} (¥${item.price.toLocaleString()})
-                </option>
-            `).join('');
+            let html = '<option value="">選択してください...</option>';
+            parentItems.forEach(parent => {
+                html += `<optgroup label="${parent.name}">`;
+                parent.variations.forEach(v => {
+                    html += `
+                        <option value="${v.id}" data-name="${parent.name} - ${v.name}" data-price="${v.price}">
+                            ${v.name} (¥${v.price.toLocaleString()})
+                        </option>
+                    `;
+                });
+                html += `</optgroup>`;
+            });
+
+            select.innerHTML = html;
         } catch (e) {
             console.error(e);
-            select.innerHTML = '<option value="">商品の取得に失敗しました</option>';
+            select.innerHTML = '<option value="">データの読み込みに失敗しました</option>';
         }
     },
 
-    // 2. 管理者用メニュー一覧を読み込んでテーブルに描画
+    // 2. 現在アプリDBに登録されているバリエーション一覧を表示
     async loadAdminMenuList() {
         const tbody = document.getElementById('admin-menu-list-tbody');
         if (!tbody) return;
 
         try {
-            // 表示オフ（一時非表示）の項目も含めてすべて取得する専用API
             const res = await fetch('/api/admin/menus');
-            if (!res.ok) throw new Error("メニュー管理リストの取得に失敗しました");
+            if (!res.ok) throw new Error("メニュー管理リスト取得失敗");
             const menus = await res.json();
 
             if (menus.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのメニューはありません。</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのバリエーションはありません。</td></tr>';
                 return;
             }
 
             tbody.innerHTML = menus.map(menu => {
-                const isChecked = menu.status === 1 || menu.status === 'active' || menu.is_visible === 1; // 運用スキーマに合わせて調整
-                const currentStatus = (menu.is_visible !== undefined ? menu.is_visible : menu.status);
-                
                 return `
                     <tr class="hover:bg-gray-50/50 transition">
                         <td class="p-4">
                             <div class="font-bold text-gray-800">${menu.name}</div>
-                            <div class="text-xs text-gray-400 mt-0.5">ID: ${menu.square_item_id || menu.id}</div>
+                            <div class="text-[11px] text-gray-400 mt-0.5 font-mono">Variation ID: ${menu.square_item_id}</div>
                         </td>
                         <td class="p-4 text-center">
                             <input type="number" id="qty-${menu.id}" value="${menu.remaining}" min="0" 
-                                class="w-16 border border-gray-200 rounded px-2 py-1 text-center font-medium bg-gray-50">
+                                class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none">
                         </td>
                         <td class="p-4 text-center">
-                            <select id="status-${menu.id}" class="border border-gray-200 rounded px-2 py-1 bg-white text-sm font-medium">
-                                <option value="1" ${currentStatus == 1 ? 'selected' : ''}>ON (表示)</option>
-                                <option value="0" ${currentStatus == 0 ? 'selected' : ''}>OFF (非表示)</option>
+                            <select id="status-${menu.id}" class="border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-xs font-bold text-gray-700">
+                                <option value="1" ${menu.is_visible == 1 ? 'selected' : ''}>ON (表示)</option>
+                                <option value="0" ${menu.is_visible == 0 ? 'selected' : ''}>OFF (非表示)</option>
                             </select>
                         </td>
                         <td class="p-4 text-center">
-                            <button onclick="app.updateAdminMenu('${menu.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded transition shadow-sm">
+                            <button onclick="app.updateAdminMenu('${menu.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
                                 保存
                             </button>
                         </td>
@@ -958,16 +963,16 @@ const app = {
             }).join('');
         } catch (e) {
             console.error(e);
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読み込みに失敗しました。</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読込に失敗しました。</td></tr>';
         }
     },
 
-    // 3. メニューの在庫数および表示フラグ（ON/OFF）の変更を保存
+    // 3. バリエーションの在庫数・表示フラグを更新
     async updateAdminMenu(menuId) {
         const remaining = parseInt(document.getElementById(`qty-${menuId}`).value, 10);
         const isVisible = parseInt(document.getElementById(`status-${menuId}`).value, 10);
 
-        if (isNaN(remaining) || remaining < 0) return alert("有効な在庫数を入力してください");
+        if (isNaN(remaining) || remaining < 0) return alert("正しい在庫数を入力してください");
 
         try {
             const res = await fetch(`/api/admin/menus/update`, {
@@ -978,7 +983,7 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("メニュー設定を更新しました");
+                alert("バリエーション設定を保存しました");
                 this.loadAdminMenuList();
             } else {
                 alert(result.message || "更新に失敗しました");
@@ -988,18 +993,18 @@ const app = {
         }
     },
 
-    // 4. セレクターから選んだSquareの商品をアプリメニューへ新規追加
+    // 4. バリエーション単位でのメニュー新規追加
     async addMenuFromSquare() {
         const select = document.getElementById('edit-square-item-select');
         const remainingInput = document.getElementById('edit-menu-remaining');
         const statusSelect = document.getElementById('edit-menu-status');
 
-        if (!select || select.value === "") return alert("登録するSquareの商品を選択してください");
+        if (!select || select.value === "") return alert("登録するバリエーションを選択してください");
         
         const selectedOption = select.options[select.selectedIndex];
         const data = {
-            square_item_id: select.value,
-            name: selectedOption.getAttribute('data-name'),
+            square_item_id: select.value, // これがVariation ID
+            name: selectedOption.getAttribute('data-name'), // 「商品名 - バリエーション名」
             price: parseInt(selectedOption.getAttribute('data-price'), 10),
             remaining: parseInt(remainingInput.value, 10) || 0,
             is_visible: parseInt(statusSelect.value, 10)
@@ -1014,13 +1019,13 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("新しいメニューを登録しました！");
+                alert("選択したバリエーションを登録しました。");
                 this.loadAdminMenuList();
             } else {
-                alert(result.message || "登録に失敗しました（既に登録済みの可能性があります）");
+                alert(result.message || "すでに登録されているバリエーションです。");
             }
         } catch (e) {
-            alert("登録通信エラーが発生しました");
+            alert("通信エラーが発生しました");
         }
     },
 };

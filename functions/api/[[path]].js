@@ -487,7 +487,7 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 管理者用：Squareのカタログ商品一覧を取得 (GET /api/admin/square-items)
+    // 管理者用：Square カタログの取得 (上位単位で抽出し、バリエーションを含める)
     // ---------------------------------------------------------
     if (path === '/api/admin/square-items' && method === 'GET') {
       const squareToken = env.SQUARE_ACCESS_TOKEN;
@@ -496,27 +496,35 @@ export async function onRequest(context) {
       }
 
       try {
-        // Square Catalog API から ITEM タイプのオブジェクトを取得
+        // カタログから ITEM(親商品) タイプをすべて取得
         const sqRes = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
-          headers: { 'Authorization': `Bearer ${squareToken}`, 'Content-Type': 'application/json' }
+          headers: { 
+            'Authorization': `Bearer ${squareToken}`, 
+            'Content-Type': 'application/json' 
+          }
         });
 
         if (!sqRes.ok) throw new Error(await sqRes.text());
         const data = await sqRes.json();
         
-        // アプリ側で扱いやすいシンプルな配列形式に整形して返却
-        const items = (data.objects || []).flatMap(obj => {
-          const name = obj.item_data.name;
-          return (obj.item_data.variations || []).map(v => ({
-            id: v.id, // SquareのバリエーションIDを商品キーとする
-            name: v.item_variation_data.name && v.item_variation_data.name !== 'Regular' 
-              ? `${name} (${v.item_variation_data.name})` 
-              : name,
+        // 親(ITEM)の中に子(VARIATION)がぶら下がった、セレクトボックスに適したデータ構造に成形
+        const structuredItems = (data.objects || []).map(obj => {
+          const parentName = obj.item_data.name;
+          
+          const variations = (obj.item_data.variations || []).map(v => ({
+            id: v.id, // これがバリエーションの固有ID
+            name: v.item_variation_data.name === 'Regular' ? '通常' : v.item_variation_data.name,
             price: Number(v.item_variation_data.price_money?.amount || 0)
           }));
-        });
 
-        return new Response(JSON.stringify(items), { headers: corsHeaders });
+          return {
+            id: obj.id, // 親商品のID
+            name: parentName,
+            variations: variations
+          };
+        }).filter(item => item.variations.length > 0); // バリエーションが空のものは除外
+
+        return new Response(JSON.stringify(structuredItems), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
