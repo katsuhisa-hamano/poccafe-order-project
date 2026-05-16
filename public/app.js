@@ -60,91 +60,6 @@ const adminView = {
 };
 
 // =========================================================
-// 管理者：メニュー編集画面テンプレート定義 (menuEditView)
-// =========================================================
-const menuEditView = {
-    render: () => {
-        return `
-            <div class="max-w-6xl mx-auto px-4 py-8">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-200 mb-8">
-                    <div>
-                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">メニュー・バリエーション管理</h1>
-                        <p class="text-sm text-gray-500 mt-1">商品はSquareの上位単位で抽出し、在庫・非表示フラグはバリエーション単位で制御します。</p>
-                    </div>
-                    <div class="mt-4 md:mt-0">
-                        <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
-                            ダッシュボードへ戻る
-                        </button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-fit">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></span>
-                            メニュー・バリエーション追加
-                        </h2>
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">対象バリエーションを選択</label>
-                                <select id="edit-square-item-select" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                    <option value="">Squareから商品データを読込中...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">バリエーション初期在庫数</label>
-                                <input type="number" id="edit-menu-remaining" value="30" min="0" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">初期表示フラグ</label>
-                                <select id="edit-menu-status" class="w-full bg-gray-50 border border-gray-200 h-11 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                    <option value="1">ON (表示)</option>
-                                    <option value="0">OFF (非表示)</option>
-                                </select>
-                            </div>
-                            <button onclick="app.addMenuFromSquare()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 transition text-sm shadow-sm mt-2">
-                                バリエーションを登録
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                            <h2 class="font-bold text-gray-800 flex items-center">
-                                <span class="w-2.5 h-2.5 bg-orange-500 rounded-full mr-2"></span>
-                                登録済みバリエーション一覧
-                            </h2>
-                            <button onclick="app.loadAdminMenuList()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 transition">
-                                リフレッシュ
-                            </button>
-                        </div>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-sm">
-                                <thead>
-                                    <tr class="bg-gray-50/50 text-gray-400 font-bold border-b border-gray-100">
-                                        <th class="p-4">登録メニュー / バリエーション</th>
-                                        <th class="p-4 text-center">バリエーション在庫</th>
-                                        <th class="p-4 text-center">表示フラグ</th>
-                                        <th class="p-4 text-center">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="admin-menu-list-tbody" class="divide-y divide-gray-100">
-                                    <tr>
-                                        <td colspan="4" class="text-center text-gray-400 py-12">データを読み込んでいます...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-};
-
-// =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
 const router = {
@@ -517,54 +432,21 @@ const app = {
     closeModal() { document.getElementById('modal').classList.add('hidden'); },
 
     // 注文ロジック：メニューの読み込み
-    // 注文ロジック：メニューの読み込み
     async loadMenus() {
-        const container = document.getElementById('user-menu-container');
-        if (!container) return;
+        const container = document.getElementById('menu-list');
+        if (container) container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューを読み込み中...</p>';
 
         try {
             const res = await fetch('/api/menus');
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
-            const menus = await res.json();
-
-            if (menus.length === 0) {
-                container.innerHTML = `<p class="text-center text-gray-400 py-8">現在ご注文可能なメニューはありません。</p>`;
-                return;
-            }
-
-            // グリッドレイアウトで画像付きの「注文ボタン（カード）」を並べる
-            container.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    ${menus.map(item => `
-                        <button onclick="app.openMenuDetail('${item.square_item_id}')" 
-                            class="menu-card flex flex-col text-left bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md active:scale-[0.98] transition focus:outline-none">
-                            
-                            <div class="w-full aspect-square bg-gray-100 relative overflow-hidden">
-                                <img src="${item.image_url}" alt="${item.name}" class="w-full h-full object-cover">
-                                
-                                <span class="absolute bottom-2 right-2 bg-gray-900/80 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                                    ¥${item.price.toLocaleString()}〜
-                                </span>
-                            </div>
-
-                            <div class="p-3.5 flex flex-col flex-1 justify-between">
-                                <div>
-                                    <h3 class="font-black text-gray-800 text-sm leading-tight line-clamp-1">${item.name}</h3>
-                                    <p class="text-[11px] text-gray-400 mt-1 line-clamp-2 h-8">${item.description}</p>
-                                </div>
-                                
-                                <div class="mt-2 w-full bg-orange-50 text-orange-600 text-center py-1.5 rounded-xl font-bold text-xs group-hover:bg-orange-500 group-hover:text-white transition">
-                                    注文に進む
-                                </div>
-                            </div>
-
-                        </button>
-                    `).join('')}
-                </div>
-            `;
+            
+            const data = await res.json();
+            this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
+            
+            this.renderMenus(); 
         } catch (e) {
-            console.error(e);
-            container.innerHTML = `<p class="text-center text-red-500 py-8">メニューの読み込み中にエラーが発生しました。</p>`;
+            console.error("メニューロードエラー:", e);
+            if (container) container.innerHTML = '<p class="text-center text-red-500 py-8">メニューの読み込みに失敗しました。</p>';
         }
     },
 
@@ -658,47 +540,36 @@ const app = {
         if (!container) return;
 
         if (this.state.menus.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-400 py-8 text-xs font-bold">本日の提供メニューはありません。</p>';
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
             return;
         }
 
-        // 1行に1つのアイテムとして縦に並べるための親コンテナ設定
-        container.className = "flex flex-col gap-3 pb-28 w-full";
-
-        container.innerHTML = this.state.menus.map(item => {
-            const escapedName = item.name.replace(/'/g, "\\'");
-            
-            return `
-                <!-- 以前正常に動いていた「menu-card」クラスを維持しつつ、横長(flex-row)に変更 -->
-                <div class="menu-card bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-row items-center justify-between gap-4 w-full" data-id="${item.square_item_id}">
-                    
-                    <!-- 左側：画像エリア（構造を変える前と同じイベントの当て方に修正） -->
-                    <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-50 cursor-pointer" 
-                        onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
-                        ${item.image_url ? `
-                            <img src="${item.image_url}" class="w-full h-full object-cover" alt="${item.name}">
-                        ` : `
-                            <span class="text-2xl">☕</span>
-                        `}
+        container.innerHTML = this.state.menus.map(item => `
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
+                ${item.image_url ? `
+                    <div onclick="app.openOptionModal('${item.square_item_id}')" 
+                         role="button"
+                         tabindex="0"
+                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
+                         style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
+                        <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
                     </div>
-                    
-                    <!-- 中央：商品情報（タップでサブ画面へ） -->
-                    <div class="flex-1 min-w-0 cursor-pointer" onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
-                        <h3 class="font-black text-gray-800 text-sm truncate">${item.name}</h3>
-                        <p class="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-tight">${item.description || '美味しいカフェメニューです。'}</p>
-                        <p class="text-orange-500 font-black text-xs mt-1">¥${item.price.toLocaleString()}〜</p>
+                ` : ''}
+                
+                <div class="p-4 flex flex-col flex-grow justify-between">
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
+                        <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description || ''}</p>
                     </div>
-                    
-                    <!-- 右側：選択ボタン -->
-                    <div class="flex-shrink-0">
-                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm">
-                            選択
+                    <div class="mt-4 flex justify-between items-center">
+                        <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
+                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
+                            選択する
                         </button>
                     </div>
-                    
                 </div>
-            `;
-        }).join('');
+            </div>
+        `).join('');
     },
 
     confirmOrder() {
@@ -721,81 +592,78 @@ const app = {
         if (modal) modal.classList.remove('hidden');
     },
 
-    async openOptionModal(squareItemId, itemName) {
-        // 既存のモーダル要素を取得、なければ作成
+    async openOptionModal(squareItemId) {
         let modal = document.getElementById('option-modal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'option-modal';
-            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-end hidden';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden';
             document.body.appendChild(modal);
         }
 
-        // ローディング表示
-        modal.innerHTML = `
-            <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto text-center font-bold text-xs text-gray-400">
-                オプション情報を読み込み中...
-            </div>
-        `;
+        modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center font-bold">Squareから最新情報を読み込み中...</div>';
         modal.classList.remove('hidden');
 
         try {
-            // Squareの商品詳細（バリエーション・モディファイア）を取得
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
             const data = await res.json();
             if (!data.success) throw new Error(data.message);
 
             const item = data.item;
 
-            // サブ画面の内装を構築
             modal.innerHTML = `
-                <!-- 背景タップでサブ画面を閉じる -->
-                <div class="absolute inset-0 bg-transparent" onclick="document.getElementById('option-modal').classList.add('hidden')"></div>
-                
-                <!-- 下からスライドインするサブ画面本体 -->
-                <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto flex flex-col max-h-[85vh] overflow-y-auto z-10 shadow-2xl">
-                    <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 flex-shrink-0"></div>
-                    
-                    <div class="overflow-y-auto flex-1 text-left pb-4 hide-scrollbar">
-                        <h2 class="text-base font-black text-gray-800 mb-1">${item.name}</h2>
-                        <p class="text-[11px] text-gray-400 mb-5">${item.description || ''}</p>
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
+                    <div class="flex-grow overflow-y-auto mb-6 pr-1">
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
+                        <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
                         
-                        <!-- ① バリエーション選択（サイズやHot/Iceなど） -->
-                        <div class="mb-5">
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">サイズ・種類 (必須)</label>
+                        <div class="mb-6 text-left">
+                            <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-emerald-600 pl-2">サイズ / 種類 (必須)</label>
                             <div class="space-y-2">
                                 ${item.variations.map((v, idx) => {
-                                    const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                                    const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
                                     return `
-                                    <label for="${radioId}" class="flex items-center justify-between p-3 border border-gray-100 bg-gray-50 rounded-2xl cursor-pointer text-xs">
+                                    <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
                                         <span class="flex items-center">
-                                            <input type="radio" id="${radioId}" name="square_variation" value="${v.id}" data-price="${v.price}" onchange="app.calculateModalPrice()" ${idx === 0 ? 'checked' : ''} class="mr-3 h-4 w-4 text-orange-500 focus:ring-orange-500">
-                                            <span class="font-bold text-gray-800">${v.name}</span>
+                                            <input type="radio" 
+                                                   id="${radioId}"
+                                                   name="square_variation" 
+                                                   value="${v.id}" 
+                                                   data-price="${v.price}" 
+                                                   onchange="app.calculateModalPrice()"
+                                                   ${idx === 0 ? 'checked' : ''} 
+                                                   class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                                            <span class="text-gray-800 font-bold">${v.name}</span>
                                         </span>
-                                        <span class="font-black text-gray-700">¥${Number(v.price).toLocaleString()}</span>
+                                        <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
                                     `;
                                 }).join('')}
                             </div>
                         </div>
 
-                        <!-- ② カスタマイズ選択（トッピングやシロップなど） -->
-                        ${item.options.map((optList) => `
-                            <div class="mb-5">
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つ選択)' : '(複数選択可)'}
+                        ${item.options.map((optList, oIdx) => `
+                            <div class="mb-6 text-left">
+                                <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-gray-400 pl-2">
+                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つまで・再タップで解除可)' : '(複数選択可)'}
                                 </label>
                                 <div class="space-y-2">
-                                    ${optList.modifiers.map((m) => {
-                                        const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                                    ${optList.modifiers.map((m, mIdx) => {
+                                        const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}_${oIdx}_${mIdx}`;
                                         const inputType = optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox';
                                         return `
-                                        <label for="${checkId}" class="flex items-center justify-between p-3 border border-gray-100 bg-gray-50 rounded-2xl cursor-pointer text-xs">
+                                        <label for="${checkId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
                                             <span class="flex items-center">
-                                                <input type="${inputType}" id="${checkId}" name="square_modifier_${optList.id}" value="${m.id}" data-price="${m.price}" onclick="app.handleModifierClick(this, '${inputType}')" class="mr-3 h-4 w-4 text-orange-500 focus:ring-orange-500">
-                                                <span class="text-gray-700 font-medium">${m.name}</span>
+                                                <input type="${inputType}" 
+                                                       id="${checkId}"
+                                                       name="square_modifier_${optList.id}" 
+                                                       value="${m.id}" 
+                                                       data-price="${m.price}" 
+                                                       onclick="app.handleModifierClick(this, '${inputType}')"
+                                                       class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                                                <span class="text-gray-700">${m.name}</span>
                                             </span>
-                                            <span class="text-gray-400 font-bold">+¥${Number(m.price).toLocaleString()}</span>
+                                            <span class="text-gray-500 text-sm font-medium">+¥${Number(m.price).toLocaleString()}</span>
                                         </label>
                                         `;
                                     }).join('')}
@@ -804,29 +672,26 @@ const app = {
                         `).join('')}
                     </div>
 
-                    <!-- サブ画面下部：固定金額表示 ＆ カート追加ボタン -->
-                    <div class="pt-4 border-t border-gray-100 flex-shrink-0">
-                        <div class="mb-4 flex justify-between items-center">
-                            <span class="text-xs font-bold text-gray-400">選択合計金額</span>
-                            <span id="modal-total-price" class="text-2xl font-black text-orange-600">¥0</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/3 bg-gray-100 text-gray-500 py-3.5 rounded-2xl font-bold text-xs">
-                                閉じる
-                            </button>
-                            <button onclick="app.confirmAddToCart('${item.id}', '${item.name.replace(/'/g, "\\'")}')" class="w-2/3 bg-orange-500 text-white py-3.5 rounded-2xl font-black text-xs shadow-md">
-                                カートに追加
-                            </button>
-                        </div>
+                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
+                        <span class="font-bold text-sm">現在の選択合計</span>
+                        <span id="modal-total-price" class="text-xl font-black">¥0</span>
+                    </div>
+
+                    <div class="flex space-x-3 pt-4 border-t border-gray-100 bg-white sticky bottom-0">
+                        <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
+                            キャンセル
+                        </button>
+                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-emerald-600 text-white py-3 rounded-full font-black hover:bg-emerald-700 transition shadow-md block text-center text-base tracking-wider z-50">
+                            カートに追加
+                        </button>
                     </div>
                 </div>
             `;
 
-            // 金額の初期計算を実行
             this.calculateModalPrice();
 
         } catch (e) {
-            modal.innerHTML = `<div class="bg-white p-6 rounded-t-[32px] max-w-md mx-auto text-center text-red-500 font-bold text-xs">データの同期に失敗しました: ${e.message}</div>`;
+            modal.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-md w-full text-center text-red-500 font-bold">エラー: ${e.message}</div>`;
         }
     },
 
@@ -930,152 +795,6 @@ const app = {
         
         this.updateCartBar();
         this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
-    },
-
-    // =========================================================
-    // appオブジェクトの通信・ハンドリングロジック
-    // =========================================================
-
-    // 1. 新規登録用に、Squareカタログから「上位アイテム(親商品)」の一覧を取得してセレクターを構築
-    async loadSquareItems() {
-        const select = document.getElementById('edit-square-item-select');
-        if (!select) return;
-
-        try {
-            const res = await fetch('/api/admin/square-items');
-            if (!res.ok) throw new Error("Squareデータのロード失敗");
-            
-            // バックエンドから整形済みの親子オブジェクト配列が届く
-            this.state.squareItemsCache = await res.json(); 
-
-            if (this.state.squareItemsCache.length === 0) {
-                select.innerHTML = '<option value="">登録可能なSquare商品がありません</option>';
-                return;
-            }
-
-            let html = '<option value="">登録する商品を選択してください...</option>';
-            this.state.squareItemsCache.forEach((item, index) => {
-                html += `
-                    <option value="${item.square_item_id}" data-index="${index}">
-                        ${item.name} (${item.variations.length}個のバリエーションを含みます)
-                    </option>
-                `;
-            });
-            select.innerHTML = html;
-        } catch (e) {
-            console.error(e);
-            select.innerHTML = '<option value="">商品の取得に失敗しました</option>';
-        }
-    },
-
-    // 2. メニューにアイテム単位で新規追加（バリエーションが同時展開されてDBに保存される）
-    async addMenuFromSquare() {
-        const select = document.getElementById('edit-square-item-select');
-        const remainingInput = document.getElementById('edit-menu-remaining');
-        const statusSelect = document.getElementById('edit-menu-status');
-
-        if (!select || select.value === "") return alert("登録する商品を選択してください");
-
-        const selectedIndex = select.options[select.selectedIndex].getAttribute('data-index');
-        const selectedItem = this.state.squareItemsCache[selectedIndex];
-
-        // 選択された親商品オブジェクトと、バリエーションの配列をそのまま送信
-        const data = {
-            square_item_id: selectedItem.square_item_id,
-            name: selectedItem.name,
-            variations: selectedItem.variations, // 子バリエーション配列
-            default_remaining: parseInt(remainingInput.value, 10) || 0,
-            default_is_visible: parseInt(statusSelect.value, 10)
-        };
-
-        try {
-            const res = await fetch('/api/admin/menus/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const result = await res.json();
-
-            if (res.ok && result.success) {
-                alert(`「${selectedItem.name}」とそのバリエーションを登録しました。`);
-                this.loadAdminMenuList();
-            } else {
-                alert(result.message || "登録に失敗しました");
-            }
-        } catch (e) {
-            alert("通信エラーが発生しました");
-        }
-    },
-
-    // 3. 管理画面用：バリエーション単位で在庫数・表示フラグを一覧に描画
-    async loadAdminMenuList() {
-        const tbody = document.getElementById('admin-menu-list-tbody');
-        if (!tbody) return;
-
-        try {
-            const res = await fetch('/api/admin/menus');
-            if (!res.ok) throw new Error("管理リストの取得に失敗しました");
-            const variationsList = await res.json();
-
-            if (variationsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-400 py-12">登録済みのメニューバリエーションはありません。</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = variationsList.map(item => `
-                <tr class="hover:bg-gray-50/50 transition">
-                    <td class="p-4">
-                        <div class="text-xs font-bold text-orange-600 uppercase tracking-wider">${item.parent_name}</div>
-                        <div class="font-bold text-gray-800 text-base mt-0.5">${item.variation_name}</div>
-                        <div class="text-xs text-gray-500 mt-1">価格: ¥${item.price.toLocaleString()}</div>
-                    </td>
-                    <td class="p-4 text-center">
-                        <input type="number" id="qty-${item.variation_db_id}" value="${item.remaining}" min="0" 
-                            class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-center font-bold bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
-                    </td>
-                    <td class="p-4 text-center">
-                        <select id="status-${item.variation_db_id}" class="border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-xs font-bold text-gray-700">
-                            <option value="1" ${item.is_visible === 1 ? 'selected' : ''}>ON (表示)</option>
-                            <option value="0" ${item.is_visible === 0 ? 'selected' : ''}>OFF (非表示)</option>
-                        </select>
-                    </td>
-                    <td class="p-4 text-center">
-                        <button onclick="app.updateAdminMenu('${item.variation_db_id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
-                            保存
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (e) {
-            console.error(e);
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 py-12">データの読み込みに失敗しました。</td></tr>';
-        }
-    },
-
-    // 4. バリエーション単位での在庫数・表示フラグ（ON/OFF）更新を保存
-    async updateAdminMenu(variationDbId) {
-        const remaining = parseInt(document.getElementById(`qty-${variationDbId}`).value, 10);
-        const isVisible = parseInt(document.getElementById(`status-${variationDbId}`).value, 10);
-
-        if (isNaN(remaining) || remaining < 0) return alert("正しい在庫数を入力してください");
-
-        try {
-            const res = await fetch(`/api/admin/menus/update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ variation_db_id: variationDbId, remaining, is_visible: isVisible })
-            });
-            const result = await res.json();
-
-            if (res.ok && result.success) {
-                alert("バリエーション状態を更新しました");
-                this.loadAdminMenuList();
-            } else {
-                alert(result.message || "更新に失敗しました");
-            }
-        } catch (e) {
-            alert("通信エラーが発生しました");
-        }
     },
 };
 
