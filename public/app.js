@@ -31,22 +31,37 @@ const router = {
             }
         }
 
-        // --- 画面遷移時のデータロード処理 ---
+        // --- 画面遷移時のデータロード ＆ 画面生成処理 ---
         switch (view) {
-            case 'home':
-                // メニュー一覧の読み込み
-                setTimeout(() => app.loadMenus(), 1);
-                break;
             case 'admin':
-                // 注文一覧などの読み込み（必要に応じて）
-                app.loadAdminOrders(); 
+                // ★ 1. view-admin 要素を取得して、中身を adminView のデザインに書き換える
+                const adminTarget = document.getElementById('view-admin');
+                if (adminTarget && typeof adminView !== 'undefined') {
+                    adminTarget.innerHTML = adminView.render();
+                }
+                
+                // 2. 既存の注文データなどの読み込み
+                if (typeof app.loadAdminOrders === 'function') {
+                    app.loadAdminOrders(); 
+                }
                 break;
+
             case 'menu-edit':
-                // Square商品と現在のメニューリストを読み込み
+                // ★ 1. view-menu-edit 要素を取得して、中身を menuEditView のデザインに書き換える
+                const editTarget = document.getElementById('view-menu-edit');
+                if (editTarget && typeof menuEditView !== 'undefined') {
+                    editTarget.innerHTML = menuEditView.render();
+                }
+
+                // 2. Square商品と現在のメニューリストを読み込み
                 setTimeout(() => {
                     app.loadSquareItems();
                     app.loadAdminMenuList();
                 }, 1);
+                break;
+
+            case 'home':
+                setTimeout(() => app.loadMenus(), 1);
                 break;
         }
         

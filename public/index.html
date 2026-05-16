@@ -70,8 +70,14 @@
         </section>
 
         <section id="view-admin" class="view p-4 hidden animate-in">
-            <h2 class="text-xl font-bold mb-4">店舗管理</h2>
+            <!-- ここにJavaScriptから管理画面の中身が注入されます -->
         </section>
+
+        <!-- メニュー編集用のセクションも下に並べて追加しておいてください -->
+        <section id="view-menu-edit" class="view p-4 hidden animate-in">
+            <!-- メニュー登録・編集画面の中身（前述の menuEditView.render() の内容） -->
+        </section>
+        
     </main>
 
     <div id="cart-bar" class="hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg p-4 pb-8 z-50 border-t border-gray-100">
