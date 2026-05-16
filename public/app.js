@@ -135,7 +135,8 @@ const app = {
         cart: {}, 
         user: { id: null, name: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
-        resetToken: null
+        resetToken: null,
+        squareCatalogItems: []
     },
 
     // ログイン処理
@@ -422,6 +423,269 @@ const app = {
                 ${isCartActive ? `<p class="text-xs text-red-600 mt-1 font-bold">※カートに商品が入っているため、注文者を変更できません。</p>` : ''}
             </div>
         `;
+    },
+    
+    // 1. Square側から直接全アイテム（バリエーション含む）を取得して保持する
+    async loadSquareItems() {
+        try {
+            // Squareアイテム一覧を取得するバックエンドAPIへのリクエスト（適宜環境に合わせて調整）
+            const res = await fetch('/api/admin/square-catalog'); 
+            if (!res.ok) throw new Error("Squareカタログの取得に失敗");
+            const data = await res.json();
+            this.state.squareCatalogItems = data.items || [];
+            
+            // 最下部の新規追加用セレクターを構築
+            this.populateSquareItemSelectors();
+        } catch (e) {
+            console.error("Squareアイテムロードエラー:", e);
+        }
+    },
+
+    // 2. アプリDBに登録されている現在のメニュー＆バリエーション階層をロードして描画
+    async loadAdminMenuList() {
+        const container = document.getElementById('admin-menu-hierarchy-list');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/admin/menus');
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || "取得失敗");
+
+            const menus = data.menus;
+            if (menus.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-12 text-sm">登録されているメニューはありません。最下部から追加してください。</p>`;
+                return;
+            }
+
+            container.innerHTML = menus.map((menu, idx) => {
+                return `
+                    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden" data-menu-id="${menu.id}">
+                        <div class="p-4 bg-gray-50 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex flex-col gap-1">
+                                    <button onclick="app.moveMenuOrder(${menu.id}, ${idx}, -1)" ${idx === 0 ? 'disabled class="opacity-30"' : ''} class="p-1 hover:bg-gray-200 rounded text-gray-600 text-xs font-bold">▲</button>
+                                    <button onclick="app.moveMenuOrder(${menu.id}, ${idx}, 1)" ${idx === menus.length - 1 ? 'disabled class="opacity-30"' : ''} class="p-1 hover:bg-gray-200 rounded text-gray-600 text-xs font-bold">▼</button>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 font-mono block">ITEM ID: ${menu.square_item_id}</span>
+                                    <h2 class="font-black text-gray-800 text-base">${menu.name}</h2>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-2">
+                                <label class="text-[11px] font-bold text-gray-400 whitespace-nowrap">Square商品紐付け変更:</label>
+                                <select onchange="app.changeItemMapping(${menu.id}, this.value)" class="bg-white border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none">
+                                    <option value="">-- 別商品へ切り替え --</option>
+                                    ${this.state.squareCatalogItems.map(sqItem => `
+                                        <option value="${sqItem.id}" ${sqItem.id === menu.square_item_id ? 'selected' : ''}>${sqItem.name}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="divide-y divide-gray-100 p-2 bg-white">
+                            ${menu.variations.length === 0 ? '<p class="text-xs text-gray-400 p-4">バリエーション情報がありません。</p>' : ''}
+                            ${menu.variations.map(v => `
+                                <div class="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                        <div>
+                                            <span class="font-bold text-gray-700">${v.name}</span>
+                                            <span class="text-xs text-gray-400 ml-2">¥${v.price.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-4 justify-between sm:justify-end">
+                                        <div class="flex items-center gap-1.5">
+                                            <label class="text-xs text-gray-500 font-medium">在庫数:</label>
+                                            <input type="number" id="v-stock-${v.id}" value="${v.remaining}" min="0" class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" />
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <label class="text-xs text-gray-500 font-medium">表示状態:</label>
+                                            <select id="v-visible-${v.id}" class="border border-gray-300 rounded-md px-2 py-1 text-xs font-bold bg-gray-50 focus:bg-white">
+                                                <option value="1" ${v.is_visible === 1 ? 'selected' : ''}>ON（表示）</option>
+                                                <option value="0" ${v.is_visible === 0 ? 'selected' : ''}>OFF（非表示）</option>
+                                            </select>
+                                        </div>
+                                        <button onclick="app.saveVariationSettings(${v.id})" class="bg-gray-800 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-gray-900 transition">
+                                            保存
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (err) {
+            container.innerHTML = `<p class="text-center text-red-500 py-12 text-sm">エラー: ${err.message}</p>`;
+        }
+    },
+
+    // 3. セレクター要素にSquareカタログ情報を流し込む共通処理
+    populateSquareItemSelectors() {
+        const selector = document.getElementById('new-square-item-selector');
+        if (!selector) return;
+
+        selector.innerHTML = '<option value="">Squareのカタログから商品を選択...</option>' + 
+            this.state.squareCatalogItems.map(item => `
+                <option value="${item.id}">${item.name}</option>
+            `).join('');
+    },
+
+    // 4. ITEM（親商品）の表示順序（sort_order）を変更する処理
+    async moveMenuOrder(menuId, currentIndex, direction) {
+        // バックエンドに送る並び順配列を構築するために再度API呼び出し等からリストを操作
+        try {
+            const res = await fetch('/api/admin/menus');
+            const data = await res.json();
+            const currentMenus = data.menus;
+
+            // 位置を入れ替え
+            const targetIndex = currentIndex + direction;
+            if (targetIndex < 0 || targetIndex >= currentMenus.length) return;
+
+            const temp = currentMenus[currentIndex];
+            currentMenus[currentIndex] = currentMenus[targetIndex];
+            currentMenus[targetIndex] = temp;
+
+            // 新しい sort_order の割り当て
+            const orderPayload = currentMenus.map((m, index) => ({
+                id: m.id,
+                sort_order: index
+            }));
+
+            const saveRes = await fetch('/api/admin/menus/update-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orders: orderPayload })
+            });
+
+            if (saveRes.ok) {
+                this.loadAdminMenuList(); // リスト再描画
+            } else {
+                alert("並び替えの保存に失敗しました");
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 5. SquareメニューセレクターによるITEM変更（マッピング修正）の処理
+    async changeItemMapping(menuId, newSquareItemId) {
+        if (!newSquareItemId) return;
+        
+        const selectedSqItem = this.state.squareCatalogItems.find(item => item.id === newSquareItemId);
+        if (!selectedSqItem) return;
+
+        if (!confirm(`この項目を Squareの「${selectedSqItem.name}」に変更してよろしいですか？\n※既存のバリエーション情報はリセットされます。`)) {
+            this.loadAdminMenuList(); // キャンセル時はリロードして選択肢を元に戻す
+            return;
+        }
+
+        // バリエーション構造のフォーマット
+        const formattedVariations = (selectedSqItem.variations || []).map(v => ({
+            square_variation_id: v.id,
+            name: v.name,
+            price: v.price || 0,
+            remaining: 0
+        }));
+
+        try {
+            const res = await fetch('/api/admin/menus/change-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    menu_id: menuId,
+                    square_item_id: selectedSqItem.id,
+                    name: selectedSqItem.name,
+                    variations: formattedVariations
+                })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert("商品を切り替え、同期しました。");
+                this.loadAdminMenuList();
+            } else {
+                alert("変更に失敗しました: " + result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 6. バリエーションの表示フラグと在庫数の変更を反映する処理
+    async saveVariationSettings(varId) {
+        const stockInput = document.getElementById(`v-stock-${varId}`);
+        const visibleSelect = document.getElementById(`v-visible-${varId}`);
+        
+        if (!stockInput || !visibleSelect) return;
+
+        const remaining = parseInt(stockInput.value, 10) || 0;
+        const is_visible = parseInt(visibleSelect.value, 10);
+
+        try {
+            const res = await fetch('/api/admin/menus/update-variation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    variation_id: varId,
+                    remaining: remaining,
+                    is_visible: is_visible
+                })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert("バリエーション設定を更新しました。");
+                this.loadAdminMenuList();
+            } else {
+                alert("更新に失敗しました: " + result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 7. 一覧の最下部から、Square商品を使って新規ITEMを追加する処理
+    async addNewItemFromSquare() {
+        const selector = document.getElementById('new-square-item-selector');
+        if (!selector || !selector.value) return alert("追加するSquare商品を選択してください");
+
+        const selectedSqItem = this.state.squareCatalogItems.find(item => item.id === selector.value);
+        if (!selectedSqItem) return;
+
+        const formattedVariations = (selectedSqItem.variations || []).map(v => ({
+            square_variation_id: v.id,
+            name: v.name,
+            price: v.price || 0,
+            remaining: 0
+        }));
+
+        try {
+            const res = await fetch('/api/admin/menus/add-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    square_item_id: selectedSqItem.id,
+                    name: selectedSqItem.name,
+                    variations: formattedVariations
+                })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert(`「${selectedSqItem.name}」をメニューに追加しました。`);
+                selector.value = ""; // セレクタークリア
+                this.loadAdminMenuList(); // リスト更新
+            } else {
+                alert("追加に失敗しました: " + result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
     },
 
     // モーダル表示切り替え
@@ -842,3 +1106,43 @@ app.init();
         }
     });
 })();
+
+// =========================================================
+// 管理者メニュー編集画面ビュー定義 (menuEditView)
+// =========================================================
+const menuEditView = {
+    render: () => {
+        return `
+            <div class="max-w-4xl mx-auto px-4 py-8 pb-32">
+                <div class="flex items-center justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-2xl font-black text-gray-800 tracking-tight">メニュー構造・在庫管理</h1>
+                        <p class="text-xs text-gray-500 mt-1">ITEM（親商品）の並び替え、Square同期、在庫設定が行えます。</p>
+                    </div>
+                    <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-full font-bold hover:bg-gray-200 transition text-xs">
+                        ダッシュボード戻る
+                    </button>
+                </div>
+
+                <div class="space-y-6 mb-12" id="admin-menu-hierarchy-list">
+                    <p class="text-center text-gray-400 py-12 text-sm">メニューデータを読み込んでいます...</p>
+                </div>
+
+                <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm">
+                    <h3 class="text-sm font-black text-orange-800 mb-3 flex items-center">
+                        <span class="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">新規追加</span>
+                        Squareから新しいITEMを追加する
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select id="new-square-item-selector" class="flex-1 bg-white border border-orange-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="">Squareのカタログから商品を選択...</option>
+                        </select>
+                        <button onclick="app.addNewItemFromSquare()" class="bg-orange-600 text-white px-6 h-11 rounded-xl font-bold hover:bg-orange-700 text-sm shadow-sm transition whitespace-nowrap">
+                            アプリにメニュー追加
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};

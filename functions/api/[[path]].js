@@ -528,89 +528,67 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // A. 管理者用：Squareカタログから「親商品」を取得 (GET /api/admin/square-items)
-    // ---------------------------------------------------------
-    if (path === '/api/admin/square-items' && method === 'GET') {
-      const squareToken = env.SQUARE_ACCESS_TOKEN;
-      if (!squareToken) {
-        return new Response(JSON.stringify([]), { headers: corsHeaders });
-      }
-
-      try {
-        const sqRes = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
-          headers: { 'Authorization': `Bearer ${squareToken}`, 'Content-Type': 'application/json' }
-        });
-
-        if (!sqRes.ok) throw new Error(await sqRes.text());
-        const data = await sqRes.json();
-        
-        // フロントエンドのセレクター等で扱いやすい親子構造オブジェクトを生成
-        const items = (data.objects || []).map(obj => {
-          return {
-            square_item_id: obj.id, // 親商品ID
-            name: obj.item_data.name,
-            variations: (obj.item_data.variations || []).map(v => ({
-              square_variation_id: v.id, // バリエーションID
-              name: v.item_variation_data.name === 'Regular' ? '通常' : v.item_variation_data.name,
-              price: Number(v.item_variation_data.price_money?.amount || 0)
-            }))
-          };
-        }).filter(item => item.variations.length > 0);
-
-        return new Response(JSON.stringify(items), { headers: corsHeaders });
-      } catch (err) {
-        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
-      }
-    }
-
-    // ---------------------------------------------------------
-    // B. 管理者用：親子リレーションで全メニュー＆バリエーションを取得 (GET /api/admin/menus)
+    // 管理者用：メニュー＆バリエーション階層一覧取得 (GET /api/admin/menus)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus' && method === 'GET') {
       try {
-        // 親のメニュー名と、バリエーションの在庫・表示フラグを結合して全件取得
-        const { results } = await env.DB.prepare(`
-          SELECT 
-            mv.id AS variation_db_id,
-            m.name AS parent_name,
-            mv.name AS variation_name,
-            mv.price,
-            mv.remaining,
-            mv.is_visible,
-            mv.square_variation_id
-          FROM menu_variations mv
-          JOIN menus m ON mv.menu_id = m.id
-          ORDER BY m.id DESC, mv.id ASC
+        // 親商品を sort_order 順に取得
+        const menus = await env.DB.prepare(`
+          SELECT * FROM menus ORDER BY sort_order ASC, id ASC
         `).all();
 
-        return new Response(JSON.stringify(results || []), { headers: corsHeaders });
+        const menuList = menus.results || [];
+
+        // 各親商品に紐づくバリエーションを取得してマージ
+        for (let menu of menuList) {
+          const vars = await env.DB.prepare(`
+            SELECT * FROM menu_variations WHERE menu_id = ? ORDER BY id ASC
+          `).bind(menu.id).all();
+          menu.variations = vars.results || [];
+        }
+
+        return new Response(JSON.stringify({ success: true, menus: menuList }), { headers: corsHeaders });
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
       }
     }
 
     // ---------------------------------------------------------
-    // C. 管理者用：メニューおよび全バリエーションの登録 (POST /api/admin/menus/add)
+    // 管理者用：ITEM（親商品）の並び順更新 (POST /api/admin/menus/update-order)
     // ---------------------------------------------------------
-    if (path === '/api/admin/menus/add' && method === 'POST') {
-      const { square_item_id, name, variations, default_remaining, default_is_visible } = await request.json();
-
+    if (path === '/api/admin/menus/update-order' && method === 'POST') {
+      const { orders } = await request.json(); // orders: [{ id: 1, sort_order: 0 }, { id: 2, sort_order: 1 }]
       try {
-        // 1. 親商品を INSERT OR IGNORE (既に親が登録されていればそれを活用)
+        const statements = orders.map(item => {
+          return env.DB.prepare("UPDATE menus SET sort_order = ? WHERE id = ?").bind(item.sort_order, item.id);
+        });
+        await env.DB.batch(statements);
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：既存ITEMのSquare商品マッピング変更 (POST /api/admin/menus/change-item)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/menus/change-item' && method === 'POST') {
+      const { menu_id, square_item_id, name, variations } = await request.json();
+      try {
+        // 1. 親情報の更新
         await env.DB.prepare(`
-          INSERT OR IGNORE INTO menus (square_item_id, name) VALUES (?, ?)
-        `).bind(square_item_id, name).run();
+          UPDATE menus SET square_item_id = ?, name = ? WHERE id = ?
+        `).bind(square_item_id, name, menu_id).run();
 
-        // 登録された、または既存の親メニューのIDを引く
-        const parentMenu = await env.DB.prepare(`SELECT id FROM menus WHERE square_item_id = ?`).bind(square_item_id).first();
-        const menuId = parentMenu.id;
+        // 2. 旧バリエーションの削除
+        await env.DB.prepare(`DELETE FROM menu_variations WHERE menu_id = ?`).bind(menu_id).run();
 
-        // 2. 選択された親商品が持つ全バリエーションを登録
+        // 3. 新バリエーションの挿入
         for (const v of variations) {
           await env.DB.prepare(`
-            INSERT OR IGNORE INTO menu_variations (menu_id, square_variation_id, name, price, remaining, is_visible)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `).bind(menuId, v.square_variation_id, v.name, v.price, default_remaining, default_is_visible).run();
+            INSERT INTO menu_variations (menu_id, square_variation_id, name, price, remaining, is_visible)
+            VALUES (?, ?, ?, ?, ?, 1)
+          `).bind(menu_id, v.square_variation_id, v.name, v.price, v.remaining || 0).run();
         }
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
@@ -620,18 +598,47 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // D. 管理者用：バリエーション単位での在庫数・表示フラグ更新 (POST /api/admin/menus/update)
+    // 管理者用：新規ITEM追加 (POST /api/admin/menus/add-item)
     // ---------------------------------------------------------
-    if (path === '/api/admin/menus/update' && method === 'POST') {
-      const { variation_db_id, remaining, is_visible } = await request.json();
+    if (path === '/api/admin/menus/add-item' && method === 'POST') {
+      const { square_item_id, name, variations } = await request.json();
+      try {
+        // 現在の最大 sort_order を取得
+        const maxOrderRow = await env.DB.prepare("SELECT MAX(sort_order) as max_order FROM menus").first();
+        const nextOrder = (maxOrderRow?.max_order || 0) + 1;
 
+        // 親商品の追加
+        const result = await env.DB.prepare(`
+          INSERT INTO menus (square_item_id, name, sort_order) VALUES (?, ?, ?)
+        `).bind(square_item_id, name, nextOrder).run();
+        
+        const menuId = result.meta.last_row_id;
+
+        // バリエーションの追加
+        for (const v of variations) {
+          await env.DB.prepare(`
+            INSERT INTO menu_variations (menu_id, square_variation_id, name, price, remaining, is_visible)
+            VALUES (?, ?, ?, ?, ?, 1)
+          `).bind(menuId, v.square_variation_id, v.name, v.price, v.remaining || 0).run();
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：バリエーション単位の在庫・表示更新 (POST /api/admin/menus/update-variation)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/menus/update-variation' && method === 'POST') {
+      const { variation_id, remaining, is_visible } = await request.json();
       try {
         await env.DB.prepare(`
           UPDATE menu_variations 
           SET remaining = ?, is_visible = ? 
           WHERE id = ?
-        `).bind(remaining, is_visible, variation_db_id).run();
-
+        `).bind(remaining, is_visible, variation_id).run();
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
