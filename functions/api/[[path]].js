@@ -229,9 +229,16 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: false, message: "メールアドレスまたはパスワードが間違っています。" }), { status: 401, headers: corsHeaders });
       }
 
+      // ★ ログイン成功時のレスポンスに user.is_admin を追加して返却する
       return new Response(JSON.stringify({ 
         success: true, 
-        user: { id: user.id, name: user.name, email: user.email, square_customer_id: user.square_customer_id }
+        user: { 
+          id: user.id, 
+          name: user.name, 
+          email: user.email, 
+          square_customer_id: user.square_customer_id,
+          is_admin: user.is_admin || 0
+        }
       }), { headers: corsHeaders });
     }
 

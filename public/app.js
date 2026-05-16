@@ -1,3 +1,67 @@
+// =========================================================
+// 0. 管理者画面テンプレート定義 (adminView)
+// =========================================================
+const adminView = {
+    render: () => {
+        return `
+            <div class="max-w-6xl mx-auto px-4 py-8">
+                <!-- ヘッダーエリア -->
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">管理者ダッシュボード</h1>
+                        <p class="text-sm text-gray-500 mt-1">当日の注文状況の確認およびメニューの管理が行えます。</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 flex space-x-3">
+                        <button onclick="router.go('home')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
+                            一般画面へ戻る
+                        </button>
+                        <button onclick="router.go('menu-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
+                            メニューを編集する
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 簡易ステータスカード -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">本日の総注文数</p>
+                        <p id="admin-total-orders-count" class="text-3xl font-black text-gray-800 mt-2">-- 件</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">未受け渡しの注文</p>
+                        <p id="admin-pending-orders-count" class="text-3xl font-black text-amber-600 mt-2">-- 件</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">本日の売上（目安）</p>
+                        <p id="admin-total-sales-amount" class="text-3xl font-black text-emerald-600 mt-2">¥--,---</p>
+                    </div>
+                </div>
+
+                <!-- 注文一覧セクション -->
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h2 class="font-bold text-gray-800 flex items-center">
+                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></span>
+                            リアルタイム注文受領リスト
+                        </h2>
+                        <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
+                            同期リフレッシュ
+                        </button>
+                    </div>
+                    
+                    <!-- 注文データが流し込まれるコンテナ -->
+                    <div id="admin-orders-list" class="divide-y divide-gray-100 min-h-[200px]">
+                        <p class="text-center text-gray-400 py-12 text-sm">注文データを読み込んでいます...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// =========================================================
+// 1. ルーター定義 (router)
+// =========================================================
 const router = {
     go(view) {
         // すべての表示エリアを一度隠す
@@ -55,8 +119,8 @@ const router = {
 
                 // 2. Square商品と現在のメニューリストを読み込み
                 setTimeout(() => {
-                    app.loadSquareItems();
-                    app.loadAdminMenuList();
+                    if (typeof app.loadSquareItems === 'function') app.loadSquareItems();
+                    if (typeof app.loadAdminMenuList === 'function') app.loadAdminMenuList();
                 }, 1);
                 break;
 
@@ -69,11 +133,14 @@ const router = {
     }
 };
 
+// =========================================================
+// 2. アプリケーションコアロジック (app)
+// =========================================================
 const app = {
     state: { 
         menus: [], 
         cart: {}, 
-        user: { id: null, name: null },
+        user: { id: null, name: null, isAdmin: false },
         resetToken: null
     },
 
@@ -84,28 +151,6 @@ const app = {
 
         if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
 
-        // =========================================================
-        // ★【追加】管理者用（admin）の特別ログイン判定
-        // =========================================================
-        if (email === 'admin' && password === 'poccafe777') {
-            alert("管理者としてログインしました");
-            
-            // 管理者としての状態をセット
-            this.state.user.id = 'admin_user';
-            this.state.user.name = '管理者';
-            
-            localStorage.setItem('cafe_user_id', 'admin_user');
-            localStorage.setItem('cafe_user_name', '管理者');
-            
-            const display = document.getElementById('userDisplay');
-            if (display) display.innerText = `ログイン中: 管理者様`;
-
-            // 通常の「home」ではなく、直接「admin」画面へジャンプ！
-            router.go('admin');
-            return; // ここで処理を終了し、下の一般サーバー通信に行かせない
-        }
-
-        // --- ここから下は通常の一般ユーザー用ログイン通信 ---
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
             const result = await res.json();
@@ -114,19 +159,31 @@ const app = {
                 const user = result.user;
                 this.state.user.id = user.square_customer_id;
                 this.state.user.name = user.name;
+                this.state.user.isAdmin = user.is_admin === 1; // ★ 管理者フラグを状態に保持
                 
                 localStorage.setItem('cafe_user_id', user.square_customer_id);
                 localStorage.setItem('cafe_user_name', user.name);
-                
+                localStorage.setItem('cafe_user_is_admin', user.is_admin); // ローカルストレージにも保存
+
                 const display = document.getElementById('userDisplay');
                 if (display) display.innerText = `ログイン中: ${user.name}様`;
                 
+                // ★ 管理者ボタンの表示切り替え
+                const adminBtn = document.getElementById('go-to-admin-btn');
+                if (adminBtn) {
+                    if (this.state.user.isAdmin) {
+                        adminBtn.classList.remove('hidden');
+                    } else {
+                        adminBtn.classList.add('hidden');
+                    }
+                }
+
                 const dateInput = document.getElementById('order-date');
                 if (dateInput && !dateInput.value) {
                     dateInput.valueAsDate = new Date();
                 }
 
-                router.go('home');
+                router.go('home'); // 全員一律で初期画面（ホーム）へ
             } else {
                 alert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
             }
@@ -139,7 +196,7 @@ const app = {
     logout() {
         if (!confirm("ログアウトしますか？")) return;
         localStorage.clear();
-        this.state.user = { id: null, name: null };
+        this.state.user = { id: null, name: null, isAdmin: false };
         this.state.cart = {};
         this.updateCartBar();
         router.go('login');
@@ -277,20 +334,41 @@ const app = {
             return; 
         }
 
+        // ローカルストレージからユーザー情報と管理者フラグを取得
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
+        const savedIsAdmin = localStorage.getItem('cafe_user_is_admin'); 
         
         if (document.getElementById('order-date')) {
             document.getElementById('order-date').valueAsDate = new Date();
         }
 
         if (savedId && savedName) {
+            // アプリの状態（state）を復元
             this.state.user.id = savedId;
             this.state.user.name = savedName;
+            this.state.user.isAdmin = savedIsAdmin === '1'; 
+
+            // ログイン中の文字を表示
             const display = document.getElementById('userDisplay');
             if (display) display.innerText = `ログイン中: ${savedName}様`;
+
+            // ★【追加】管理者ボタンの表示切り替え制御
+            const adminBtn = document.getElementById('go-to-admin-btn');
+            if (adminBtn) {
+                if (this.state.user.isAdmin) {
+                    adminBtn.classList.remove('hidden'); // 管理者なら表示
+                } else {
+                    adminBtn.classList.add('hidden');    // 一般ユーザーなら隠す
+                }
+            }
+
             router.go('home');
         } else {
+            // 未ログイン時は管理者ボタンを確実に隠す
+            const adminBtn = document.getElementById('go-to-admin-btn');
+            if (adminBtn) adminBtn.classList.add('hidden');
+
             router.go('login');
         }
     },
@@ -308,7 +386,6 @@ const app = {
         if (container) container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューを読み込み中...</p>';
 
         try {
-            // 日付パラメータをつけずに、常に全メニューを取得
             const res = await fetch('/api/menus');
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
             
@@ -322,7 +399,18 @@ const app = {
         }
     },
 
-    // app オブジェクトの中に追記
+    // 管理者画面用のダミー・拡張スタブ（エラー回避用）
+    loadAdminOrders() {
+        const listContainer = document.getElementById('admin-orders-list');
+        if (listContainer) {
+            listContainer.innerHTML = `
+                <div class="text-center py-12 text-gray-400 text-sm">
+                    現在、有効な注文はありません。（API未実装の場合はここへロード処理を統合してください）
+                </div>
+            `;
+        }
+    },
+
     isCartEmpty() {
         return Object.keys(this.state.cart).length === 0;
     },
@@ -342,7 +430,6 @@ const app = {
         let count = 0;
         let currentTargetDate = '';
         
-        // カートの中身を集計
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
             total += item.price * item.qty;
@@ -354,12 +441,10 @@ const app = {
         const cartBar = document.getElementById('cart-bar');
         
         if (count > 0) {
-            // 1. 金額と日付のテキストを表示
             if (totalDisplay) {
                 totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
             }
             
-            // 2. 「カートを空にする」ボタンの制御（その場で処理を完結させる）
             let clearBtn = document.getElementById('cart-clear-btn');
             if (!clearBtn && cartBar) {
                 clearBtn = document.createElement('button');
@@ -367,13 +452,11 @@ const app = {
                 clearBtn.innerText = 'カートを空にする';
                 clearBtn.className = 'text-xs text-red-200 underline font-medium hover:text-red-300 ml-4 focus:outline-none transition z-50 cursor-pointer';
                 
-                // ★ 別の関数を呼ばずに、この中で直接カートをクリアする
                 clearBtn.onclick = (e) => {
-                    e.stopPropagation(); // バー自体のクリックイベントと競合するのを防ぐ
-                    
+                    e.stopPropagation(); 
                     if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日も変更できるようになります）")) {
-                        app.state.cart = {}; // カートを空っぽにする
-                        app.updateCartBar(); // 自分自身を再実行してバーを隠す
+                        app.state.cart = {}; 
+                        app.updateCartBar(); 
                         alert("カートを空にしました。");
                     }
                 };
@@ -381,7 +464,6 @@ const app = {
                 cartBar.appendChild(clearBtn);
             }
 
-            // バーを表示するスタイル調整
             if (cartBar) {
                 cartBar.classList.remove('hidden');
                 cartBar.style.opacity = "1";
@@ -390,7 +472,6 @@ const app = {
                 cartBar.style.alignItems = "center";
             }
         } else {
-            // カートが空なら綺麗にお掃除して隠す
             if (totalDisplay) totalDisplay.innerText = '¥0';
             
             const clearBtn = document.getElementById('cart-clear-btn');
@@ -460,7 +541,6 @@ const app = {
         if (modal) modal.classList.remove('hidden');
     },
 
-    // Squareからリアルタイムにバリエーションとオプションを取得して画面に出す
     async openOptionModal(squareItemId) {
         let modal = document.getElementById('option-modal');
         if (!modal) {
@@ -557,7 +637,6 @@ const app = {
                 </div>
             `;
 
-            // モーダルを開いた瞬間に初回の価格計算を実行
             this.calculateModalPrice();
 
         } catch (e) {
@@ -565,7 +644,6 @@ const app = {
         }
     },
 
-    // ★ カスタマイズオプションをクリックしたときの「解除」制御 ＋ 金額再計算
     handleModifierClick(input, type) {
         if (type === 'radio') {
             if (input.dataset.wasChecked === 'true') {
@@ -579,36 +657,29 @@ const app = {
                 input.dataset.wasChecked = 'true';
             }
         }
-        // ポチポチ押されるたびにリアルタイムに金額を計算し直す
         this.calculateModalPrice();
     },
 
-    // ★ モーダル内の選択状況から「現在の価格」をリアルタイム計算する関数
     calculateModalPrice() {
         let total = 0;
 
-        // 1. 選択されているバリエーション（サイズ）の価格を加算
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (selectedVar) {
             total += Number(selectedVar.getAttribute('data-price')) || 0;
         }
 
-        // 2. チェックされているすべてのトッピング（マディファイア）の価格を加算
         const checkedModifiers = document.querySelectorAll('input[name^="square_modifier_"]:checked');
         checkedModifiers.forEach(input => {
             total += Number(input.getAttribute('data-price')) || 0;
         });
 
-        // 3. 画面の金額表示を書き換え
         const priceDisplay = document.getElementById('modal-total-price');
         if (priceDisplay) {
             priceDisplay.innerText = `¥${total.toLocaleString()}`;
         }
     },
 
-    // カートへの最終追加処理
     confirmAddToCart(itemId, itemName) {
-        // 画面上部のカレンダーから「受取希望日」を取得
         const dateElement = document.getElementById('order-date');
         const orderDate = dateElement ? dateElement.value : '';
         
@@ -635,12 +706,11 @@ const app = {
             selectedModifiers.push({ id: input.value, name: modName });
         });
 
-        // カートのキー（日付も組み合わせに含めることで、日付ごとの管理を確実に）
         const cartKey = `${orderDate}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
-                orderDate, // ★「この商品は〇月〇日分」という情報を保持
+                orderDate, 
                 itemId,
                 itemName,
                 variationId,
@@ -660,12 +730,15 @@ const app = {
     },
 };
 
-// 起動確認
+// =========================================================
+// 3. アプリケーションのエントリーポイント（自動起動）
+// =========================================================
 app.init();
 
 // =========================================================
-// ブラウザの「戻る」ボタンを完全に無効化（ブロック）する処理
+// 4. 特殊ブラウザイベント制御 (IIFE)
 // =========================================================
+// ブラウザの「戻る」ボタンを完全に無効化（ブロック）する処理
 (function() {
     window.history.pushState(null, null, window.location.href);
     window.addEventListener('popstate', function(e) {
@@ -678,7 +751,6 @@ app.init();
 (function() {
     let lastCheckedDate = '';
 
-    // 画面を開いたとき、またはログインしたときの初期日付を記憶
     window.addEventListener('load', () => {
         setTimeout(() => {
             const dateInput = document.getElementById('order-date');
@@ -691,15 +763,12 @@ app.init();
             const dateInput = e.target;
             const cartCount = Object.keys(app.state.cart).length;
 
-            // カートに商品が入っている場合
             if (cartCount > 0) {
                 alert("すでにカートに商品が入っているため、受取日を変更できません。\n日付を変更する場合は、一度ログアウトするかカートを空にしてください。");
-                // 変更前の日付に強制的に戻す
                 dateInput.value = lastCheckedDate;
                 return;
             }
 
-            // カートが空なら、新しい日付を記憶（メニューは消さずにそのまま）
             lastCheckedDate = dateInput.value;
             console.log("受取希望日を変更しました:", lastCheckedDate);
         }
