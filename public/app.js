@@ -662,17 +662,17 @@ const app = {
         }
 
         container.innerHTML = this.state.menus.map(item => {
-            // シングルクォーテーションのエスケープ処理
             const escapedName = item.name.replace(/'/g, "\\'");
             
             return `
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex items-center justify-between gap-4 hover:border-orange-200 transition-colors">
+                <!-- 1行に1つのメニューカード -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex items-center justify-between gap-4">
                     
-                    <!-- 左側：画像と商品情報（タップでサブ画面へ） -->
+                    <!-- 画像と情報の塊（ここをタップするとサブ画面が開く） -->
                     <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')">
                         
-                        <!-- 商品画像エリア（タップ領域） -->
-                        <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-50 select-none">
+                        <!-- 左側：商品画像 -->
+                        <div class="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-100">
                             ${item.image_url ? `
                                 <img src="${item.image_url}" class="w-full h-full object-cover" alt="${item.name}">
                             ` : `
@@ -680,17 +680,17 @@ const app = {
                             `}
                         </div>
                         
-                        <!-- 商品テキスト情報 -->
+                        <!-- 中央：商品名・説明・価格 -->
                         <div class="flex-1 min-w-0">
                             <h3 class="font-black text-gray-800 text-sm truncate">${item.name}</h3>
                             <p class="text-[11px] text-gray-400 mt-0.5 line-clamp-2 leading-tight">${item.description || '美味しいカフェメニューです。'}</p>
-                            <p class="text-orange-500 font-black text-xs mt-1.5">¥${item.price.toLocaleString()}〜</p>
+                            <p class="text-orange-500 font-black text-xs mt-1">¥${item.price.toLocaleString()}〜</p>
                         </div>
                     </div>
                     
-                    <!-- 右側：選択ボタン -->
+                    <!-- 右側：選択ボタン（念のためここをタップしてもサブ画面が開く） -->
                     <div class="flex-shrink-0">
-                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm">
+                        <button onclick="app.openOptionModal('${item.square_item_id}', '${escapedName}')" class="bg-orange-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition-all">
                             選択
                         </button>
                     </div>
@@ -720,78 +720,81 @@ const app = {
         if (modal) modal.classList.remove('hidden');
     },
 
-    async openOptionModal(squareItemId) {
+    async openOptionModal(squareItemId, itemName) {
+        // 既存のモーダル要素を取得、なければ作成
         let modal = document.getElementById('option-modal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'option-modal';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden';
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-end hidden';
             document.body.appendChild(modal);
         }
 
-        modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center font-bold">Squareから最新情報を読み込み中...</div>';
+        // ローディング表示
+        modal.innerHTML = `
+            <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto text-center font-bold text-xs text-gray-400">
+                オプション情報を読み込み中...
+            </div>
+        `;
         modal.classList.remove('hidden');
 
         try {
+            // Squareの商品詳細（バリエーション・モディファイア）を取得
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
             const data = await res.json();
             if (!data.success) throw new Error(data.message);
 
             const item = data.item;
 
+            // サブ画面の内装を構築
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
-                    <div class="flex-grow overflow-y-auto mb-6 pr-1">
-                        <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
-                        <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
+                <!-- 背景タップでサブ画面を閉じる -->
+                <div class="absolute inset-0 bg-transparent" onclick="document.getElementById('option-modal').classList.add('hidden')"></div>
+                
+                <!-- 下からスライドインするサブ画面本体 -->
+                <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto flex flex-col max-h-[85vh] overflow-y-auto z-10 shadow-2xl">
+                    <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 flex-shrink-0"></div>
+                    
+                    <div class="overflow-y-auto flex-1 text-left pb-4 hide-scrollbar">
+                        <h2 class="text-base font-black text-gray-800 mb-1">${item.name}</h2>
+                        <p class="text-[11px] text-gray-400 mb-5">${item.description || ''}</p>
                         
-                        <div class="mb-6 text-left">
-                            <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-emerald-600 pl-2">サイズ / 種類 (必須)</label>
+                        <!-- ① バリエーション選択（サイズやHot/Iceなど） -->
+                        <div class="mb-5">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">サイズ・種類 (必須)</label>
                             <div class="space-y-2">
                                 ${item.variations.map((v, idx) => {
-                                    const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
+                                    const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
                                     return `
-                                    <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
+                                    <label for="${radioId}" class="flex items-center justify-between p-3 border border-gray-100 bg-gray-50 rounded-2xl cursor-pointer text-xs">
                                         <span class="flex items-center">
-                                            <input type="radio" 
-                                                   id="${radioId}"
-                                                   name="square_variation" 
-                                                   value="${v.id}" 
-                                                   data-price="${v.price}" 
-                                                   onchange="app.calculateModalPrice()"
-                                                   ${idx === 0 ? 'checked' : ''} 
-                                                   class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-                                            <span class="text-gray-800 font-bold">${v.name}</span>
+                                            <input type="radio" id="${radioId}" name="square_variation" value="${v.id}" data-price="${v.price}" onchange="app.calculateModalPrice()" ${idx === 0 ? 'checked' : ''} class="mr-3 h-4 w-4 text-orange-500 focus:ring-orange-500">
+                                            <span class="font-bold text-gray-800">${v.name}</span>
                                         </span>
-                                        <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
+                                        <span class="font-black text-gray-700">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
                                     `;
                                 }).join('')}
                             </div>
                         </div>
 
-                        ${item.options.map((optList, oIdx) => `
-                            <div class="mb-6 text-left">
-                                <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-gray-400 pl-2">
-                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つまで・再タップで解除可)' : '(複数選択可)'}
+                        <!-- ② カスタマイズ選択（トッピングやシロップなど） -->
+                        ${item.options.map((optList) => `
+                            <div class="mb-5">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つ選択)' : '(複数選択可)'}
                                 </label>
                                 <div class="space-y-2">
-                                    ${optList.modifiers.map((m, mIdx) => {
-                                        const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}_${oIdx}_${mIdx}`;
+                                    ${optList.modifiers.map((m) => {
+                                        const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
                                         const inputType = optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox';
                                         return `
-                                        <label for="${checkId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
+                                        <label for="${checkId}" class="flex items-center justify-between p-3 border border-gray-100 bg-gray-50 rounded-2xl cursor-pointer text-xs">
                                             <span class="flex items-center">
-                                                <input type="${inputType}" 
-                                                       id="${checkId}"
-                                                       name="square_modifier_${optList.id}" 
-                                                       value="${m.id}" 
-                                                       data-price="${m.price}" 
-                                                       onclick="app.handleModifierClick(this, '${inputType}')"
-                                                       class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-                                                <span class="text-gray-700">${m.name}</span>
+                                                <input type="${inputType}" id="${checkId}" name="square_modifier_${optList.id}" value="${m.id}" data-price="${m.price}" onclick="app.handleModifierClick(this, '${inputType}')" class="mr-3 h-4 w-4 text-orange-500 focus:ring-orange-500">
+                                                <span class="text-gray-700 font-medium">${m.name}</span>
                                             </span>
-                                            <span class="text-gray-500 text-sm font-medium">+¥${Number(m.price).toLocaleString()}</span>
+                                            <span class="text-gray-400 font-bold">+¥${Number(m.price).toLocaleString()}</span>
                                         </label>
                                         `;
                                     }).join('')}
@@ -800,26 +803,29 @@ const app = {
                         `).join('')}
                     </div>
 
-                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
-                        <span class="font-bold text-sm">現在の選択合計</span>
-                        <span id="modal-total-price" class="text-xl font-black">¥0</span>
-                    </div>
-
-                    <div class="flex space-x-3 pt-4 border-t border-gray-100 bg-white sticky bottom-0">
-                        <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
-                            キャンセル
-                        </button>
-                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-emerald-600 text-white py-3 rounded-full font-black hover:bg-emerald-700 transition shadow-md block text-center text-base tracking-wider z-50">
-                            カートに追加
-                        </button>
+                    <!-- サブ画面下部：固定金額表示 ＆ カート追加ボタン -->
+                    <div class="pt-4 border-t border-gray-100 flex-shrink-0">
+                        <div class="mb-4 flex justify-between items-center">
+                            <span class="text-xs font-bold text-gray-400">選択合計金額</span>
+                            <span id="modal-total-price" class="text-2xl font-black text-orange-600">¥0</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/3 bg-gray-100 text-gray-500 py-3.5 rounded-2xl font-bold text-xs">
+                                閉じる
+                            </button>
+                            <button onclick="app.confirmAddToCart('${item.id}', '${item.name.replace(/'/g, "\\'")}')" class="w-2/3 bg-orange-500 text-white py-3.5 rounded-2xl font-black text-xs shadow-md">
+                                カートに追加
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
 
+            // 金額の初期計算を実行
             this.calculateModalPrice();
 
         } catch (e) {
-            modal.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-md w-full text-center text-red-500 font-bold">エラー: ${e.message}</div>`;
+            modal.innerHTML = `<div class="bg-white p-6 rounded-t-[32px] max-w-md mx-auto text-center text-red-500 font-bold text-xs">データの同期に失敗しました: ${e.message}</div>`;
         }
     },
 
