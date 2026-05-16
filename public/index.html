@@ -4,213 +4,148 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ぽっカフェ 注文</title>
-    <!-- 既存のスタイルシート -->
     <link rel="stylesheet" href="styles.css">
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* スクロールバーを非表示にするユーティリティ（必要に応じて） */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+<body class="animate-in bg-gray-50">
 
-    <!-- =========================================================
-         共通ヘッダー（ログイン後表示）
-         ========================================================= -->
-    <header id="main-header" class="hidden bg-white/80 sticky top-0 z-40 border-b border-gray-100 p-4 flex justify-between items-center backdrop-blur-md">
+    <header id="main-header" class="hidden bg-white/80 sticky top-0 z-40 border-b p-4 flex justify-between items-center backdrop-blur-md">
         <div class="flex flex-col">
             <h1 class="text-lg font-black text-orange-600 leading-none">ぽっカフェ</h1>
-            <p id="userDisplay" class="text-[10px] text-gray-400 mt-1 font-bold">ログイン中: --様</p>
+            <p id="userDisplay" class="text-[10px] text-gray-400 mt-1">ログイン中: --様</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="router.go('history')" class="text-[11px] font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-full active:scale-95 transition-all">履歴</button>
-            <button onclick="app.logout()" class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full active:scale-95 transition-all">ログアウト</button>
+            <button onclick="router.go('history')" class="text-[11px] font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-full">履歴</button>
+            <button onclick="app.logout()" class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full">ログアウト</button>
         </div>
     </header>
 
-    <!-- =========================================================
-         メインコンテンツ領域（ルーターで切り替え）
-         ========================================================= -->
-    <main id="app" class="max-w-md mx-auto min-h-screen">
-        
-        <!-- 1. ログイン画面 -->
-        <section id="view-login" class="view min-h-screen flex flex-col justify-center p-6">
+    <main id="app">
+        <section id="view-login" class="view min-h-screen flex flex-col justify-center p-6 animate-in">
             <div class="text-center mb-8">
-                <div class="w-24 h-24 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3 shadow-sm">
+                <div class="w-24 h-24 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
                     <span class="text-4xl">☕</span>
                 </div>
-                <h2 class="text-3xl font-black text-gray-800 tracking-tight">ぽっカフェ</h2>
-                <p class="text-xs text-gray-400 mt-2 font-medium">おいしい時間を、事前注文で。</p>
+                <h2 class="text-3xl font-black text-gray-800">ぽっカフェ</h2>
+                <p class="text-gray-400 mt-2">おいしい時間を、事前注文で。</p>
             </div>
 
-            <div class="space-y-4 w-full">
+            <div class="space-y-4 max-w-sm mx-auto w-full">
                 <div class="bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
-                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase tracking-wider">Email Address</label>
-                    <input type="email" id="login-email" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-base focus:outline-none text-gray-700 font-medium" placeholder="example@mail.com">
+                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase">Email Address</label>
+                    <input type="email" id="login-email" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-lg focus:outline-none" placeholder="example@mail.com">
                 </div>
                 <div class="bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
-                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase tracking-wider">Password</label>
-                    <input type="password" id="login-password" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-base focus:outline-none text-gray-700" placeholder="••••••••">
+                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase">Password</label>
+                    <input type="password" id="login-password" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-lg focus:outline-none" placeholder="••••••••">
                 </div>
 
                 <div class="text-right px-2">
-                    <button onclick="app.showForgotPassword()" class="text-xs font-bold text-orange-500 hover:underline bg-transparent border-0 cursor-pointer">パスワードをお忘れの方</button>
+                    <button onclick="app.showForgotPassword()" class="text-xs font-bold text-orange-500 hover:underline">パスワードをお忘れの方</button>
                 </div>
 
-                <button onclick="app.login()" class="w-full bg-orange-500 text-white py-4 rounded-3xl font-bold shadow-lg shadow-orange-100 active:scale-95 transition-transform tracking-wider">
+                <button onclick="app.login()" class="w-full bg-orange-500 text-white py-4 rounded-3xl font-bold shadow-lg shadow-orange-200 active:scale-95 transition-transform">
                     ログインして注文する
                 </button>
                 
                 <div class="relative py-4">
                     <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
-                    <div class="relative flex justify-center text-xs"><span class="bg-gray-50 px-4 text-gray-400 font-bold">初めての方</span></div>
+                    <div class="relative flex justify-center text-xs"><span class="bg-gray-50 px-4 text-gray-400 font-medium">初めての方</span></div>
                 </div>
 
-                <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-3xl font-bold shadow-sm border border-gray-200 active:bg-gray-50 transition-colors tracking-wider">
+                <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-3xl font-bold shadow-sm border border-gray-200 active:bg-gray-50">
                     新規アカウント作成
                 </button>
             </div>
         </section>
 
-        <!-- 2. ホーム画面（メニュー一覧） -->
-        <section id="view-home" class="view p-4 hidden">
-            <!-- 管理者用移行パネル（管理者のログイン時のみ JS で hidden 解除） -->
-            <div id="go-to-admin-btn" class="hidden mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center">
-                <button onclick="router.go('admin')" class="w-full bg-amber-600 text-white px-4 py-3 rounded-xl text-xs font-bold shadow-sm hover:bg-amber-700 active:scale-95 transition-all tracking-wide">
-                    ⚙️ 管理者ダッシュボード画面へ移行
+        <section id="view-home" class="view p-4 hidden animate-in">
+            <div id="go-to-admin-btn" class="hidden p-4 bg-yellow-50 border-b border-yellow-200 text-center">
+                <button onclick="router.go('admin')" class="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-yellow-700 transition">
+                    ⚙️ 管理者画面へ移行する
                 </button>
             </div>
-
-            <!-- 受取日変更＆管理者代理注文セレクター表示領域 -->
-            <div class="mb-6 space-y-3">
-                <!-- 管理者用顧客セレクター（JSから動的注入） -->
+            <div class="mb-6">
                 <div id="admin-customer-selector-wrapper" class="hidden"></div>
-                
-                <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block ml-1">受取希望日</label>
-                    <div class="relative">
-                        <input type="date" id="order-date" class="w-full bg-white border border-gray-100 shadow-sm p-4 rounded-2xl text-base font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all" onchange="app.loadMenus()">
-                    </div>
+                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">受取希望日</label>
+                <div class="relative">
+                    <input type="date" id="order-date" class="w-full bg-white border-0 shadow-sm p-4 rounded-2xl text-lg font-bold focus:ring-2 focus:ring-orange-500" onchange="app.loadMenus()">
                 </div>
             </div>
-
-            <!-- メニューカード注入コンテナ -->
-            <div id="menu-list" class="space-y-4 pb-28">
-                <!-- JSにより非同期でメニューがレンダリングされます -->
-            </div>
+            <div id="menu-list" class="space-y-4 pb-20"></div>
         </section>
 
-        <!-- 3. 管理者メイン画面 (ビュー全体を横幅いっぱいに使うため max-w 解除用の調整クラス付与可) -->
-        <section id="view-admin" class="view p-4 hidden max-w-none md:max-w-4xl md:mx-auto">
-            <!-- app.js の adminView.render() により動的構築されます -->
+        <section id="view-admin" class="view p-4 hidden animate-in">
+            <!-- ここにJavaScriptから管理画面の中身が注入されます -->
         </section>
 
-        <!-- 4. 管理者メニュー編集画面 -->
-        <section id="view-menu-edit" class="view p-4 hidden max-w-none md:max-w-4xl md:mx-auto">
-            <!-- app.js の menuEditView.render() により動的構築されます -->
+        <!-- メニュー編集用のセクションも下に並べて追加しておいてください -->
+        <section id="view-menu-edit" class="view p-4 hidden animate-in">
+            <!-- メニュー登録・編集画面の中身（前述の menuEditView.render() の内容） -->
         </section>
         
     </main>
 
-    <!-- =========================================================
-         下部永続カートバー (商品追加時のみ hidden 自動解除)
-         ========================================================= -->
-    <div id="cart-bar" class="hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md p-4 pb-6 z-50 border-t border-gray-100 shadow-xl">
+    <div id="cart-bar" class="hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg p-4 pb-8 z-50 border-t border-gray-100">
         <div class="max-w-md mx-auto flex items-center justify-between gap-4">
-            <div class="flex-1 min-w-0">
-                <p id="cart-total-display" class="text-xl font-black text-orange-600 flex flex-col leading-tight">
-                    <span class="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">合計</span>
-                    ¥0
-                </p>
+            <div class="flex-1">
+                <p class="text-[10px] text-gray-400 font-bold uppercase">合計</p>
+                <p id="cart-total-display" class="text-2xl font-black text-orange-600">¥0</p>
             </div>
-            <button onclick="app.confirmOrder()" class="bg-orange-500 text-white font-black px-8 py-3.5 rounded-2xl shadow-md shadow-orange-100 active:scale-95 transition-all text-xs tracking-wider flex-shrink-0">
-                注文内容を確認
+            <button onclick="app.confirmOrder()" class="bg-orange-500 text-white font-bold px-10 py-4 rounded-2xl shadow-lg active:scale-95 transition-all">
+                注文を確認
             </button>
         </div>
     </div>
 
-    <!-- =========================================================
-         モーダル・ポップアップレイディ(Modals)
-         ========================================================= -->
-
-    <!-- 新規登録アカウント作成モーダル -->
     <div id="register-modal" class="hidden fixed inset-0 z-[70] flex items-end">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="app.closeRegister()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto shadow-2xl transition-transform">
-            <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5"></div>
-            <h3 class="text-lg font-black text-gray-800 mb-5">アカウント作成</h3>
-            <div class="space-y-3 mb-6">
-                <input type="text" id="reg-name" placeholder="お名前（フルネーム）" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
-                <input type="email" id="reg-email" placeholder="メールアドレス" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
-                <input type="tel" id="reg-tel" placeholder="電話番号" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
-                <input type="password" id="reg-password" placeholder="パスワード（必須）" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeRegister()"></div>
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto">
+            <h3 class="text-xl font-bold mb-6">アカウント作成</h3>
+            <div class="space-y-4 mb-8">
+                <input type="text" id="reg-name" placeholder="お名前" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
+                <input type="email" id="reg-email" placeholder="メールアドレス" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
+                <input type="tel" id="reg-tel" placeholder="電話番号" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
+                <input type="password" id="reg-password" placeholder="パスワード（必須）" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
             </div>
-            <button onclick="app.submitRegister()" id="reg-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-xs tracking-wider shadow-sm active:scale-95 transition-transform">
-                認証メールを送る
-            </button>
+            <button onclick="app.submitRegister()" id="reg-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">認証メールを送る</button>
         </div>
     </div>
 
-    <!-- パスワード忘れメール送信モーダル -->
     <div id="forgot-modal" class="hidden fixed inset-0 z-[70] flex items-end">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="app.closeForgotPassword()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto shadow-2xl">
-            <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5"></div>
-            <h3 class="text-lg font-black text-gray-800 mb-1">パスワードの再設定</h3>
-            <p class="text-[11px] text-gray-400 mb-5 font-medium">ご登録のメールアドレス宛てに再設定用リンクをお送りします。</p>
-            <div class="space-y-4 mb-6">
-                <input type="email" id="forgot-email" placeholder="example@mail.com" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeForgotPassword()"></div>
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto">
+            <h3 class="text-xl font-bold mb-2">パスワードの再設定</h3>
+            <p class="text-xs text-gray-400 mb-6">登録しているメールアドレスへ再設定リンクを送信します。</p>
+            <div class="space-y-4 mb-8">
+                <input type="email" id="forgot-email" placeholder="example@mail.com" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
             </div>
-            <button onclick="app.submitForgotPassword()" id="forgot-submit-btn" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold text-xs tracking-wider shadow-md shadow-orange-50 active:scale-95 transition-transform">
-                再設定メールを送る
-            </button>
+            <button onclick="app.submitForgotPassword()" id="forgot-submit-btn" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold">再設定メールを送る</button>
         </div>
     </div>
 
-    <!-- パスワード新設定実行モーダル -->
     <div id="reset-modal" class="hidden fixed inset-0 z-[80] flex items-end">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto shadow-2xl">
-            <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5"></div>
-            <h3 class="text-lg font-black text-gray-800 mb-1">新しいパスワードの設定</h3>
-            <p class="text-[11px] text-gray-400 mb-5 font-medium">セキュリティ確保のため、新しいパスワードを入力してください。</p>
-            <div class="space-y-4 mb-6">
-                <input type="password" id="reset-new-password" placeholder="新しいパスワード" class="w-full p-4 rounded-2xl bg-gray-50 text-xs font-medium border border-transparent focus:bg-white focus:border-orange-500 focus:outline-none transition-all">
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto">
+            <h3 class="text-xl font-bold mb-2">新しいパスワードの設定</h3>
+            <p class="text-xs text-gray-400 mb-6">新しいパスワードを決定してください。</p>
+            <div class="space-y-4 mb-8">
+                <input type="password" id="reset-new-password" placeholder="新しいパスワード" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
             </div>
-            <button onclick="app.submitResetPassword()" id="reset-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-xs tracking-wider active:scale-95 transition-transform">
-                パスワードを更新する
-            </button>
+            <button onclick="app.submitResetPassword()" id="reset-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">パスワードを更新する</button>
         </div>
     </div>
 
-    <!-- カート最終チェック注文確認モーダル -->
     <div id="modal" class="hidden fixed inset-0 z-[60] flex items-end">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="app.closeModal()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-6 max-w-md mx-auto shadow-2xl flex flex-col max-h-[80vh]">
-            <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5 flex-shrink-0"></div>
-            <h3 class="text-lg font-black text-gray-800 mb-4 flex-shrink-0">注文内容の確認</h3>
-            
-            <!-- カート内商品明細スクロール領域 -->
-            <div id="modal-content" class="overflow-y-auto flex-1 mb-6 divide-y divide-gray-100 hide-scrollbar">
-                <!-- JS(app.confirmOrder)より明細ノードが挿入されます -->
-            </div>
-            
-            <button onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-black text-sm tracking-wider shadow-lg shadow-orange-100 active:scale-95 transition-all flex-shrink-0下">
-                注文を確定する
-            </button>
+        <div class="absolute inset-0 bg-black/40" onclick="app.closeModal()"></div>
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up">
+            <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8"></div>
+            <h3 class="text-xl font-black mb-6">注文内容の確認</h3>
+            <div id="modal-content" class="max-h-[40vh] overflow-y-auto mb-8 hide-scrollbar"></div>
+            <button onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg">注文を確定する</button>
         </div>
     </div>
 
-    <!-- =========================================================
-         アプリケーションスクリプト
-         ========================================================= -->
     <script src="app.js"></script>
 </body>
 </html>
