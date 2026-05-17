@@ -90,7 +90,7 @@ const router = {
             if (cartBar && Object.keys(app.state.cart).length > 0) {
                 cartBar.classList.remove('hidden');
             }
-            // ★【追加】一般ホーム画面に戻った際、管理者ならセレクターを生成/描画する
+            // 一般ホーム画面に戻った際、管理者ならセレクターを生成/描画する
             app.renderAdminCustomerSelector();
         }
 
@@ -111,9 +111,17 @@ const router = {
                 if (editTarget && typeof menuEditView !== 'undefined') {
                     editTarget.innerHTML = menuEditView.render();
                 }
-                setTimeout(() => {
-                    if (typeof app.loadSquareItems === 'function') app.loadSquareItems();
-                    if (typeof app.loadAdminMenuList === 'function') app.loadAdminMenuList();
+                
+                // 【修正箇所】setTimeout内の古い呼び出しを統合初期化関数へ変更
+                setTimeout(async () => {
+                    if (typeof app.initMenuEditPage === 'function') {
+                        // 全取得、未登録抽出、セレクター構築、メニュー一覧描画をまとめて実行
+                        await app.initMenuEditPage();
+                    } else {
+                        // 万が一、まだ initMenuEditPage を app.js 側に統合していない場合のフォールバック
+                        if (typeof app.loadAvailableSquareItems === 'function') await app.loadAvailableSquareItems();
+                        if (typeof app.loadAdminMenuList === 'function') await app.loadAdminMenuList();
+                    }
                 }, 1);
                 break;
 
