@@ -125,17 +125,6 @@ const router = {
                 }, 1);
                 break;
 
-            case 'menu-edit':
-                const editTarget = document.getElementById('view-menu-edit');
-                if (editTarget && typeof menuEditView !== 'undefined') {
-                    editTarget.innerHTML = menuEditView.render();
-                }
-                setTimeout(() => {
-                    if (typeof app.loadSquareItems === 'function') app.loadSquareItems();
-                    if (typeof app.loadAdminMenuList === 'function') app.loadAdminMenuList();
-                }, 1);
-                break;
-
             case 'home':
                 setTimeout(() => app.loadMenus(), 1);
                 break;
