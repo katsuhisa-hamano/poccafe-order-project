@@ -654,7 +654,7 @@ export async function onRequest(context) {
         // ※実際には env.SQUARE_ACCESS_TOKEN 等を使い Square API (https://connect.squareup.com/v2/catalog/list?types=ITEM) を叩きます
         // ここではSquare APIから戻ってきた生データ（想定）の配列を `allSquareItems` とします。
         
-        /* // 実際のSquare API呼び出し例:
+        // 実際のSquare API呼び出し例:
         const squareResponse = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
           headers: {
             'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
@@ -672,15 +672,16 @@ export async function onRequest(context) {
             price: v.item_data.price_money ? v.item_data.price_money.amount : 0
           }))
         }));
-        */
+        
 
-        // テスト・検証用のモックデータ構造例（本番環境に合わせて適宜マッピングしてください）
+        /* // テスト・検証用のモックデータ構造例（本番環境に合わせて適宜マッピングしてください）
         const allSquareItems = [
           { id: "ITEM_COFFEE_001", name: "ブレンドコーヒー", variations: [{ id: "VAR_REG_01", name: "レギュラー", price: 400 }, { id: "VAR_LRG_01", name: "Lサイズ", price: 500 }] },
           { id: "ITEM_LATTE_002", name: "カフェラテ", variations: [{ id: "VAR_REG_02", name: "レギュラー", price: 450 }] },
           { id: "ITEM_TEA_003", name: "和紅茶", variations: [{ id: "VAR_REG_03", name: "レギュラー", price: 380 }] },
           { id: "ITEM_COOKIE_004", name: "手作りクッキー", variations: [{ id: "VAR_REG_04", name: "1枚", price: 150 }] }
         ];
+        */
 
         // 2. アプリのDB（menusテーブル）から、既に登録されている square_item_id の一覧を取得
         const registeredMenus = await env.DB.prepare(`
