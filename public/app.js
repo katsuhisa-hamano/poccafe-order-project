@@ -473,14 +473,17 @@ const app = {
                                 </div>
                             </div>
                             
-                            <div class="flex items-center gap-2">
-                                <label class="text-[11px] font-bold text-gray-400 whitespace-nowrap">Square商品紐付け変更:</label>
-                                <select onchange="app.changeItemMapping(${menu.id}, this.value)" class="bg-white border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none">
-                                    <option value="">-- 別商品へ切り替え --</option>
-                                    ${this.state.squareCatalogItems.map(sqItem => `
-                                        <option value="${sqItem.id}">${sqItem.name}</option>
+                            <div class="flex items-center gap-2 bg-white border border-gray-200 p-1.5 rounded-xl shadow-sm">
+                                <label class="text-[11px] font-bold text-gray-500 whitespace-nowrap pl-1">Square紐付け:</label>
+                                <select id="change-square-select-${menu.id}" class="bg-gray-50 border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none focus:bg-white">
+                                    <option value="">-- 商品を選択 --</option>
+                                    ${(this.state.squareCatalogItems || []).map(sqItem => `
+                                        <option value="${sqItem.id}" ${sqItem.id === menu.square_item_id ? 'selected' : ''}>${sqItem.name}</option>
                                     `).join('')}
                                 </select>
+                                <button onclick="app.submitItemMappingChange(${menu.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap shadow-sm">
+                                    変更適用
+                                </button>
                             </div>
                         </div>
 
@@ -574,46 +577,80 @@ const app = {
     },
 
     // 5. SquareメニューセレクターによるITEM変更（マッピング修正）の処理
-    async changeItemMapping(menuId, newSquareItemId) {
-        if (!newSquareItemId) return;
-        
-        const selectedSqItem = this.state.squareCatalogItems.find(item => item.id === newSquareItemId);
-        if (!selectedSqItem) return;
 
-        if (!confirm(`この項目を Squareの「${selectedSqItem.name}」に変更してよろしいですか？\n※既存のバリエーション情報はリセットされます。`)) {
-            this.loadAdminMenuList(); // キャンセル時はリロードして選択肢を元に戻す
+    /**
+     * 個別更新ボタンが押された際、選択されたSquare商品への紐付け変更を確実に実行する
+     * @param {number} menuId - アプリ側DBのmenus.id
+     */
+    async submitItemMappingChange(menuId) {
+        // 1. 対象のセレクトボックス要素を特定して値を取得
+        const selector = document.getElementById(`change-square-select-${menuId}`);
+        if (!selector) return;
+        
+        const newSquareItemId = selector.value;
+        if (!newSquareItemId) {
+            alert("切り替えるSquare商品を選択してください。");
             return;
         }
 
-        // バリエーション構造のフォーマット
-        const formattedVariations = (selectedSqItem.variations || []).map(v => ({
-            square_variation_id: v.id,
-            name: v.name,
-            price: v.price || 0,
-            remaining: 0
-        }));
+        // 2. Squareカタログ全量データから、選択された商品の詳細構造を特定
+        const catalogItems = this.state.squareCatalogItems || [];
+        const selectedSqItem = catalogItems.find(item => item && item.id === newSquareItemId);
+        
+        if (!selectedSqItem) {
+            alert("選択されたSquare商品のデータが見つかりません。");
+            return;
+        }
+
+        // 3. 実行前の最終確認
+        const confirmMessage = `このメニュー項目を Squareの「${selectedSqItem.name}」に変更してよろしいですか？\n\n※注意: 変更を適用すると、この項目に紐づいていた古いバリエーション情報、在庫数、表示フラグはすべてリセットされ、新しい商品のバリエーション構造に書き換わります。`;
+        if (!confirm(confirmMessage)) {
+            // キャンセルされた場合は現在のDBの状態に戻すためリストを再描画
+            await this.loadAdminMenuList();
+            return;
+        }
+
+        // 4. 新しい商品構造に合わせてバリエーション配列をフォーマット
+        const variationsSrc = selectedSqItem.variations || [];
+        const formattedVariations = variationsSrc.map(v => ({
+            square_variation_id: v?.id || "",
+            name: v?.name || "通常",
+            price: v?.price || 0,
+            remaining: 0 // 初期在庫は0
+        })).filter(v => v.square_variation_id !== ""); // 不正なバリエーションを除外
 
         try {
+            // 5. バックエンドAPIへ更新リクエストを送信
             const res = await fetch('/api/admin/menus/change-item', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     menu_id: menuId,
                     square_item_id: selectedSqItem.id,
-                    name: selectedSqItem.name,
+                    name: selectedSqItem.name || "名称未設定の商品",
                     variations: formattedVariations
                 })
             });
 
             const result = await res.json();
+
             if (res.ok && result.success) {
-                alert("商品を切り替え、同期しました。");
-                this.loadAdminMenuList();
+                alert(`「${selectedSqItem.name}」への変更が正常にテーブルへ反映されました。`);
+                
+                // 6. 【重要】非同期処理の完了を待ち、画面を最新の状態に強制レンダリング
+                // 登録済みメニュー階層一覧の再取得と再描画
+                await this.loadAdminMenuList();
+                // 最下部の「新規追加用プルダウン（未登録リスト）」も同期して更新
+                if (typeof this.loadAvailableSquareItems === 'function') {
+                    await this.loadAvailableSquareItems();
+                }
             } else {
-                alert("変更に失敗しました: " + result.message);
+                alert("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
+                await this.loadAdminMenuList(); // 状態を戻す
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
+            alert("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
+            await this.loadAdminMenuList();
         }
     },
 
