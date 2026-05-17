@@ -119,9 +119,20 @@ const router = {
                         await app.initMenuEditPage();
                     } else {
                         // 万が一、まだ initMenuEditPage を app.js 側に統合していない場合のフォールバック
-                        if (typeof app.loadSquareItems === 'function') await app.loadSquareItems();
+                        if (typeof app.loadAvailableSquareItems === 'function') await app.loadAvailableSquareItems();
                         if (typeof app.loadAdminMenuList === 'function') await app.loadAdminMenuList();
                     }
+                }, 1);
+                break;
+
+            case 'menu-edit':
+                const editTarget = document.getElementById('view-menu-edit');
+                if (editTarget && typeof menuEditView !== 'undefined') {
+                    editTarget.innerHTML = menuEditView.render();
+                }
+                setTimeout(() => {
+                    if (typeof app.loadSquareItems === 'function') app.loadSquareItems();
+                    if (typeof app.loadAdminMenuList === 'function') app.loadAdminMenuList();
                 }, 1);
                 break;
 
@@ -485,7 +496,7 @@ const app = {
                                 <label class="text-[11px] font-bold text-gray-500 whitespace-nowrap pl-1">Square紐付け:</label>
                                 <select id="change-square-select-${menu.id}" class="bg-gray-50 border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none focus:bg-white">
                                     <option value="">-- 商品を選択 --</option>
-                                    ${(this.state.squareCatalogItems || []).map(sqItem => `
+                                    ${(this.state.availableSquareItems || []).map(sqItem => `
                                         <option value="${sqItem.id}">${sqItem.name}</option>
                                     `).join('')}
                                 </select>
@@ -780,16 +791,6 @@ const app = {
         } catch (e) {
             alert("通信エラーが発生しました");
         }
-    },
-
-    // 5. 既存ITEMのSquare紐付けを変更した際にも、セレクターを追従させる
-    async changeItemMapping(menuId, newSquareItemId) {
-        if (!newSquareItemId) return;
-        
-        // 注意: 既存メニューの変更時には、すべてのSquare商品から選ぶ必要があるため、
-        // 変更用のセレクトボックスには別の全量データ（または元のリスト）を使うか、
-        // 今回の「未登録リスト」とは別に管理することをおすすめします。
-        // （もしここでも除外したい場合は、この処理の最後にも `this.loadAvailableSquareItems()` を呼んで同期させてください）
     },
 
     // モーダル表示切り替え
