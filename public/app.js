@@ -687,45 +687,6 @@ const app = {
         }
     },
 
-    // 7. 一覧の最下部から、Square商品を使って新規ITEMを追加する処理
-    async addNewItemFromSquare() {
-        const selector = document.getElementById('new-square-item-selector');
-        if (!selector || !selector.value) return alert("追加するSquare商品を選択してください");
-
-        const selectedSqItem = this.state.squareCatalogItems.find(item => item.id === selector.value);
-        if (!selectedSqItem) return;
-
-        const formattedVariations = (selectedSqItem.variations || []).map(v => ({
-            square_variation_id: v.id,
-            name: v.name,
-            price: v.price || 0,
-            remaining: 0
-        }));
-
-        try {
-            const res = await fetch('/api/admin/menus/add-item', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    square_item_id: selectedSqItem.id,
-                    name: selectedSqItem.name,
-                    variations: formattedVariations
-                })
-            });
-
-            const result = await res.json();
-            if (res.ok && result.success) {
-                alert(`「${selectedSqItem.name}」をメニューに追加しました。`);
-                selector.value = ""; // セレクタークリア
-                this.loadAdminMenuList(); // リスト更新
-            } else {
-                alert("追加に失敗しました: " + result.message);
-            }
-        } catch (e) {
-            alert("通信エラーが発生しました");
-        }
-    },
-
     // 1. メニュー編集画面を開いたときに最初に呼び出す初期化処理
     async initMenuEditPage() {
         // A. まずSquareの未登録商品リストをバックエンドから取得
