@@ -668,8 +668,8 @@ export async function onRequest(context) {
           name: obj.item_data.name,
           variations: (obj.item_data.variations || []).map(v => ({
             id: v.id,
-            name: v.item_data.name,
-            price: v.item_data.price_money ? v.item_data.price_money.amount : 0
+            name: v.item_variation_data.name,
+            price: v.item_variation_data.price_money ? v.item_variation_data.price_money.amount : 0
           }))
         }));
         
