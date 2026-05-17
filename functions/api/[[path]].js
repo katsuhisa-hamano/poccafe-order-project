@@ -645,6 +645,64 @@ export async function onRequest(context) {
       }
     }
 
+    // ---------------------------------------------------------
+    // 管理者用：Squareカタログ取得 ＆ 登録済み商品の除外
+    // ---------------------------------------------------------
+    if (path === '/api/admin/square-catalog' && method === 'GET') {
+      try {
+        // 1. Square APIからカタログオブジェクト(ITEM)を取得するダミーまたは実際の通信
+        // ※実際には env.SQUARE_ACCESS_TOKEN 等を使い Square API (https://connect.squareup.com/v2/catalog/list?types=ITEM) を叩きます
+        // ここではSquare APIから戻ってきた生データ（想定）の配列を `allSquareItems` とします。
+        
+        /* // 実際のSquare API呼び出し例:
+        const squareResponse = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
+          headers: {
+            'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+            'Square-Version': '2024-01-17',
+            'Content-Type': 'application/json'
+          }
+        });
+        const squareData = await squareResponse.json();
+        const allSquareItems = (squareData.objects || []).map(obj => ({
+          id: obj.id,
+          name: obj.item_data.name,
+          variations: (obj.item_data.variations || []).map(v => ({
+            id: v.id,
+            name: v.item_data.name,
+            price: v.item_data.price_money ? v.item_data.price_money.amount : 0
+          }))
+        }));
+        */
+
+        // テスト・検証用のモックデータ構造例（本番環境に合わせて適宜マッピングしてください）
+        const allSquareItems = [
+          { id: "ITEM_COFFEE_001", name: "ブレンドコーヒー", variations: [{ id: "VAR_REG_01", name: "レギュラー", price: 400 }, { id: "VAR_LRG_01", name: "Lサイズ", price: 500 }] },
+          { id: "ITEM_LATTE_002", name: "カフェラテ", variations: [{ id: "VAR_REG_02", name: "レギュラー", price: 450 }] },
+          { id: "ITEM_TEA_003", name: "和紅茶", variations: [{ id: "VAR_REG_03", name: "レギュラー", price: 380 }] },
+          { id: "ITEM_COOKIE_004", name: "手作りクッキー", variations: [{ id: "VAR_REG_04", name: "1枚", price: 150 }] }
+        ];
+
+        // 2. アプリのDB（menusテーブル）から、既に登録されている square_item_id の一覧を取得
+        const registeredMenus = await env.DB.prepare(`
+          SELECT square_item_id FROM menus
+        `).all();
+        
+        // 登録済みIDのSetを作成（検索を高速化するため）
+        const registeredIds = new Set((registeredMenus.results || []).map(m => m.square_item_id));
+
+        // 3. すでに登録されているものを除外（フィルタリング）
+        const unRegisteredItems = allSquareItems.filter(item => !registeredIds.has(item.id));
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          items: unRegisteredItems 
+        }), { headers: corsHeaders });
+
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 

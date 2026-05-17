@@ -136,7 +136,8 @@ const app = {
         user: { id: null, name: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
-        squareCatalogItems: []
+        squareCatalogItems: [],
+        availableSquareItems: []
     },
 
     // ログイン処理
@@ -686,6 +687,103 @@ const app = {
         } catch (e) {
             alert("通信エラーが発生しました");
         }
+    },
+
+    // 1. メニュー編集画面を開いたときに最初に呼び出す初期化処理
+    async initMenuEditPage() {
+        // A. まずSquareの未登録商品リストをバックエンドから取得
+        await this.loadAvailableSquareItems();
+        
+        // B. 次に登録済みメニューの階層構造一覧を描画
+        await this.loadAdminMenuList();
+    },
+
+    // 2. バックエンドから「未登録のSquare商品」のみを取得してstateに格納
+    async loadAvailableSquareItems() {
+        try {
+            const res = await fetch('/api/admin/square-catalog'); 
+            if (!res.ok) throw new Error("Squareカタログの取得に失敗しました");
+            const data = await res.json();
+            
+            // 未登録のアイテムだけがバックエンドから返ってくる
+            this.state.availableSquareItems = data.items || [];
+            
+            // 最下部にある「新規追加用セレクター」の選択肢を再構築
+            this.populateNewItemSelector();
+        } catch (e) {
+            console.error("Squareアイテムロードエラー:", e);
+        }
+    },
+
+    // 3. 新規追加用セレクターのHTML（<option>）を動的に組み立てる
+    populateNewItemSelector() {
+        const selector = document.getElementById('new-square-item-selector');
+        if (!selector) return;
+
+        if (this.state.availableSquareItems.length === 0) {
+            selector.innerHTML = '<option value="">追加可能な新しいSquare商品はすべて登録済みです</option>';
+            selector.disabled = true;
+            return;
+        }
+
+        selector.disabled = false;
+        selector.innerHTML = '<option value="">Squareのカタログから商品を選択...</option>' + 
+            this.state.availableSquareItems.map(item => `
+                <option value="${item.id}">${item.name} (${item.variations.length}個のバリエーション)</option>
+            `).join('');
+    },
+
+    // 4. 【重要】最下部から新規ITEMを追加したあとの処理
+    async addNewItemFromSquare() {
+        const selector = document.getElementById('new-square-item-selector');
+        if (!selector || !selector.value) return alert("追加するSquare商品を選択してください");
+
+        const selectedSqItem = this.state.availableSquareItems.find(item => item.id === selector.value);
+        if (!selectedSqItem) return;
+
+        const formattedVariations = (selectedSqItem.variations || []).map(v => ({
+            square_variation_id: v.id,
+            name: v.name,
+            price: v.price || 0,
+            remaining: 0
+        }));
+
+        try {
+            const res = await fetch('/api/admin/menus/add-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    square_item_id: selectedSqItem.id,
+                    name: selectedSqItem.name,
+                    variations: formattedVariations
+                })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert(`「${selectedSqItem.name}」をメニューに追加しました。`);
+                
+                // ★追加が完了したら、未登録リストを再ロードしてセレクターから今追加した商品を消去する
+                await this.loadAvailableSquareItems();
+                
+                // 階層一覧リストを更新
+                await this.loadAdminMenuList();
+            } else {
+                alert("追加に失敗しました: " + result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 5. 既存ITEMのSquare紐付けを変更した際にも、セレクターを追従させる
+    async changeItemMapping(menuId, newSquareItemId) {
+        if (!newSquareItemId) return;
+        
+        // 注意: 既存メニューの変更時には、すべてのSquare商品から選ぶ必要があるため、
+        // 変更用のセレクトボックスには別の全量データ（または元のリスト）を使うか、
+        // 今回の「未登録リスト」とは別に管理することをおすすめします。
+        // （もしここでも除外したい場合は、この処理の最後にも `this.loadAvailableSquareItems()` を呼んで同期させてください）
     },
 
     // モーダル表示切り替え
