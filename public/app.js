@@ -478,7 +478,7 @@ const app = {
                                 <select id="change-square-select-${menu.id}" class="bg-gray-50 border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none focus:bg-white">
                                     <option value="">-- 商品を選択 --</option>
                                     ${(this.state.squareCatalogItems || []).map(sqItem => `
-                                        <option value="${sqItem.id}" ${sqItem.id === menu.square_item_id ? 'selected' : ''}>${sqItem.name}</option>
+                                        <option value="${sqItem.id}">${sqItem.name}</option>
                                     `).join('')}
                                 </select>
                                 <button onclick="app.submitItemMappingChange(${menu.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap shadow-sm">
