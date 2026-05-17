@@ -478,7 +478,7 @@ const app = {
                                 <select onchange="app.changeItemMapping(${menu.id}, this.value)" class="bg-white border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none">
                                     <option value="">-- 別商品へ切り替え --</option>
                                     ${this.state.squareCatalogItems.map(sqItem => `
-                                        <option value="${sqItem.id}" ${sqItem.id === menu.square_item_id ? 'selected' : ''}>${sqItem.name}</option>
+                                        <option value="${sqItem.id}">${sqItem.name}</option>
                                     `).join('')}
                                 </select>
                             </div>
