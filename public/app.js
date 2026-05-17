@@ -119,7 +119,7 @@ const router = {
                         await app.initMenuEditPage();
                     } else {
                         // 万が一、まだ initMenuEditPage を app.js 側に統合していない場合のフォールバック
-                        if (typeof app.loadAvailableSquareItems === 'function') await app.loadAvailableSquareItems();
+                        if (typeof app.loadSquareItems === 'function') await app.loadSquareItems();
                         if (typeof app.loadAdminMenuList === 'function') await app.loadAdminMenuList();
                     }
                 }, 1);
