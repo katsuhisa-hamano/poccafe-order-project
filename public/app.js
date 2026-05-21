@@ -687,18 +687,18 @@ const app = {
                 
                 // 6. 【重要】非同期処理の完了を待ち、画面を最新の状態に強制レンダリング
                 // 登録済みメニュー階層一覧の再取得と再描画
-                await this.loadAdminMenuList();
+                await this.initMenuEditPage();
                 // 最下部の「新規追加用プルダウン（未登録リスト）」も同期して更新
                 if (typeof this.loadAvailableSquareItems === 'function') {
                     await this.loadAvailableSquareItems();
                 }
             } else {
                 alert("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
-                await this.loadAdminMenuList(); // 状態を戻す
+                await this.initMenuEditPage(); // 状態を戻す
             }
         } catch (e) {
             alert("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
-            await this.loadAdminMenuList();
+            await this.initMenuEditPage();
         }
     },
 
