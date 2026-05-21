@@ -550,7 +550,8 @@ const app = {
             container.innerHTML = customers.map(c => {
                 // メールアドレスの有無を判定
                 const isSelfRegistered = c.email && c.email.trim() !== "";
-                
+                // ★【追加】注文データがある（c.has_orders === 1）場合は削除不可
+                const isDeleteDisabled = c.has_orders === 1;                
                 return `
                     <div class="p-4 flex items-center justify-between gap-4 text-sm">
                         <div>
@@ -564,10 +565,19 @@ const app = {
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
                                 <p>TEL: ${c.tel || '未設定'}</p>
                                 ${isSelfRegistered ? `<p>Email: ${c.email}</p>` : ''}
+                                ${isDeleteDisabled ? `<p class="text-[11px] text-orange-500 font-medium">※注文データがあるため削除できません</p>` : ''}
                             </div>
                         </div>
                         <div>
-                            <button onclick="app.deleteCustomer(${c.id}, '${c.name}')" class="text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">
+                            <button 
+                                onclick="app.deleteCustomer(${c.id}, '${c.name}')" 
+                                ${isDeleteDisabled ? 'disabled' : ''} 
+                                class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                                    isDeleteDisabled 
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60' 
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                }"
+                            >
                                 削除
                             </button>
                         </div>

@@ -534,7 +534,9 @@ export async function onRequest(context) {
     if (path === '/api/admin/customers/edit' && method === 'GET') {
       try {
         const users = await env.DB.prepare(`
-          SELECT id, name, email, tel, status, created_at FROM users ORDER BY id DESC
+          SELECT id, name, email, tel, status, created_at, 
+          CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) > 0 THEN 1 ELSE 0 END as has_orders 
+          FROM users ORDER BY id DESC
         `).all();
         return new Response(JSON.stringify({ success: true, customers: users.results || [] }), { headers: corsHeaders });
       } catch (dbErr) {
@@ -603,6 +605,14 @@ export async function onRequest(context) {
     if (path === '/api/admin/customers/delete' && method === 'POST') {
       const { customer_id } = await request.json();
       try {
+        const orderCount = await env.DB.prepare(`
+          SELECT COUNT(*) as count FROM orders WHERE user_id = ?
+        `).bind(customer_id).first('count');
+
+        if (orderCount > 0) {
+          return new Response(JSON.stringify({ success: false, message: "この顧客は過去に注文履歴があるため削除できません。ステータスを停止する等で対応してください。" }), { status: 400, headers: corsHeaders });
+        }
+        
         await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(customer_id).run();
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {
