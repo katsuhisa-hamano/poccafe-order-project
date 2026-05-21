@@ -535,7 +535,7 @@ export async function onRequest(context) {
       try {
         const users = await env.DB.prepare(`
           SELECT id, name, email, tel, status, created_at, 
-          CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) > 0 THEN 1 ELSE 0 END as has_orders 
+          CASE WHEN (SELECT COUNT(*) FROM orders WHERE orders.customer_id = users.id) > 0 THEN 1 ELSE 0 END as has_orders 
           FROM users ORDER BY id DESC
         `).all();
         return new Response(JSON.stringify({ success: true, customers: users.results || [] }), { headers: corsHeaders });
