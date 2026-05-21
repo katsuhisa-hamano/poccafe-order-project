@@ -422,6 +422,7 @@ export async function onRequest(context) {
           FROM menus m
           JOIN menu_variations mv ON m.id = mv.menu_id
           WHERE mv.is_visible = 1 AND mv.remaining > 0
+          ORDER BY m.sort_order ASC, m.id ASC
         `).all();
 
         const fullMenus = [];
