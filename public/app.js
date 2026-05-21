@@ -937,12 +937,13 @@ const app = {
         const container = document.getElementById('menu-list');
         if (!container) return;
 
-        if (this.state.menus.length === 0) {
+        const menus = this.state.menus || [];
+        if (menus.length === 0) {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
             return;
         }
 
-        container.innerHTML = this.state.menus.map(item => `
+        container.innerHTML = menus.map(item => `
             <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
                 ${item.image_url ? `
                     <div onclick="app.openOptionModal('${item.square_item_id}')" 
