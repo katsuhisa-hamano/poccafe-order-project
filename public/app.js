@@ -839,7 +839,7 @@ const app = {
             if (!res.ok) throw new Error("メニューの取得に失敗しました");
             
             const data = await res.json();
-            this.state.menus = Array.isArray(data) ? data : (data.menus || []); 
+            this.state.menus = data.menus || [] //Array.isArray(data) ? data : (data.menus || []); 
             
             this.renderMenus(); 
         } catch (e) {
