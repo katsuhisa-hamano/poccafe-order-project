@@ -60,6 +60,46 @@ const adminView = {
 };
 
 // =========================================================
+// 管理者メニュー編集画面ビュー定義 (menuEditView)
+// =========================================================
+const menuEditView = {
+    render: () => {
+        return `
+            <div class="max-w-4xl mx-auto px-4 py-8 pb-32">
+                <div class="flex items-center justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-2xl font-black text-gray-800 tracking-tight">メニュー構造・在庫管理</h1>
+                        <p class="text-xs text-gray-500 mt-1">ITEM（親商品）の並び替え、Square同期、在庫設定が行えます。</p>
+                    </div>
+                    <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-full font-bold hover:bg-gray-200 transition text-xs">
+                        ダッシュボード戻る
+                    </button>
+                </div>
+
+                <div class="space-y-6 mb-12" id="admin-menu-hierarchy-list">
+                    <p class="text-center text-gray-400 py-12 text-sm">メニューデータを読み込んでいます...</p>
+                </div>
+
+                <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm">
+                    <h3 class="text-sm font-black text-orange-800 mb-3 flex items-center">
+                        <span class="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">新規追加</span>
+                        Squareから新しいITEMを追加する
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select id="new-square-item-selector" class="flex-1 bg-white border border-orange-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="">Squareのカタログから商品を選択...</option>
+                        </select>
+                        <button onclick="app.addNewItemFromSquare()" class="bg-orange-600 text-white px-6 h-11 rounded-xl font-bold hover:bg-orange-700 text-sm shadow-sm transition whitespace-nowrap">
+                            アプリにメニュー追加
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
 const router = {
@@ -486,7 +526,7 @@ const app = {
                                 <select id="change-square-select-${menu.id}" class="bg-gray-50 border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none focus:bg-white">
                                     <option value="">-- 商品を選択 --</option>
                                     ${(this.state.availableSquareItems || []).map(sqItem => `
-                                        <option value="${sqItem.id}">${sqItem.name}</option>
+                                        <option value="${sqItem.id}">${sqItem.name} (${sqItem.variations.length}個のバリエーション)</option>
                                     `).join('')}
                                 </select>
                                 <button onclick="app.submitItemMappingChange(${menu.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap shadow-sm">
@@ -602,7 +642,7 @@ const app = {
         }
 
         // 2. Squareカタログ全量データから、選択された商品の詳細構造を特定
-        const catalogItems = this.state.squareCatalogItems || [];
+        const catalogItems = this.state.availableSquareItems || [];
         const selectedSqItem = catalogItems.find(item => item && item.id === newSquareItemId);
         
         if (!selectedSqItem) {
@@ -1200,43 +1240,3 @@ app.init();
         }
     });
 })();
-
-// =========================================================
-// 管理者メニュー編集画面ビュー定義 (menuEditView)
-// =========================================================
-const menuEditView = {
-    render: () => {
-        return `
-            <div class="max-w-4xl mx-auto px-4 py-8 pb-32">
-                <div class="flex items-center justify-between pb-6 border-b border-gray-200 mb-8">
-                    <div>
-                        <h1 class="text-2xl font-black text-gray-800 tracking-tight">メニュー構造・在庫管理</h1>
-                        <p class="text-xs text-gray-500 mt-1">ITEM（親商品）の並び替え、Square同期、在庫設定が行えます。</p>
-                    </div>
-                    <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-full font-bold hover:bg-gray-200 transition text-xs">
-                        ダッシュボード戻る
-                    </button>
-                </div>
-
-                <div class="space-y-6 mb-12" id="admin-menu-hierarchy-list">
-                    <p class="text-center text-gray-400 py-12 text-sm">メニューデータを読み込んでいます...</p>
-                </div>
-
-                <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm">
-                    <h3 class="text-sm font-black text-orange-800 mb-3 flex items-center">
-                        <span class="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">新規追加</span>
-                        Squareから新しいITEMを追加する
-                    </h3>
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <select id="new-square-item-selector" class="flex-1 bg-white border border-orange-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                            <option value="">Squareのカタログから商品を選択...</option>
-                        </select>
-                        <button onclick="app.addNewItemFromSquare()" class="bg-orange-600 text-white px-6 h-11 rounded-xl font-bold hover:bg-orange-700 text-sm shadow-sm transition whitespace-nowrap">
-                            アプリにメニュー追加
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-};
