@@ -529,6 +529,88 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
+    // 管理者用：編集用顧客リスト取得 (GET /api/admin/customers/edit)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/customers/edit' && method === 'GET') {
+      try {
+        const users = await env.DB.prepare(`
+          SELECT id, name, email, tel, status, created_at FROM users ORDER BY id DESC
+        `).all();
+        return new Response(JSON.stringify({ success: true, customers: users.results || [] }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：代理入力用顧客の追加 (POST /api/admin/customers/add)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/customers/add' && method === 'POST') {
+      const { name, tel } = await request.json();
+
+      if (!name || !tel) {
+        return new Response(JSON.stringify({ success: false, message: "顧客名と電話番号は必須です。" }), { status: 400, headers: corsHeaders });
+      }
+
+      try {
+        // 1. 顧客名と電話番号で重複チェック
+        const exists = await env.DB.prepare(`
+          SELECT id FROM users WHERE name = ? AND tel = ?
+        `).bind(name, tel).first();
+
+        if (exists) {
+          return new Response(JSON.stringify({ success: false, message: "この顧客名と電話番号の組み合わせは既に登録されています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // 2. Squareへメールアドレスなしで顧客登録リクエスト（オプション）
+        // ※ 実際の環境に合わせて env.SQUARE_ACCESS_TOKEN 等で Square API を叩く
+        let squareCustomerId = `SQ_PROXY_${Date.now()}`; // 簡易的な識別ID（Square連携に成功したらそのIDに書き換え）
+        
+        /* 実際のSquare API連携例:
+        try {
+          const sqRes = await fetch('https://connect.squareup.com/v2/customers', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+              'Square-Version': '2024-01-17',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              given_name: name,
+              phone_number: tel
+            })
+          });
+          const sqData = await sqRes.json();
+          if (sqData.customer && sqData.customer.id) squareCustomerId = sqData.customer.id;
+        } catch(e) { console.error("Square Customer Sync Error", e); }
+        */
+
+        // 3. アプリDBに登録（パスワード・メールは空文字、statusはactive固定）
+        await env.DB.prepare(`
+          INSERT INTO users (name, email, tel, password, status)
+          VALUES (?, '', ?, '', 'active')
+        `).bind(name, tel).run();
+
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 管理者用：顧客情報の削除 (POST /api/admin/customers/delete)
+    // ---------------------------------------------------------
+    if (path === '/api/admin/customers/delete' && method === 'POST') {
+      const { customer_id } = await request.json();
+      try {
+        await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(customer_id).run();
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
     // 管理者用：メニュー＆バリエーション階層一覧取得 (GET /api/admin/menus)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus' && method === 'GET') {

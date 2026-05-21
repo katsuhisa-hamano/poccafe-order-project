@@ -15,6 +15,9 @@ const adminView = {
                         <button onclick="router.go('home')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
                             一般画面へ戻る
                         </button>
+                        <button onclick="router.go('customer-edit')" class="bg-blue-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-blue-700 transition text-sm shadow-sm">
+                            顧客を管理する
+                        </button>
                         <button onclick="router.go('menu-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
                             メニューを編集する
                         </button>
@@ -100,6 +103,50 @@ const menuEditView = {
 };
 
 // =========================================================
+// 管理者画面：顧客管理画面ビュー定義 (customerEditView)
+// =========================================================
+const customerEditView = {
+    render: () => {
+        return `
+            <div class="max-w-4xl mx-auto px-4 py-8">
+                <div class="flex items-center justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-2xl font-black text-gray-800 tracking-tight">顧客アカウント管理</h1>
+                        <p class="text-xs text-gray-500 mt-1">代理入力用顧客の追加、および既存顧客の削除が行えます。</p>
+                    </div>
+                    <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-full font-bold hover:bg-gray-200 transition text-xs">
+                        ダッシュボード戻る
+                    </button>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm mb-8">
+                    <h3 class="text-sm font-black text-blue-800 mb-3 flex items-center">
+                        <span class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">代理追加</span>
+                        電話注文用の顧客を追加する（Square同期）
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <input type="text" id="proxy-customer-name" placeholder="顧客名（例：山田 太郎）" class="bg-white border border-blue-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="tel" id="proxy-customer-tel" placeholder="電話番号（例：09012345678）" class="bg-white border border-blue-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <button onclick="app.addProxyCustomer()" class="w-full bg-blue-600 text-white h-11 rounded-xl font-bold hover:bg-blue-700 text-sm shadow-sm transition">
+                        代理顧客として新規登録
+                    </button>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="p-4 bg-gray-50 border-b border-gray-100">
+                        <h2 class="font-black text-gray-800 text-sm">登録済み顧客一覧</h2>
+                    </div>
+                    <div class="divide-y divide-gray-100" id="admin-customer-list">
+                        <p class="text-center text-gray-400 py-8 text-sm">顧客データを読み込んでいます...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
 const router = {
@@ -144,6 +191,16 @@ const router = {
                 if (typeof app.loadAdminOrders === 'function') {
                     app.loadAdminOrders(); 
                 }
+                break;
+
+            case 'customer-edit':
+                const customerTarget = document.getElementById('view-customer-edit');
+                if (customerTarget && typeof customerEditView !== 'undefined') {
+                    customerTarget.innerHTML = customerEditView.render();
+                }
+                setTimeout(() => {
+                    if (typeof app.loadAdminCustomersEdit === 'function') app.loadAdminCustomersEdit();
+                }, 1);
                 break;
 
             case 'menu-edit':
@@ -255,7 +312,7 @@ const app = {
     async submitRegister() {
         const btn = document.getElementById('reg-submit-btn');
         const data = {
-            name: document.getElementById('reg-name').value,
+            name: document.getElementById('reg-name').value.replace(/\s+/g, ""),
             email: document.getElementById('reg-email').value,
             tel: document.getElementById('reg-tel').value,
             password: document.getElementById('reg-password').value
@@ -472,6 +529,117 @@ const app = {
                 ${isCartActive ? `<p class="text-xs text-red-600 mt-1 font-bold">※カートに商品が入っているため、注文者を変更できません。</p>` : ''}
             </div>
         `;
+    },
+
+    // 1. 顧客一覧のロードと描画
+    async loadAdminCustomersEdit() {
+        const container = document.getElementById('admin-customer-list');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/admin/customers/edit');
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || "データ取得失敗");
+
+            const customers = data.customers || [];
+            if (customers.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-8 text-sm">登録されている顧客はいません。</p>`;
+                return;
+            }
+
+            container.innerHTML = customers.map(c => {
+                // メールアドレスの有無を判定
+                const isSelfRegistered = c.email && c.email.trim() !== "";
+                
+                return `
+                    <div class="p-4 flex items-center justify-between gap-4 text-sm">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-800">${c.name}</span>
+                                ${isSelfRegistered 
+                                    ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
+                                    : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
+                                }
+                            </div>
+                            <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
+                                <p>TEL: ${c.tel || '未設定'}</p>
+                                ${isSelfRegistered ? `<p>Email: ${c.email}</p>` : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <button onclick="app.deleteCustomer(${c.id}, '${c.name}')" class="text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">
+                                削除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (err) {
+            container.innerHTML = `<p class="text-center text-red-500 py-8 text-sm">エラー: ${err.message}</p>`;
+        }
+    },
+
+    // 2. 代理入力顧客の新規追加処理
+    async addProxyCustomer() {
+        const nameInput = document.getElementById('proxy-customer-name');
+        const telInput = document.getElementById('proxy-customer-tel');
+        
+        if (!nameInput || !telInput) return;
+
+        const name = nameInput.value.trim();
+        const tel = telInput.value.trim();
+
+        if (!name || !tel) {
+            alert("顧客名と電話番号の両方を入力してください。");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/customers/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, tel })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。`);
+                nameInput.value = "";
+                telInput.value = "";
+                // リストを再ロード
+                await this.loadAdminCustomersEdit();
+            } else {
+                alert("登録に失敗しました: " + (result.message || "未知のエラー"));
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました: " + e.message);
+        }
+    },
+
+    // 3. 顧客の削除処理
+    async deleteCustomer(customerId, customerName) {
+        if (!confirm(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/customers/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_id: customerId })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert("顧客情報を削除しました。");
+                await this.loadAdminCustomersEdit();
+            } else {
+                alert("削除に失敗しました: " + (result.message || "未知のエラー"));
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました: " + e.message);
+        }
     },
     
     // 1. Square側から直接全アイテム（バリエーション含む）を取得して保持する
