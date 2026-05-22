@@ -605,6 +605,7 @@ export async function onRequest(context) {
             const telData = await telRes.json();
             if (telData.customers && telData.customers.length > 0) {
               customer = telData.customers[0];
+              sqRes = telRes
             }
           }
 
@@ -623,6 +624,7 @@ export async function onRequest(context) {
             const nameData = await nameRes.json();
             if (nameData.customers && nameData.customers.length > 0) {
               customer = nameData.customers[0];
+              sqRes = nameRes
             }
           }
           if(sqRes.ok) {

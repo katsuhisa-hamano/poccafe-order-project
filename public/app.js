@@ -312,7 +312,7 @@ const app = {
     async submitRegister() {
         const btn = document.getElementById('reg-submit-btn');
         const data = {
-            name: document.getElementById('reg-name').value.replace(/\s+/g, ""),
+            name: document.getElementById('reg-name').value.replace(/\s+/g, "").toLowerCase(),
             email: document.getElementById('reg-email').value,
             tel: document.getElementById('reg-tel').value,
             password: document.getElementById('reg-password').value
@@ -597,7 +597,7 @@ const app = {
         
         if (!nameInput || !telInput) return;
 
-        const name = nameInput.value.replace(/\s+/g, "");
+        const name = nameInput.value.replace(/\s+/g, "").toLowerCase();
         const tel = telInput.value.trim();
 
         if (!name || !tel) {
