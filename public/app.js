@@ -614,7 +614,7 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                alert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。`);
+                alert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。x:{result.x}`);
                 nameInput.value = "";
                 telInput.value = "";
                 // リストを再ロード

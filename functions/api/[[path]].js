@@ -548,7 +548,7 @@ export async function onRequest(context) {
     // 管理者用：代理入力用顧客の追加 (POST /api/admin/customers/add)
     // ---------------------------------------------------------
     if (path === '/api/admin/customers/add' && method === 'POST') {
-      const { name, tel } = await request.json();
+      const { name, tel } = await request.json();let x = 0;
 
       if (!name || !tel) {
         return new Response(JSON.stringify({ success: false, message: "顧客名と電話番号は必須です。" }), { status: 400, headers: corsHeaders });
@@ -647,12 +647,12 @@ export async function onRequest(context) {
                 given_name: name.trim(),
                 phone_number: formattedTel // 整形した電話番号を渡す（空ならundefinedなので送信されない）
               })
-            });
+            });let x = 1;
 
             if (createRes.ok) {
               const createData = await createRes.json();
               squareCustomerId = createData.customer.id;
-              console.log("新規Square顧客を作成:", squareCustomerId);
+              console.log("新規Square顧客を作成:", squareCustomerId);let x = 2;
             } else {
               const createErrText = await createRes.text();
               // ★もし作成でコケていたら、何が原因（例: 必須項目エラー、電話番号エラー等）か画面に出す
@@ -667,7 +667,7 @@ export async function onRequest(context) {
           VALUES (?, null, ?, '', ?, 'active')
         `).bind(name, tel, squareCustomerId).run();
 
-        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders }, {x: x});
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
       }
