@@ -667,7 +667,7 @@ export async function onRequest(context) {
         // 3. アプリDBに登録（パスワード・メールは空文字、statusはactive固定）
         await env.DB.prepare(`
           INSERT INTO users (name, email, tel, password_hash, square_customer_id, status)
-          VALUES (?, null, ?, null, ?, 'active')
+          VALUES (?, null, ?, '', ?, 'active')
         `).bind(name, tel, squareCustomerId).run();
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
