@@ -604,11 +604,12 @@ export async function onRequest(context) {
             const sqData = await sqRes.json();
             if (sqData.customers && sqData.customers.length > 0) {
               squareCustomerId = sqData.customers[0].id;
-            } else {
-              const searchErrText = await sqRes.text();
-              // ★もし検索でコケていたら画面（レスポンス）に直接理由を返して処理を止めます
-              return new Response(JSON.stringify({ success: false, message: `Square検索に失敗: ${searchErrText}` }), { status: 400, headers: corsHeaders });
+              console.log("既存のSquare顧客IDを取得:", squareCustomerId);
             }
+          } else {
+            const searchErrText = await sqRes.text();
+            // ★もし検索でコケていたら画面（レスポンス）に直接理由を返して処理を止めます
+            return new Response(JSON.stringify({ success: false, message: `Square検索に失敗: ${searchErrText}` }), { status: 400, headers: corsHeaders });
           }
           // Squareに存在しなかった場合のみ新規作成
           if (!squareCustomerId) {
