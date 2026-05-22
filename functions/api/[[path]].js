@@ -583,23 +583,48 @@ export async function onRequest(context) {
           }
 
           // Squareレジに同じ名前または同じ電話番号の顧客がいるか検索
-          const sqRes = await fetch('https://connect.squareup.com/v2/customers/search', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query: { 
-                filter: { 
-                  or: [
-                    { given_name: { exact: name.replace(/\s+/g, "").toLowerCase() } },
-                    { phone_number: { exact: formattedTel } }
-                  ]
+          let customer = null;
+          const headers = {
+            'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json'
+          };
+
+          // 1. まずは精度の高い「電話番号」で検索
+          if (formattedTel) {
+            const telRes = await fetch('https://connect.squareup.com/v2/customers/search', {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify({
+                query: {
+                  filter: {
+                    phone_number: { exact: formattedTel }
+                  }
                 }
-              }
-            })
-          });
+              })
+            });
+            const telData = await telRes.json();
+            if (telData.customers && telData.customers.length > 0) {
+              customer = telData.customers[0];
+            }
+          }
+
+          // 2. 電話番号で見つからなかった場合、または電話番号がない場合は「名前」でテキスト検索
+          if (!customer && name) {
+            const searchName = name.replace(/\s+/g, "").toLowerCase();
+            const nameRes = await fetch('https://connect.squareup.com/v2/customers/search', {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify({
+                query: {
+                  filter: { given_name: { exact: searchName } }
+                }
+              })
+            });
+            const nameData = await nameRes.json();
+            if (nameData.customers && nameData.customers.length > 0) {
+              customer = nameData.customers[0];
+            }
+          }
           if(sqRes.ok) {
             const sqData = await sqRes.json();
             if (sqData.customers && sqData.customers.length > 0) {
