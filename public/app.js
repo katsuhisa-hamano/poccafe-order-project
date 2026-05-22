@@ -125,7 +125,7 @@ const customerEditView = {
                         電話注文用の顧客を追加する（Square同期）
                     </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                        <input type="text" id="proxy-customer-name" placeholder="顧客名（例：山田 太郎）" class="bg-white border border-blue-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" id="proxy-customer-name" placeholder="顧客名（例：山田太郎）" class="bg-white border border-blue-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="tel" id="proxy-customer-tel" placeholder="電話番号（例：09012345678）" class="bg-white border border-blue-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <button onclick="app.addProxyCustomer()" class="w-full bg-blue-600 text-white h-11 rounded-xl font-bold hover:bg-blue-700 text-sm shadow-sm transition">
@@ -597,7 +597,7 @@ const app = {
         
         if (!nameInput || !telInput) return;
 
-        const name = nameInput.value.trim();
+        const name = nameInput.value.replace(/\s+/g, "");
         const tel = telInput.value.trim();
 
         if (!name || !tel) {
