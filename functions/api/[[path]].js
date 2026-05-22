@@ -642,10 +642,7 @@ export async function onRequest(context) {
           if (!squareCustomerId) {
             const createRes = await fetch('https://connect.squareup.com/v2/customers', {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${squareToken}`,
-                'Content-Type': 'application/json'
-              },
+              headers: headers,
               body: JSON.stringify({
                 given_name: name.trim(),
                 phone_number: formattedTel // 整形した電話番号を渡す（空ならundefinedなので送信されない）
