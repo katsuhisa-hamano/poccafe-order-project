@@ -438,7 +438,10 @@ const app = {
             }, 300);
 
             if (document.getElementById('order-date')) {
-                document.getElementById('order-date').valueAsDate = new Date();
+                const fp = document.getElementById('order-date')._flatpickr;
+                if (fp) {
+                    fp.setDate(new Date()); // または任意の変更したい日付
+                }
             }
             return; 
         }
@@ -448,7 +451,10 @@ const app = {
         const savedIsAdmin = localStorage.getItem('cafe_user_is_admin'); 
         
         if (document.getElementById('order-date')) {
-            document.getElementById('order-date').valueAsDate = new Date();
+            const fp = document.getElementById('order-date')._flatpickr;
+            if (fp) {
+                fp.setDate(new Date()); // または任意の変更したい日付
+            }
         }
 
         if (savedId && savedName) {
