@@ -557,7 +557,7 @@ export async function onRequest(context) {
       try {
         // 1. 顧客名と電話番号で重複チェック
         const exists = await env.DB.prepare(`
-          SELECT id FROM users WHERE name = ? OR tel = ?
+          SELECT id FROM users WHERE name = ? AND tel = ?
         `).bind(name, tel).first();
 
         if (exists) {
