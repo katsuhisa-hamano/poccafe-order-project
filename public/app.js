@@ -326,10 +326,10 @@ const router = {
                 break;
 
             case 'holiday-edit':
-                const editTarget = document.getElementById('view-menu-edit');
-                editTarget.innerHTML = holidayEditView.render();
+                const holidayTarget = document.getElementById('view-menu-edit');
+                holidayTarget.innerHTML = holidayEditView.render();
                 app.loadAdminHolidaySettings();
-                
+
             case 'home':
                 setTimeout(() => {
                     app.loadMenus();
