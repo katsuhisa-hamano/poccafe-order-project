@@ -19,7 +19,10 @@ const adminView = {
                             顧客を管理する
                         </button>
                         <button onclick="router.go('menu-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
-                            メニューを編集する
+                            メニューを管理する
+                        </button>
+                        <button onclick="router.go('holiday-edit')" class="bg-orange-500 text-white px-5 py-2.5 rounded-full font-bold hover:bg-orange-600 transition text-sm shadow-sm">
+                            休日・制限を管理する
                         </button>
                     </div>
                 </div>
@@ -187,6 +190,66 @@ const customerEditView = {
 };
 
 // =========================================================
+// 【追加】休日・注文制限管理画面テンプレート定義 (holidayEditView)
+// =========================================================
+const holidayEditView = {
+    render: () => {
+        return `
+            <div class="max-w-4xl mx-auto px-4 py-8">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-gray-200 mb-8">
+                    <div>
+                        <h1 class="text-3xl font-black text-gray-800 tracking-tight">店舗休日・注文制限管理</h1>
+                        <p class="text-sm text-gray-500 mt-1">一般注文カレンダーの定休日、臨時休業日、当日締め切り制限をカスタマイズします。</p>
+                    </div>
+                    <div class="mt-4 md:mt-0">
+                        <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full font-bold hover:bg-gray-200 transition text-sm">
+                            ダッシュボードに戻る
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-8">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">定曜日設定（毎週繰り返す休み）</label>
+                        <div class="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-2xl">
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="0">日</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="1">月</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="2">火</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="3">水</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="4">木</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="5">金</label>
+                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="6">土</label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">当日の注文締め切り時間</label>
+                        <input type="time" id="cutoff-time" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none" value="14:00">
+                        <p class="text-[10px] text-gray-400 mt-1.5">※現在時刻がこの時間を過ぎると、一般注文画面で「当日」が自動的に選択不可になります。</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">特定の臨時休業日を追加</label>
+                        <div class="flex space-x-2 mb-3">
+                            <input type="date" id="new-holiday" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
+                            <button onclick="app.addSpecificHoliday()" class="bg-gray-900 text-white px-6 rounded-2xl text-sm font-bold hover:bg-gray-800 transition">追加</button>
+                        </div>
+                        <div id="admin-holiday-list" class="flex flex-wrap gap-2">
+                            </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-gray-100">
+                        <button onclick="app.saveHolidaySettings()" class="w-full bg-orange-500 text-white px-8 py-4 rounded-2xl font-bold hover:bg-orange-600 transition text-sm shadow-sm">
+                            設定を保存する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};
+
+// =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
 const router = {
@@ -231,7 +294,6 @@ const router = {
                 if (typeof app.loadAdminOrders === 'function') {
                     app.loadAdminOrders(); 
                 }
-                app.loadAdminHolidaySettings();
                 break;
 
             case 'customer-edit':
@@ -263,6 +325,11 @@ const router = {
                 }, 1);
                 break;
 
+            case 'holiday-edit':
+                const editTarget = document.getElementById('view-menu-edit');
+                editTarget.innerHTML = holidayEditView.render();
+                app.loadAdminHolidaySettings();
+                
             case 'home':
                 setTimeout(() => {
                     app.loadMenus();
@@ -1441,7 +1508,8 @@ const app = {
             });
 
             // 締め切り時間
-            document.getElementById('cutoff-time').value = cutoffTime || "14:00";
+            const cutoffInput = document.getElementById('cutoff-time');
+            if (cutoffInput) cutoffInput.value = cutoffTime || "14:00";
 
             // 臨時休業日リストの同期と描画
             app.adminSpecificHolidays = specificHolidays || [];
@@ -1528,6 +1596,23 @@ app.init();
 
 // 日付操作・顧客セレクターの変更を監視する処理
 (function() {
+    document.addEventListener('change', (e) => {
+        // 1. 日付変更の監視
+        if (e.target && e.target.id === 'order-date') {
+            const cartCount = Object.keys(app.state.cart).length;
+
+            if (cartCount > 0) {
+                alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                // カレンダーを元の選択状態に戻すため再同期
+                initOrderCalendar(); 
+            } else {
+                app.state.selectedDate = e.target.value;
+            }
+        }
+    });
+})();
+/*
+(function() {
     let lastCheckedDate = '';
 
     window.addEventListener('load', () => {
@@ -1554,6 +1639,7 @@ app.init();
         }
     });
 })();
+*/
 
 // 【追加】カレンダーを休日ルールに基づいてインライン（常時表示）初期化する関数
 async function initOrderCalendar() {
@@ -1608,11 +1694,9 @@ async function initOrderCalendar() {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
                     alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
-                    // 元の選択日にリセット
-                    initOrderCalendar();
+                    initOrderCalendar(); // リセット
                 } else {
                     app.state.selectedDate = dateStr;
-                    console.log("受取日確定:", dateStr);
                 }
             }
         });
