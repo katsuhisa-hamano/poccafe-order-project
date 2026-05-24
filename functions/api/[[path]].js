@@ -17,101 +17,137 @@ export async function onRequest(context) {
   }
 
   try {
-    // ---------------------------------------------------------
+
+    // ---------------------------------------------------------\
     // 1. 新規アカウント登録申請 (POST /api/auth/register)
-    // ---------------------------------------------------------
+    // ---------------------------------------------------------\
     if (path === '/api/auth/register' && method === 'POST') {
       const { name, email, tel, password } = await request.json();
 
-      if (!name || !email || !password) {
-        return new Response(JSON.stringify({ success: false, message: "必須項目が不足しています。" }), { status: 400, headers: corsHeaders });
+      if (!name || !email || !tel || !password) {
+        return new Response(JSON.stringify({ success: false, message: '必須項目が不足しています。' }), { status: 400, headers: corsHeaders });
       }
 
       if (!env.DB) {
-        return new Response(JSON.stringify({ success: false, message: "データベース(DB)のバインドが見つかりません。Cloudflareの設定を確認してください。" }), { status: 500, headers: corsHeaders });
+        return new Response(JSON.stringify({ success: false, message: 'データベース(DB)のバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
       }
 
-      // ① 既にアプリ側のDBに登録（かつアクティブ）がないか確認
-      const existingUser = await env.DB.prepare(
-        "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'"
-      ).bind(email.trim()).first();
-
-      if (existingUser) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: "このメールアドレスは既に登録されています。" 
-        }), { status: 409, headers: corsHeaders });
+      // 【追加】電話番号の整形（Squareは +81 形式、またはハイフンなしの数字のみを好みます）
+      // 日本の「0」ではじまる番号（090...）を「+8190...」に自動変換
+      let formattedTel = undefined;
+      if (tel) {
+        const cleanedTel = tel.trim().replace(/[-()\s]/g, ''); // ハイフンやスペースを除去
+        if (cleanedTel.startsWith('0')) {
+          formattedTel = '+81' + cleanedTel.substring(1);
+        } else {
+          formattedTel = cleanedTel;
+        }
       }
 
-      let squareCustomerId = null;
-      const squareToken = env.SQUARE_ACCESS_TOKEN;
+      const searchName = name.replace(/\s+/g, "").toLowerCase();
 
-      // ② Squareレジ連携（通信エラーやバリデーションエラーを徹底捕捉）
-      if (squareToken) {
+      // --- 1. DB内に「名前と電話番号が一致し、Emailが空白」の既存ユーザーがいるか確認 ---
+      const existingUsers = await env.DB.prepare(`
+        SELECT * FROM users WHERE tel = ?
+      `).bind(tel).all();
+
+      let targetUser = null;
+      if (existingUsers.results && existingUsers.results.length > 0) {
+        // 名前の一致かつEmailが空（nullまたは空文字）のユーザーを探す
+        targetUser = existingUsers.results.find(u => {
+          const dbName = (u.name || "").replace(/\s+/g, "").toLowerCase();
+          const isEmailEmpty = !u.email || u.email.trim() === "";
+          return dbName === searchName && isEmailEmpty;
+        });
+      }
+
+      // すでに通常の登録（Emailが存在する）がある場合は重複エラー
+      const emailCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(email).first();
+      if (emailCheck) {
+        return new Response(JSON.stringify({ success: false, message: 'このメールアドレスは既に登録されています。' }), { status: 400, headers: corsHeaders });
+      }
+
+      let squareCustomerId = targetUser ? targetUser.square_customer_id : null;
+      const headers = {
+        'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      };
+
+      // --- 2. Square側の顧客特定または同期処理 ---
+      if (squareCustomerId) {
+        // すでにDBにSquareIDがある場合、Square側のEmail情報を更新(PUT)する
         try {
-          // 【追加】電話番号の整形（Squareは +81 形式、またはハイフンなしの数字のみを好みます）
-          // 日本の「0」ではじまる番号（090...）を「+8190...」に自動変換
-          let formattedTel = undefined;
-          if (tel) {
-            const cleanedTel = tel.trim().replace(/[-()\s]/g, ''); // ハイフンやスペースを除去
-            if (cleanedTel.startsWith('0')) {
-              formattedTel = '+81' + cleanedTel.substring(1);
-            } else {
-              formattedTel = cleanedTel;
-            }
+          const updateSquareRes = await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify({ email_address: email })
+          });
+          if (!updateSquareRes.ok) {
+            console.error("Square顧客のEmail更新に失敗しました。既存ID:", squareCustomerId);
           }
+        } catch (err) {
+          console.error("Square通信エラー(PUT):", err);
+        }
+      } else {
+        // DBにSquareIDがない、または新規作成の場合、まずSquare全件から検索
+        let allCustomers = [];
+        let cursor = undefined;
+        let hasMore = true;
 
-          // Squareレジに同じメールアドレスの顧客がいるか検索
-          const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
+        while (hasMore) {
+          const bodyPayload = {};
+          if (cursor) bodyPayload.cursor = cursor;
+
+          const listRes = await fetch('https://connect.squareup.com/v2/customers/search', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${squareToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query: { filter: { email_address: { exact: email.trim().toLowerCase() } } }
-            })
+            headers: headers,
+            body: JSON.stringify(bodyPayload)
           });
 
-          if (searchRes.ok) {
-            const searchData = await searchRes.json();
-            if (searchData.customers && searchData.customers.length > 0) {
-              squareCustomerId = searchData.customers[0].id;
-              console.log("既存のSquare顧客IDを取得:", squareCustomerId);
-            }
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            if (listData.customers) allCustomers = allCustomers.concat(listData.customers);
+            cursor = listData.cursor || null;
+            hasMore = !!cursor;
           } else {
-            const searchErrText = await searchRes.text();
-            // ★もし検索でコケていたら画面（レスポンス）に直接理由を返して処理を止めます
-            return new Response(JSON.stringify({ success: false, message: `Square検索に失敗: ${searchErrText}` }), { status: 400, headers: corsHeaders });
+            hasMore = false;
           }
+        }
 
-          // ③ Squareに存在しなかった場合のみ新規作成
-          if (!squareCustomerId) {
-            const createRes = await fetch('https://connect.squareup.com/v2/customers', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${squareToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                given_name: name.trim(),
-                email_address: email.trim().toLowerCase(),
-                phone_number: formattedTel // 整形した電話番号を渡す（空ならundefinedなので送信されない）
-              })
-            });
+        // メモリ上での名前・電話番号マッチング
+        const matchedCustomer = allCustomers.find(customer => {
+          const matchTel = customer.phone_number === formattedTel;
+          const customerFullName = `${customer.family_name || ""}${customer.given_name || ""}`.replace(/\s+/g, "").toLowerCase();
+          const matchName = customerFullName.includes(searchName) || searchName.includes(customerFullName);
+          return matchTel && matchName;
+        });
 
-            if (createRes.ok) {
-              const createData = await createRes.json();
-              squareCustomerId = createData.customer.id;
-              console.log("新規Square顧客を作成:", squareCustomerId);
-            } else {
-              const createErrText = await createRes.text();
-              // ★もし作成でコケていたら、何が原因（例: 必須項目エラー、電話番号エラー等）か画面に出す
-              return new Response(JSON.stringify({ success: false, message: `Square作成に失敗: ${createErrText}` }), { status: 400, headers: corsHeaders });
-            }
+        if (matchedCustomer) {
+          squareCustomerId = matchedCustomer.id;
+          // 見つかったSquare顧客のEmailを更新
+          await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify({ email_address: email })
+          });
+        } else {
+          // Square側に全く存在しない場合は新規作成(POST)
+          const createRes = await fetch('https://connect.squareup.com/v2/customers', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+              given_name: name,
+              email_address: email,
+              phone_number: formattedTel
+            })
+          });
+          if (createRes.ok) {
+            const createData = await createRes.json();
+            squareCustomerId = createData.customer.id;
+          } else {
+            const errText = await createRes.text();
+            return new Response(JSON.stringify({ success: false, message: `Square顧客作成に失敗: ${errText}` }), { status: 400, headers: corsHeaders });
           }
-        } catch (sqErr) {
-          return new Response(JSON.stringify({ success: false, message: `Square通信自体に失敗: ${sqErr.message}` }), { status: 500, headers: corsHeaders });
         }
       }
 
@@ -124,11 +160,25 @@ export async function onRequest(context) {
       const verifyToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
+      
+
+      
       // DBへ仮登録
-      await env.DB.prepare(`
+      if (targetUser) {
+        // パターンA: 名前・電話番号一致のEmail空データがある場合 ➔ レコードをアップデート
+        const userId = targetUser.id;
+        await env.DB.prepare(`
+          UPDATE users 
+          SET email = ?, password_hash = ?, square_customer_id = ?, status = 'pending', verify_token = ?, token_expires_at = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(email.trim(), passwordHash, squareCustomerId, verifyToken, expiresAt, userId).run();
+      } else {
+        // パターンB: 完全に新規のユーザー ➔ 新規INSERT
+        await env.DB.prepare(`
         INSERT OR REPLACE INTO users (name, email, tel, password_hash, square_customer_id, status, verify_token, token_expires_at)
         VALUES (?, LOWER(?), ?, ?, ?, 'pending', ?, ?)
       `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
+      }
 
       // メール送信処理（Resend API 対応）
       const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
