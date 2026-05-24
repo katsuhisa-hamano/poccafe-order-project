@@ -564,6 +564,8 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "この顧客名と電話番号の組み合わせは既に登録されています。" }), { status: 400, headers: corsHeaders });
         }
 
+        let squareCustomerId = null;
+
         // Squareレジ連携
         try {
           // 電話番号の整形
@@ -578,7 +580,6 @@ export async function onRequest(context) {
           }
 
           // 1. Squareから全顧客データをページネーションで全件取得
-          let squareCustomerId = null;
           let allCustomers = [];
           let cursor = undefined;
           let hasMore = true;
