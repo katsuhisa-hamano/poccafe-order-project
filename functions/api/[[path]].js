@@ -749,7 +749,7 @@ export async function onRequest(context) {
       const { customer_id } = await request.json();
       try {
         const orderCount = await env.DB.prepare(`
-          SELECT COUNT(*) as count FROM orders WHERE user_id = ?
+          SELECT COUNT(*) as count FROM orders WHERE customer_id = ?
         `).bind(customer_id).first('count');
 
         if (orderCount > 0) {
