@@ -17,6 +17,47 @@ export async function onRequest(context) {
   }
 
   try {
+    // =========================================================
+    // 【追加】休日設定の取得 (GET /api/holiday-settings)
+    // =========================================================
+    if (path === '/api/holiday-settings' && method === 'GET') {
+      try {
+        const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_rules'").first();
+        const defaultSettings = {
+          disabledDays: [],       // 0:日, 1:月, ... 6:土
+          specificHolidays: [],   // ["2026-05-24"]
+          cutoffTime: "14:00"     // 当日の締め切り時間
+        };
+        const settings = row ? JSON.parse(row.value) : defaultSettings;
+        return new Response(JSON.stringify({ success: true, settings }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【追加】休日設定の保存 (POST /api/holiday-settings)
+    // =========================================================
+    if (path === '/api/holiday-settings' && method === 'POST') {
+      try {
+        const { disabledDays, specificHolidays, cutoffTime } = await request.json();
+        
+        const settingsValue = JSON.stringify({
+          disabledDays: disabledDays || [],
+          specificHolidays: specificHolidays || [],
+          cutoffTime: cutoffTime || "14:00"
+        });
+
+        // テーブルがない場合を考慮し、settingsテーブルへインサートまたは置換
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_rules', ?)
+        `).bind(settingsValue).run();
+
+        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
 
     // ---------------------------------------------------------\
     // 1. 新規アカウント登録申請 (POST /api/auth/register)
