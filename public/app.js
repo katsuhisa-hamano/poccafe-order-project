@@ -326,7 +326,7 @@ const router = {
                 break;
 
             case 'holiday-edit':
-                const holidayTarget = document.getElementById('view-menu-edit');
+                const holidayTarget = document.getElementById('view-holiday-edit');
                 holidayTarget.innerHTML = holidayEditView.render();
                 app.loadAdminHolidaySettings();
 
