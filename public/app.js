@@ -281,10 +281,10 @@ const app = {
                     }
                 }
 
-                const dateInput = document.getElementById('order-date');
+                /*const dateInput = document.getElementById('order-date');
                 if (dateInput && !dateInput.value) {
                     dateInput.valueAsDate = new Date();
-                }
+                }*/
 
                 // ★【追加】管理者ログイン時、あらかじめ顧客リストをバックグラウンドで取得しておく
                 if (this.state.user.isAdmin) {
