@@ -22,14 +22,38 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/holiday-settings' && method === 'GET') {
       try {
-        const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_rules'").first();
-        const defaultSettings = {
-          disabledMatrix: [],       // 例: ["1-0", "2-3"]
-          specificHolidays: [],   // ["2026-05-24"]
-          cutoffTime: "14:00"     // 当日の締め切り時間
-        };
-        const settings = row ? JSON.parse(row.value) : defaultSettings;
-        return new Response(JSON.stringify({ success: true, settings }), { headers: corsHeaders });
+        // 1. 定休日マトリックスの取得
+        const matrixRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_matrix'").first();
+        const disabledMatrix = matrixRow ? JSON.parse(matrixRow.value) : [];
+
+        // 2. 注文締め切り時間の取得
+        const cutoffRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_cutoff_time'").first();
+        const cutoffTime = cutoffRow ? cutoffRow.value : "14:00";
+
+        // 3. 臨時休業（年月ごとに保存された全データを結合して返却する）
+        // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
+        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
+        
+        let specificHolidays = [];
+        if (results && results.length > 0) {
+          results.forEach(row => {
+            const monthlyHolidays = JSON.parse(row.value);
+            if (Array.isArray(monthlyHolidays)) {
+              specificHolidays = specificHolidays.concat(monthlyHolidays);
+            }
+          });
+        }
+        // 重複排除とソート
+        specificHolidays = [...new Set(specificHolidays)].sort();
+
+        return new Response(JSON.stringify({
+          success: true,
+          settings: {
+            disabledMatrix,
+            cutoffTime,
+            specificHolidays
+          }
+        }), { headers: corsHeaders });
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
       }
@@ -40,18 +64,49 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/holiday-settings' && method === 'POST') {
       try {
-        const { disabledMatrix, specificHolidays, cutoffTime } = await request.json();
-        
-        const settingsValue = JSON.stringify({
-          disabledMatrix: disabledMatrix || [],
-          specificHolidays: specificHolidays || [],
-          cutoffTime: cutoffTime || "14:00"
-        });
+        const { disabledMatrix, cutoffTime, specificHolidays } = await request.json();
 
-        // テーブルがない場合を考慮し、settingsテーブルへインサートまたは置換
-        await env.DB.prepare(`
-          INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_rules', ?)
-        `).bind(settingsValue).run();
+        // 1. 定休日マトリックスを個別保存
+        if (disabledMatrix !== undefined) {
+          await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_matrix', ?)")
+            .bind(JSON.stringify(disabledMatrix))
+            .run();
+        }
+
+        // 2. 締め切り時間を個別保存 (プレーンな文字列)
+        if (cutoffTime !== undefined) {
+          await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_cutoff_time', ?)")
+            .bind(cutoffTime)
+            .run();
+        }
+
+        // 3. 臨時休業日を「年月ごと (YYYY-MM)」に key 分けして保存
+        if (specificHolidays !== undefined) {
+          // まずは既存の holiday_specific_ で始まる全レコードをいったんお掃除
+          await env.DB.prepare("DELETE FROM settings WHERE key LIKE 'holiday_specific_%'").run();
+
+          // 送られてきた日付を「年-月」ごとにグルーピング
+          const grouped = {};
+          specificHolidays.forEach(dateStr => {
+            // dateStr は "2026-05-27" のような形式を想定
+            if (dateStr && dateStr.includes('-')) {
+              const parts = dateStr.split('-');
+              const yearMonth = `${parts[0]}-${parts[1]}`; // "2026-05"
+              if (!grouped[yearMonth]) {
+                grouped[yearMonth] = [];
+              }
+              grouped[yearMonth].push(dateStr);
+            }
+          });
+
+          // 存在する年月のデータだけを、個別のkeyでDBにバルク保存（ループ処理）
+          for (const [yearMonth, dates] of Object.entries(grouped)) {
+            const keyName = `holiday_specific_${yearMonth}`;
+            await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
+              .bind(keyName, JSON.stringify(dates.sort()))
+              .run();
+          }
+        }
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {

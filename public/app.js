@@ -1483,24 +1483,21 @@ const app = {
             const data = await res.json();
             if (!data.success) return;
 
-            // 新しいマトリックス用のルール配列（例: ["1-0", "2-3"]）
-            // 互換性を持たせるため、古いデータ構造(disabledMatrix)が無い場合は空配列
-            const { disabledMatrix = [], cutoffTime, specificHolidays } = data.settings;
+            const { disabledMatrix = [], cutoffTime = "14:00", specificHolidays = [] } = data.settings;
             
             // マトリックスチェックボックスの復元
             document.querySelectorAll('.holiday-matrix-checkbox').forEach(el => {
                 const w = el.getAttribute('data-week');
                 const d = el.getAttribute('data-day');
-                // "週-曜日" の組み合わせ文字列が保持データにあればチェックを入れる
                 el.checked = disabledMatrix.includes(`${w}-${d}`);
             });
 
             // 締め切り時間
             const cutoffInput = document.getElementById('cutoff-time');
-            if (cutoffInput) cutoffInput.value = cutoffTime || "14:00";
+            if (cutoffInput) cutoffInput.value = cutoffTime;
 
             // 臨時休業日リストの同期と描画
-            app.adminSpecificHolidays = specificHolidays || [];
+            app.adminSpecificHolidays = specificHolidays;
             app.renderAdminHolidayList();
         } catch (e) {
             console.error("管理者設定読み込みエラー:", e);
@@ -1540,7 +1537,6 @@ const app = {
 
     // 【追加】管理者画面：設定をD1へ保存
     saveHolidaySettings: async function() {
-        // チェックされたマトリックスの値を "週-曜日" の配列として集計
         const disabledMatrix = [];
         document.querySelectorAll('.holiday-matrix-checkbox:checked').forEach(el => {
             const w = el.getAttribute('data-week');
@@ -1555,15 +1551,15 @@ const app = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    disabledMatrix, // マトリックス配列をそのまま保存
-                    specificHolidays: app.adminSpecificHolidays,
-                    cutoffTime
+                    disabledMatrix,
+                    cutoffTime,
+                    specificHolidays: app.adminSpecificHolidays // API側で自動的に年月分解して保存されます
                 })
             });
 
             const data = await res.json();
             if (data.success) {
-                alert("休日および注文制限設定を保存しました。");
+                alert("休日および注文制限設定を細分化して保存しました。");
             } else {
                 alert("保存に失敗しました: " + data.message);
             }
