@@ -23,7 +23,7 @@ export async function onRequest(context) {
     if (path === '/api/holiday-settings' && method === 'GET') {
       try {
         // 1. 定休日マトリックスの取得
-        const matrixRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_matrix'").first();
+        const matrixRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_rules'").first();
         const disabledMatrix = matrixRow ? JSON.parse(matrixRow.value) : [];
 
         // 2. 注文締め切り時間の取得
@@ -68,7 +68,7 @@ export async function onRequest(context) {
 
         // 1. 定休日マトリックスを個別保存
         if (disabledMatrix !== undefined) {
-          await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_matrix', ?)")
+          await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('holiday_rules', ?)")
             .bind(JSON.stringify(disabledMatrix))
             .run();
         }
