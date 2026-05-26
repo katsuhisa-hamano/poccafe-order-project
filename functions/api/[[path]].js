@@ -24,7 +24,7 @@ export async function onRequest(context) {
       try {
         const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_rules'").first();
         const defaultSettings = {
-          disabledDays: [],       // 0:日, 1:月, ... 6:土
+          disabledMatrix: [],       // 例: ["1-0", "2-3"]
           specificHolidays: [],   // ["2026-05-24"]
           cutoffTime: "14:00"     // 当日の締め切り時間
         };
@@ -40,10 +40,10 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/holiday-settings' && method === 'POST') {
       try {
-        const { disabledDays, specificHolidays, cutoffTime } = await request.json();
+        const { disabledMatrix, specificHolidays, cutoffTime } = await request.json();
         
         const settingsValue = JSON.stringify({
-          disabledDays: disabledDays || [],
+          disabledMatrix: disabledMatrix || [],
           specificHolidays: specificHolidays || [],
           cutoffTime: cutoffTime || "14:00"
         });
