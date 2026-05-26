@@ -1100,6 +1100,36 @@ const app = {
         }
     },
 
+    // 数量を1増やす（上限を10個にする場合）
+    incrementModalQty() {
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (!qtyDisplay) return;
+        
+        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
+        if (currentQty < 10) { // 必要に応じて最大注文数を設定可能
+            currentQty++;
+            qtyDisplay.innerText = currentQty;
+            
+            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
+            if (typeof app.updateModalTotalPrice === 'function') app.updateModalTotalPrice();
+        }
+    },
+
+    // 数量を1減らす（最小値は1個）
+    decrementModalQty() {
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (!qtyDisplay) return;
+        
+        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
+        if (currentQty > 1) {
+            currentQty--;
+            qtyDisplay.innerText = currentQty;
+            
+            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
+            if (typeof app.updateModalTotalPrice === 'function') app.updateModalTotalPrice();
+        }
+    },
+
     // モーダル表示切り替え
     showRegister() { document.getElementById('register-modal').classList.remove('hidden'); },
     closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
@@ -1279,6 +1309,10 @@ const app = {
 
         modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center font-bold">Squareから最新情報を読み込み中...</div>';
         modal.classList.remove('hidden');
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (qtyDisplay) {
+            qtyDisplay.innerText = "1"; // モーダルを開くたびに1個に初期化
+        }
 
         try {
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
@@ -1429,6 +1463,9 @@ const app = {
             return;
         }
 
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
+
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
         let targetCustomerId = this.state.user.id; // デフォルトは自分
         let targetCustomerName = this.state.user.name;
@@ -1449,12 +1486,12 @@ const app = {
 
         const variationId = selectedVar.value;
         const variationName = selectedVar.closest('label').querySelector('.font-bold').innerText;
-        let totalPrice = Number(selectedVar.getAttribute('data-price')) || 0;
+        let totalPrice = Number(selectedVar.getAttribute('data-price')) * quantity || 0;
         
         const selectedModifiers = [];
         const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
         modifierInputs.forEach(input => {
-            totalPrice += Number(input.getAttribute('data-price')) || 0;
+            totalPrice += Number(input.getAttribute('data-price')) * quantity || 0;
             const modName = input.closest('label').querySelector('.text-gray-700').innerText;
             selectedModifiers.push({ id: input.value, name: modName });
         });
@@ -1479,7 +1516,7 @@ const app = {
         
         this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
