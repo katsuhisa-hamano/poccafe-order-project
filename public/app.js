@@ -1348,6 +1348,19 @@ const app = {
                         `).join('')}
                     </div>
 
+                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center">
+                        <span class="font-bold text-sm text-gray-700">数量</span>
+                        <div class="flex items-center space-x-3 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
+                            <button type="button" onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                                －
+                            </button>
+                            <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
+                            <button type="button" onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                                ＋
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
                         <span class="font-bold text-sm">現在の選択合計</span>
                         <span id="modal-total-price" class="text-xl font-black">¥0</span>
