@@ -210,31 +210,38 @@ const holidayEditView = {
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-8">
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">定休日設定（曜日 × 第何週）</label>
-                        <div class="bg-gray-50 p-4 rounded-2xl space-y-4">
-                            <div>
-                                <span class="block text-xs text-gray-400 mb-1.5">対象とする週（複数選択可 / 未チェックの場合は「毎週」になります）</span>
-                                <div class="flex flex-wrap gap-4">
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="1">第1週</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="2">第2週</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="3">第3週</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="4">第4週</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="5">第5週</label>
-                                </div>
-                            </div>
-                            <hr class="border-gray-200/60">
-                            <div>
-                                <span class="block text-xs text-gray-400 mb-1.5">対象とする曜日</span>
-                                <div class="flex flex-wrap gap-4">
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="0">日</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="1">月</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="2">火</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="3">水</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="4">木</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="5">金</label>
-                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="6">土</label>
-                                </div>
-                            </div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">定休日設定（曜日 × 第何週のマトリックス）</label>
+                        <div class="bg-gray-50 p-4 rounded-2xl overflow-x-auto">
+                            <p class="text-[11px] text-gray-400 mb-4">※休みにしたい該当のマス目にチェックを入れてください（未チェックの曜日は毎週営業になります）。</p>
+                            
+                            <table class="w-full text-left border-collapse min-w-[500px]">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="pb-3 text-xs font-bold text-gray-400 text-center w-16">週 / 曜日</th>
+                                        <th class="pb-3 text-sm font-bold text-red-500 text-center">日</th>
+                                        <th class="pb-3 text-sm font-bold text-gray-700 text-center">月</th>
+                                        <th class="pb-3 text-sm font-bold text-gray-700 text-center">火</th>
+                                        <th class="pb-3 text-sm font-bold text-gray-700 text-center">水</th>
+                                        <th class="pb-3 text-sm font-bold text-gray-700 text-center">木</th>
+                                        <th class="pb-3 text-sm font-bold text-gray-700 text-center">金</th>
+                                        <th class="pb-3 text-sm font-bold text-blue-500 text-center">土</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    ${[1, 2, 3, 4, 5].map(w => `
+                                        <tr>
+                                            <td class="py-3 text-xs font-bold text-gray-500 text-center bg-gray-100/50 rounded-lg">第${w}週</td>
+                                            ${[0, 1, 2, 3, 4, 5, 6].map(d => `
+                                                <td class="py-3 text-center">
+                                                    <label class="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200/50 cursor-pointer transition">
+                                                        <input type="checkbox" class="holiday-matrix-checkbox w-4 h-4 accent-orange-500" data-week="${w}" data-day="${d}">
+                                                    </label>
+                                                </td>
+                                            `).join('')}
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -1516,17 +1523,16 @@ const app = {
             const data = await res.json();
             if (!data.success) return;
 
-            // disabledWeeks を構造分解に追加 (無ければ空配列)
-            const { disabledDays, disabledWeeks = [], specificHolidays, cutoffTime } = data.settings;
+            // 新しいマトリックス用のルール配列（例: ["1-0", "2-3"]）
+            // 互換性を持たせるため、古いデータ構造(disabledMatrix)が無い場合は空配列
+            const { disabledMatrix = [], cutoffTime, specificHolidays } = data.settings;
             
-            // 曜日のチェックボックス復元
-            document.querySelectorAll('.w-day').forEach(el => {
-                el.checked = disabledDays.includes(Number(el.value));
-            });
-
-            // ★追加: 週のチェックボックス復元
-            document.querySelectorAll('.w-week').forEach(el => {
-                el.checked = disabledWeeks.includes(Number(el.value));
+            // マトリックスチェックボックスの復元
+            document.querySelectorAll('.holiday-matrix-checkbox').forEach(el => {
+                const w = el.getAttribute('data-week');
+                const d = el.getAttribute('data-day');
+                // "週-曜日" の組み合わせ文字列が保持データにあればチェックを入れる
+                el.checked = disabledMatrix.includes(`${w}-${d}`);
             });
 
             // 締め切り時間
@@ -1574,9 +1580,14 @@ const app = {
 
     // 【追加】管理者画面：設定をD1へ保存
     saveHolidaySettings: async function() {
-        const disabledDays = Array.from(document.querySelectorAll('.w-day:checked')).map(el => Number(el.value));
-        // ★追加: 選択された週を取得
-        const disabledWeeks = Array.from(document.querySelectorAll('.w-week:checked')).map(el => Number(el.value));
+        // チェックされたマトリックスの値を "週-曜日" の配列として集計
+        const disabledMatrix = [];
+        document.querySelectorAll('.holiday-matrix-checkbox:checked').forEach(el => {
+            const w = el.getAttribute('data-week');
+            const d = el.getAttribute('data-day');
+            disabledMatrix.push(`${w}-${d}`);
+        });
+
         const cutoffTime = document.getElementById('cutoff-time').value;
 
         try {
@@ -1584,8 +1595,7 @@ const app = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    disabledDays,
-                    disabledWeeks, // ★追加して一緒に保存
+                    disabledMatrix, // マトリックス配列をそのまま保存
                     cutoffTime,
                     specificHolidays: app.adminSpecificHolidays
                 })
@@ -1676,8 +1686,7 @@ async function initOrderCalendar() {
         const data = await res.json();
         if (!data.success) return;
 
-        // disabledWeeks を取得
-        const { disabledDays, disabledWeeks = [], specificHolidays, cutoffTime } = data.settings;
+        const { disabledMatrix = [], specificHolidays, cutoffTime } = data.settings;
 
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
@@ -1692,24 +1701,17 @@ async function initOrderCalendar() {
             disableRules.push(todayStr);
         }
 
-        // ★修正: 曜日 × 第何週 の複合判定ロジック
-        if (disabledDays && disabledDays.length > 0) {
+        // ★マトリックス定休日判定ロジック
+        if (disabledMatrix && disabledMatrix.length > 0) {
             disableRules.push(function(date) {
-                const dayMatch = disabledDays.includes(date.getDay());
-                if (!dayMatch) return false; // 曜日が違えば選択可能
+                const d = date.getDay(); // 曜日 (0:日 〜 6:土)
+                const w = Math.ceil(date.getDate() / 7); // その月の第何週目か (1〜5)
 
-                // 「その月の第何回目の曜日か」を計算する
-                // 例: 1日〜7日=第1回目, 8日〜14日=第2回目...
-                const nthWeek = Math.ceil(date.getDate() / 7);
+                // カレンダーの「その日」の "週-曜日" キーを生成
+                const currentKey = `${w}-${d}`;
 
-                // 週指定（第1〜5）が設定されている場合
-                if (disabledWeeks.length > 0) {
-                    // 指定された週に該当する場合のみ休み(true)にする
-                    return disabledWeeks.includes(nthWeek);
-                }
-
-                // 週のチェックが1つもない場合は「毎週」その曜日を休みにする
-                return true;
+                // 定休日マトリックスにこのキーが含まれていれば true(選択不可) を返す
+                return disabledMatrix.includes(currentKey);
             });
         }
 
