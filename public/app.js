@@ -60,46 +60,6 @@ const adminView = {
                         <p class="text-center text-gray-400 py-12 text-sm">注文データを読み込んでいます...</p>
                     </div>
                 </div>
-
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mt-8">
-                    <h2 class="text-xl font-black text-gray-800 mb-2">店舗休日・注文制限設定</h2>
-                    <p class="text-xs text-gray-400 mb-6">受取カレンダーの定休日、臨時休業日、当日締め切り時刻を設定します。</p>
-                    
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">定曜日（毎週の休み）</label>
-                        <div class="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-2xl">
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="0">日</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="1">月</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="2">火</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="3">水</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="4">木</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="5">金</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="6">土</label>
-                        </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">当日の注文締め切り時間</label>
-                        <input type="time" id="cutoff-time" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none" value="14:00">
-                        <p class="text-[10px] text-gray-400 mt-1.5">※現在時刻がこの時間を過ぎると、一般注文カレンダーで「当日」が自動的に選択不可（グレーアウト）になります。</p>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">任意の臨時休業日の追加</label>
-                        <div class="flex space-x-2 mb-3">
-                            <input type="date" id="new-holiday" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
-                            <button onclick="app.addSpecificHoliday()" class="bg-gray-900 text-white px-6 rounded-2xl text-sm font-bold hover:bg-gray-800 transition">追加</button>
-                        </div>
-                        <div id="admin-holiday-list" class="flex flex-wrap gap-2">
-                            </div>
-                    </div>
-
-                    <div class="pt-4 border-t border-gray-100">
-                        <button onclick="app.saveHolidaySettings()" class="w-full md:w-auto bg-orange-500 text-white px-8 py-4 rounded-2xl font-bold hover:bg-orange-600 transition text-sm shadow-sm">
-                            休日・制限設定を保存する
-                        </button>
-                    </div>
-                </div>
             </div>
         `;
     }
@@ -1596,8 +1556,8 @@ const app = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     disabledMatrix, // マトリックス配列をそのまま保存
-                    cutoffTime,
-                    specificHolidays: app.adminSpecificHolidays
+                    specificHolidays: app.adminSpecificHolidays,
+                    cutoffTime
                 })
             });
 
