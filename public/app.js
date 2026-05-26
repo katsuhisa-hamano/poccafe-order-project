@@ -210,15 +210,31 @@ const holidayEditView = {
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-8">
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">定曜日設定（毎週繰り返す休み）</label>
-                        <div class="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-2xl">
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="0">日</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="1">月</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="2">火</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="3">水</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="4">木</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="5">金</label>
-                            <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="6">土</label>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">定休日設定（曜日 × 第何週）</label>
+                        <div class="bg-gray-50 p-4 rounded-2xl space-y-4">
+                            <div>
+                                <span class="block text-xs text-gray-400 mb-1.5">対象とする週（複数選択可 / 未チェックの場合は「毎週」になります）</span>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="1">第1週</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="2">第2週</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="3">第3週</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="4">第4週</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-week mr-1.5 accent-orange-500" value="5">第5週</label>
+                                </div>
+                            </div>
+                            <hr class="border-gray-200/60">
+                            <div>
+                                <span class="block text-xs text-gray-400 mb-1.5">対象とする曜日</span>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="0">日</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="1">月</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="2">火</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="3">水</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="4">木</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="5">金</label>
+                                    <label class="inline-flex items-center text-sm font-bold text-gray-700 cursor-pointer"><input type="checkbox" class="w-day mr-2 accent-orange-500" value="6">土</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1500,11 +1516,17 @@ const app = {
             const data = await res.json();
             if (!data.success) return;
 
-            const { disabledDays, specificHolidays, cutoffTime } = data.settings;
+            // disabledWeeks を構造分解に追加 (無ければ空配列)
+            const { disabledDays, disabledWeeks = [], specificHolidays, cutoffTime } = data.settings;
             
             // 曜日のチェックボックス復元
             document.querySelectorAll('.w-day').forEach(el => {
                 el.checked = disabledDays.includes(Number(el.value));
+            });
+
+            // ★追加: 週のチェックボックス復元
+            document.querySelectorAll('.w-week').forEach(el => {
+                el.checked = disabledWeeks.includes(Number(el.value));
             });
 
             // 締め切り時間
@@ -1553,6 +1575,8 @@ const app = {
     // 【追加】管理者画面：設定をD1へ保存
     saveHolidaySettings: async function() {
         const disabledDays = Array.from(document.querySelectorAll('.w-day:checked')).map(el => Number(el.value));
+        // ★追加: 選択された週を取得
+        const disabledWeeks = Array.from(document.querySelectorAll('.w-week:checked')).map(el => Number(el.value));
         const cutoffTime = document.getElementById('cutoff-time').value;
 
         try {
@@ -1561,6 +1585,7 @@ const app = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     disabledDays,
+                    disabledWeeks, // ★追加して一緒に保存
                     cutoffTime,
                     specificHolidays: app.adminSpecificHolidays
                 })
@@ -1647,46 +1672,57 @@ async function initOrderCalendar() {
     if (!dateInput) return;
 
     try {
-        // 1. APIから休日設定を取得
         const res = await fetch('/api/holiday-settings');
         const data = await res.json();
         if (!data.success) return;
 
-        const { disabledDays, specificHolidays, cutoffTime } = data.settings;
+        // disabledWeeks を取得
+        const { disabledDays, disabledWeeks = [], specificHolidays, cutoffTime } = data.settings;
 
-        // 2. 当日制限の判定
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        
         const [cutoffHour, cutoffMinute] = cutoffTime.split(':').map(Number);
         const cutoffDate = new Date();
         cutoffDate.setHours(cutoffHour, cutoffMinute, 0, 0);
 
         const disableRules = [];
 
-        // 締め切り時間を過ぎていたら本日を選択不可にする
+        // 締め切り判定
         if (now > cutoffDate) {
             disableRules.push(todayStr);
         }
 
-        // 3. 定休日（曜日）のルールを追加
+        // ★修正: 曜日 × 第何週 の複合判定ロジック
         if (disabledDays && disabledDays.length > 0) {
             disableRules.push(function(date) {
-                return disabledDays.includes(date.getDay()); // 0:日 〜 6:土
+                const dayMatch = disabledDays.includes(date.getDay());
+                if (!dayMatch) return false; // 曜日が違えば選択可能
+
+                // 「その月の第何回目の曜日か」を計算する
+                // 例: 1日〜7日=第1回目, 8日〜14日=第2回目...
+                const nthWeek = Math.ceil(date.getDate() / 7);
+
+                // 週指定（第1〜5）が設定されている場合
+                if (disabledWeeks.length > 0) {
+                    // 指定された週に該当する場合のみ休み(true)にする
+                    return disabledWeeks.includes(nthWeek);
+                }
+
+                // 週のチェックが1つもない場合は「毎週」その曜日を休みにする
+                return true;
             });
         }
 
-        // 4. 任意の臨時休業日を追加
+        // 任意の臨時休業日
         if (specificHolidays && specificHolidays.length > 0) {
             specificHolidays.forEach(h => disableRules.push(h));
         }
 
-        // 5. Flatpickrの起動（インライン常時表示）
         flatpickr("#order-date", {
-            inline: true, // カレンダーを常に開いた状態で配置
+            inline: true,
             appendTo: document.getElementById('inline-calendar-container'),
             locale: "ja",
-            minDate: "today", // 過去日は自動選択不可
+            minDate: "today",
             disable: disableRules,
             dateFormat: "Y-m-d",
             defaultDate: app.state.selectedDate || null,
@@ -1694,7 +1730,7 @@ async function initOrderCalendar() {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
                     alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
-                    initOrderCalendar(); // リセット
+                    initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
                 }
