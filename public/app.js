@@ -1111,7 +1111,7 @@ const app = {
             qtyDisplay.innerText = currentQty;
             
             // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
-            if (typeof app.updateModalTotalPrice === 'function') app.updateModalTotalPrice();
+            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
         }
     },
 
@@ -1126,7 +1126,7 @@ const app = {
             qtyDisplay.innerText = currentQty;
             
             // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
-            if (typeof app.updateModalTotalPrice === 'function') app.updateModalTotalPrice();
+            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
         }
     },
 
