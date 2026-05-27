@@ -1307,6 +1307,7 @@ const app = {
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
+        return alert(`${JSON.stringify(this.state.cart)}`);
     },
 
     async openOptionModal(squareItemId) {
