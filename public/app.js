@@ -1283,7 +1283,7 @@ const app = {
         if (!content) return;
         let html = '';
         for(let cartKey in this.state.cart) {
-            if(this.state.cart[cartKey] > 0) {
+            if(this.state.cart[cartKey]) {
                 html += `
                 <div class="flex justify-between items-center py-3 border-b border-gray-50">
                     <span class="font-medium text-gray-700">${this.state.cart[cartKey].itemName}(${this.state.cart[cartKey].variationName}) <span class="text-gray-400 text-xs ml-1">x${this.state.cart[cartKey].quantity}</span></span>
