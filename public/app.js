@@ -1303,7 +1303,7 @@ const app = {
             }
         }
 */
-        if(!html) return alert("商品を選択してください");
+        if(!html) return alert(`商品を選択してください${JSON.stringify(this.state.cart)}`);
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
