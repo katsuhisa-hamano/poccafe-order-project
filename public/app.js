@@ -1491,12 +1491,12 @@ const app = {
 
         const variationId = selectedVar.value;
         const variationName = selectedVar.closest('label').querySelector('.font-bold').innerText;
-        let totalPrice = Number(selectedVar.getAttribute('data-price')) * quantity || 0;
+        let totalPrice = Number(selectedVar.getAttribute('data-price')) || 0;
         
         const selectedModifiers = [];
         const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
         modifierInputs.forEach(input => {
-            totalPrice += Number(input.getAttribute('data-price')) * quantity || 0;
+            totalPrice += Number(input.getAttribute('data-price')) || 0;
             const modName = input.closest('label').querySelector('.text-gray-700').innerText;
             selectedModifiers.push({ id: input.value, name: modName });
         });
@@ -1515,7 +1515,7 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                qty: 0
+                qty: quantity
             };
         }
         
