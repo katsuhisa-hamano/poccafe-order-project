@@ -1518,6 +1518,8 @@ const app = {
                 quantity: quantity,
                 qty: 0
             };
+        } else {
+            this.state.cart[cartKey].quantity += quantity;
         }
         
         this.state.cart[cartKey].qty += 1;
