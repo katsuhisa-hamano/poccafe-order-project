@@ -1515,7 +1515,7 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                qty: quantity
+                qty: 0
             };
         }
         
