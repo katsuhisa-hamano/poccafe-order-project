@@ -1283,11 +1283,12 @@ const app = {
         if (!content) return;
         let html = '';
         for(let cartKey in this.state.cart) {
-            if(this.state.cart[cartKey]) {
+            let item = this.state.cart[cartKey];
+            if(item) {
                 html += `
                 <div class="flex justify-between items-center py-3 border-b border-gray-50">
-                    <span class="font-medium text-gray-700">${this.state.cart[cartKey].itemName}(${this.state.cart[cartKey].variationName}) <span class="text-gray-400 text-xs ml-1">x${this.state.cart[cartKey].quantity}</span></span>
-                    <span class="font-black text-gray-900">¥${(this.state.cart[cartKey].price * this.state.cart[cartKey].quantity).toLocaleString()}</span>
+                    <span class="font-medium text-gray-700">${item.itemName}(${item.variationName})${item.modifiers && item.modifiers.length > 0 ? ` - ${item.modifiers[0].name}` : ''} <span class="text-gray-400 text-xs ml-1">x${item.quantity}</span></span>
+                    <span class="font-black text-gray-900">¥${(item.price * item.quantity).toLocaleString()}</span>
                 </div>`;
             }
         }
