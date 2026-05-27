@@ -1282,9 +1282,9 @@ const app = {
         const content = document.getElementById('modal-content');
         if (!content) return;
         let html = '';
-        for(let id in this.state.cart) {
-            if(this.state.cart[id] > 0) {
-                const m = this.state.menus.find(x => x.square_item_id === id);
+        for(let cartKey in this.state.cart) {
+            if(this.state.cart[cartKey] > 0) {
+                const m = this.state.menus.find(x => x.square_item_id === cartKey.itemId);
                 html += `
                 <div class="flex justify-between items-center py-3 border-b border-gray-50">
                     <span class="font-medium text-gray-700">${m.name} <span class="text-gray-400 text-xs ml-1">x${this.state.cart[id]}</span></span>
