@@ -1188,7 +1188,7 @@ const app = {
         
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
-            total += item.price * item.qty;
+            total += item.price * item.quantity;
             count += item.qty;
             currentTargetDate = item.orderDate;
         }
@@ -1515,6 +1515,7 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
+                quantity: quantity,
                 qty: 0
             };
         }
