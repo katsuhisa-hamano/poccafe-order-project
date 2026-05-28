@@ -1036,6 +1036,68 @@ export async function onRequest(context) {
       }
     }
 
+    // =========================================================
+    // 注文データ保存処理 (POST /api/orders)
+    // =========================================================
+    if (path === '/api/orders' && method === 'POST') {
+      try {
+        const { customer_id, delivery_date, total_amount, items } = await request.json();
+
+        // 必須入力項目のバリデーション
+        if (!customer_id || !delivery_date || total_amount === undefined || !items || items.length === 0) {
+          return new Response(JSON.stringify({ success: false, message: 'リクエストデータが不足しています。' }), { status: 400, headers: corsHeaders });
+        }
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
+        }
+
+        // 1. 最初に orders テーブルに新規作成するSQL（親）を用意
+        const insertOrderStmt = env.DB.prepare(`
+          INSERT INTO orders (customer_id, delivery_date, total_amount)
+          VALUES (?, ?, ?)
+        `).bind(customer_id, delivery_date, total_amount);
+
+        // 2. 親の実行処理
+        const orderResult = await insertOrderStmt.run();
+        
+        // SQLite/D1で直前に自動採番（AUTOINCREMENT）された id を取得
+        const newOrderId = orderResult.meta.last_row_id;
+
+        if (!newOrderId) {
+          throw new Error('注文IDの生成に失敗しました。');
+        }
+
+        // 3. 子テーブル（order_items）へ保存する各SQLステートメントの配列を作成
+        const itemStatements = items.map(item => {
+          return env.DB.prepare(`
+            INSERT INTO order_items (order_id, menu_id, quantity)
+            VALUES (?, ?, ?)
+          `).bind(newOrderId, item.menu_id, item.quantity);
+        });
+
+        // 4. db.batch を使用し、子テーブルへの挿入をアトミックに一括実行
+        // （いずれか1点でも失敗すると自動的にすべての変更が破棄・ロールバックされます）
+        if (itemStatements.length > 0) {
+          await env.DB.batch(itemStatements);
+        }
+
+        // 5. 成功レスポンスの返却
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: '注文が正常に登録されました。',
+          order_id: newOrderId 
+        }), { headers: corsHeaders });
+
+      } catch (dbErr) {
+        console.error("注文保存エラー:", dbErr);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: '注文処理中にサーバーエラーが発生しました: ' + dbErr.message 
+        }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
