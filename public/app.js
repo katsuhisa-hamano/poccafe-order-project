@@ -1100,36 +1100,6 @@ const app = {
         }
     },
 
-    // 数量を1増やす（上限を10個にする場合）
-    incrementModalQty() {
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        if (!qtyDisplay) return;
-        
-        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
-        if (currentQty < 10) { // 必要に応じて最大注文数を設定可能
-            currentQty++;
-            qtyDisplay.innerText = currentQty;
-            
-            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
-            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
-        }
-    },
-
-    // 数量を1減らす（最小値は1個）
-    decrementModalQty() {
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        if (!qtyDisplay) return;
-        
-        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
-        if (currentQty > 1) {
-            currentQty--;
-            qtyDisplay.innerText = currentQty;
-            
-            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
-            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
-        }
-    },
-
     // モーダル表示切り替え
     showRegister() { document.getElementById('register-modal').classList.remove('hidden'); },
     closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
@@ -1183,18 +1153,20 @@ const app = {
 
     updateCartBar() {
         let total = 0;
+        let count = 0;
         let currentTargetDate = '';
         
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
-            total += item.price * item.quantity;
+            total += item.price * item.qty;
+            count += item.qty;
             currentTargetDate = item.orderDate;
         }
         
         const totalDisplay = document.getElementById('cart-total-display');
         const cartBar = document.getElementById('cart-bar');
         
-        if (this.state.cart.count > 0) {
+        if (count > 0) {
             if (totalDisplay) {
                 totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
             }
@@ -1280,17 +1252,6 @@ const app = {
         const content = document.getElementById('modal-content');
         if (!content) return;
         let html = '';
-        for(let cartKey in this.state.cart) {
-            let item = this.state.cart[cartKey];
-            if(item) {
-                html += `
-                <div class="flex justify-between items-center py-3 border-b border-gray-50">
-                    <span class="font-medium text-gray-700">${item.itemName}(${item.variationName})${item.modifiers && item.modifiers.length > 0 ? ` - ${item.modifiers[0].name}` : ''} <span class="text-gray-400 text-xs ml-1">x${item.quantity}</span></span>
-                    <span class="font-black text-gray-900">¥${(item.price * item.quantity).toLocaleString()}</span>
-                </div>`;
-            }
-        }
-/*
         for(let id in this.state.cart) {
             if(this.state.cart[id] > 0) {
                 const m = this.state.menus.find(x => x.square_item_id === id);
@@ -1301,8 +1262,7 @@ const app = {
                 </div>`;
             }
         }
-*/
-        if(!html) return alert(`商品を選択してください${JSON.stringify(this.state.cart)}`);
+        if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
@@ -1319,10 +1279,6 @@ const app = {
 
         modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center font-bold">Squareから最新情報を読み込み中...</div>';
         modal.classList.remove('hidden');
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        if (qtyDisplay) {
-            qtyDisplay.innerText = "1"; // モーダルを開くたびに1個に初期化
-        }
 
         try {
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
@@ -1392,19 +1348,6 @@ const app = {
                         `).join('')}
                     </div>
 
-                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center">
-                        <span class="font-bold text-sm text-gray-700">数量</span>
-                        <div class="flex items-center space-x-3 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
-                            <button type="button" onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
-                                －
-                            </button>
-                            <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
-                            <button type="button" onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
-                                ＋
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
                         <span class="font-bold text-sm">現在の選択合計</span>
                         <span id="modal-total-price" class="text-xl font-black">¥0</span>
@@ -1446,9 +1389,6 @@ const app = {
 
     calculateModalPrice() {
         let total = 0;
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
-
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (selectedVar) {
@@ -1459,8 +1399,6 @@ const app = {
         checkedModifiers.forEach(input => {
             total += Number(input.getAttribute('data-price')) || 0;
         });
-
-        total *= quantity;
 
         const priceDisplay = document.getElementById('modal-total-price');
         if (priceDisplay) {
@@ -1477,9 +1415,6 @@ const app = {
             alert("受取日を選択してください。");
             return;
         }
-
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
 
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
         let targetCustomerId = this.state.user.id; // デフォルトは自分
@@ -1525,13 +1460,13 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                quantity: quantity
+                qty: 0
             };
-        } else {
-            this.state.cart[cartKey].quantity += quantity;
         }
+        
+        this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
