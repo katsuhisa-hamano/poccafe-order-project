@@ -1463,6 +1463,9 @@ const app = {
             return;
         }
 
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
+
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
         let targetCustomerId = this.state.user.id; // デフォルトは自分
         let targetCustomerName = this.state.user.name;
@@ -1495,6 +1498,7 @@ const app = {
 
         // カートのキー（注文主ごとに別のカートアイテムとして保持できるよう顧客IDも結合）
         const cartKey = `${orderDate}_${targetCustomerId}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
+        alert(`数量：${quantity}個 ${this.state.cart}`);
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
@@ -1507,13 +1511,13 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                qty: 0
+                quantity: quantity
             };
+        } else {
+            this.state.cart[cartKey].quantity += quantity;
         }
-        
-        this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
