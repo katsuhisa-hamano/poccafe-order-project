@@ -1100,6 +1100,36 @@ const app = {
         }
     },
 
+    // 数量を1増やす（上限を10個にする場合）
+    incrementModalQty() {
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (!qtyDisplay) return;
+        
+        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
+        if (currentQty < 10) { // 必要に応じて最大注文数を設定可能
+            currentQty++;
+            qtyDisplay.innerText = currentQty;
+            
+            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
+            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
+        }
+    },
+
+    // 数量を1減らす（最小値は1個）
+    decrementModalQty() {
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (!qtyDisplay) return;
+        
+        let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
+        if (currentQty > 1) {
+            currentQty--;
+            qtyDisplay.innerText = currentQty;
+            
+            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
+            if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
+        }
+    },
+
     // モーダル表示切り替え
     showRegister() { document.getElementById('register-modal').classList.remove('hidden'); },
     closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
@@ -1279,6 +1309,10 @@ const app = {
 
         modal.innerHTML = '<div class="bg-white p-6 rounded-lg max-w-md w-full text-center font-bold">Squareから最新情報を読み込み中...</div>';
         modal.classList.remove('hidden');
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        if (qtyDisplay) {
+            qtyDisplay.innerText = "1"; // モーダルを開くたびに1個に初期化
+        }
 
         try {
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
@@ -1346,6 +1380,19 @@ const app = {
                                 </div>
                             </div>
                         `).join('')}
+                    </div>
+
+                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center">
+                        <span class="font-bold text-sm text-gray-700">数量</span>
+                        <div class="flex items-center space-x-3 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
+                            <button type="button" onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                                －
+                            </button>
+                            <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
+                            <button type="button" onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                                ＋
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
@@ -1416,6 +1463,9 @@ const app = {
             return;
         }
 
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
+
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
         let targetCustomerId = this.state.user.id; // デフォルトは自分
         let targetCustomerName = this.state.user.name;
@@ -1460,13 +1510,13 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                qty: 0
+                quantity: quantity
             };
+        } else {
+            this.state.cart[cartKey].quantity += quantity;
         }
-        
-        this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
@@ -1602,35 +1652,6 @@ app.init();
         }
     });
 })();
-/*
-(function() {
-    let lastCheckedDate = '';
-
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const dateInput = document.getElementById('order-date');
-            if (dateInput) lastCheckedDate = dateInput.value;
-        }, 500);
-    });
-
-    document.addEventListener('change', (e) => {
-        // 1. 日付変更の監視
-        if (e.target && e.target.id === 'order-date') {
-            const dateInput = e.target;
-            const cartCount = Object.keys(app.state.cart).length;
-
-            if (cartCount > 0) {
-                alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
-                dateInput.value = lastCheckedDate;
-                return;
-            }
-
-            lastCheckedDate = dateInput.value;
-            console.log("受取希望日を変更しました:", lastCheckedDate);
-        }
-    });
-})();
-*/
 
 // 【追加】カレンダーを休日ルールに基づいてインライン（常時表示）初期化する関数
 async function initOrderCalendar() {
