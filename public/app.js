@@ -1188,8 +1188,8 @@ const app = {
         
         for (let key in this.state.cart) {
             const item = this.state.cart[key];
-            total += item.price * item.qty;
-            count += item.qty;
+            total += item.price * item.quantity;
+            count += item.quantity;
             currentTargetDate = item.orderDate;
         }
         
@@ -1498,7 +1498,6 @@ const app = {
 
         // カートのキー（注文主ごとに別のカートアイテムとして保持できるよう顧客IDも結合）
         const cartKey = `${orderDate}_${targetCustomerId}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
-        alert(`数量：${quantity}個 ${this.state.cart}`);
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
