@@ -1535,7 +1535,7 @@ const app = {
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
-        this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
+        //this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
     },
 
     // =========================================================
