@@ -1436,6 +1436,9 @@ const app = {
 
     calculateModalPrice() {
         let total = 0;
+        const qtyDisplay = document.getElementById('modal-quantity-display');
+        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
+
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (selectedVar) {
@@ -1446,6 +1449,8 @@ const app = {
         checkedModifiers.forEach(input => {
             total += Number(input.getAttribute('data-price')) || 0;
         });
+
+        total *= quantity;
 
         const priceDisplay = document.getElementById('modal-total-price');
         if (priceDisplay) {
