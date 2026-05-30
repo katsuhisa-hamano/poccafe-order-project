@@ -1535,7 +1535,7 @@ const app = {
 
         alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
-        
+        alert(`${this.state.cart.count} `);
         this.updateCartBar();
         this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
     },
