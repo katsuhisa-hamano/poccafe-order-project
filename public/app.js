@@ -1193,7 +1193,9 @@ const app = {
         
         const totalDisplay = document.getElementById('cart-total-display');
         const cartBar = document.getElementById('cart-bar');
-        
+
+        alert(`${this.state.cart.count} `);
+
         if (this.state.cart.count > 0) {
             if (totalDisplay) {
                 totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
@@ -1535,7 +1537,7 @@ const app = {
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
-        //this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
+        this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
     },
 
     // =========================================================
