@@ -1528,6 +1528,106 @@ const app = {
         this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
     },
 
+    // =========================================================
+    // 注文確定処理（app.js 内に追加、または既存の関数を上書き）
+    // =========================================================
+    async submitOrder() {
+        // 1. バリデーションチェック
+        if (!this.state.selectedDate) {
+            alert("受取日を選択してください。");
+            return;
+        }
+
+        const cartKeys = Object.keys(this.state.cart);
+        if (cartKeys.length === 0) {
+            alert("カートに商品が入っていません。");
+            return;
+        }
+
+        // 顧客IDの特定（管理者による代理注文があればその選択値、通常はログイン中の本人ID）
+        let orderCustomerId = this.state.user.id;
+        const adminCustomerSelect = document.getElementById('admin-customer-select');
+        if (this.state.user.isAdmin && adminCustomerSelect) {
+            orderCustomerId = adminCustomerSelect.value;
+        }
+
+        if (!orderCustomerId) {
+            alert("注文ユーザーが特定できません。再度ログインしてください。");
+            router.go('login');
+            return;
+        }
+
+        if (!confirm("この内容で注文を確定しますか？")) return;
+
+        // 二重送信・連打防止
+        const submitBtn = document.getElementById('order-submit-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "注文処理中...";
+        }
+
+        // 2. 送信データの組み立てと合計金額（total_amount）の算出
+        let totalAmount = 0;
+        const items = cartKeys.map(key => {
+            const qty = this.state.cart[key].quantity;
+            
+            // keyにバリエーションやトッピング情報（例 "VAR_REG_01:MOD_01"）が含まれる場合のパース
+            // メニュー単体のIDの場合は key そのものが menu_id になります
+            const [menuId] = key.split(':'); 
+            
+            // メニュー一覧（this.state.menus など）から該当商品の単価を取得して合計金額を計算
+            // ※（実際の価格計算ロジックに沿って微調整してください）
+            const itemPrice = 500; // 仮の単価
+            totalAmount += itemPrice * qty;
+
+            return {
+                menu_id: menuId,
+                quantity: qty
+            };
+        });
+
+        const payload = {
+            customer_id: orderCustomerId,
+            delivery_date: this.state.selectedDate, // カレンダーで選ばれた日付 (YYYY-MM-DD)
+            total_amount: totalAmount,
+            items: items
+        };
+
+        try {
+            // 3. バックエンドAPIへPOSTリクエストを送信
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert("注文が確定しました！注文番号: " + result.order_id);
+                
+                // カートとUIのリフレッシュ
+                this.state.cart = {};
+                if (typeof this.updateCartBar === 'function') this.updateCartBar();
+                
+                // 履歴画面または適切な画面へ遷移
+                router.go(this.state.user.isAdmin ? 'admin' : 'history');
+            } else {
+                alert(`注文確定に失敗しました:\n${result.message || 'エラーが発生しました。'}`);
+            }
+        } catch (error) {
+            console.error("注文リクエストエラー:", error);
+            alert("通信に失敗しました。ネットワーク環境をお確かめください。");
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "注文を確定する";
+            }
+        }
+    },
+
     // 臨時保持用の特定休日配列
     adminSpecificHolidays: [],
 
