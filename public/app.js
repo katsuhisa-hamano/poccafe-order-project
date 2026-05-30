@@ -1463,9 +1463,6 @@ const app = {
             return;
         }
 
-        const qtyDisplay = document.getElementById('modal-quantity-display');
-        const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
-
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
         let targetCustomerId = this.state.user.id; // デフォルトは自分
         let targetCustomerName = this.state.user.name;
@@ -1510,13 +1507,13 @@ const app = {
                 variationName,
                 modifiers: selectedModifiers,
                 price: totalPrice,
-                quantity: quantity
+                qty: 0
             };
-        } else {
-            this.state.cart[cartKey].quantity += quantity;
         }
+        
+        this.state.cart[cartKey].qty += 1;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
+        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) をカートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
