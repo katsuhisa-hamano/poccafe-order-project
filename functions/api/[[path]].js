@@ -599,7 +599,7 @@ export async function onRequest(context) {
             description: item.description || '',
             variations: variations, // 有効なバリエーションのみ
             // オプション（トッピングなど）
-            max_selected_modifiers: item.modifier_list_info[0].max_selected_modifiers === -1 ? related.filter(obj => obj.type === "MODIFIER_LIST")[0].modifier_list_data.max_selected_modifiers : item.modifier_list_info[0].max_selected_modifiers || null,
+            max_selected_modifiers: item.modifier_list_info[0].max_selected_modifiers === -1 ? related.filter(obj => obj.type === "MODIFIER_LIST")[0].modifier_list_data.max_selected_modifiers : item.modifier_list_info[0].max_selected_modifiers || '',
             options: related
               .filter(obj => obj.type === "MODIFIER_LIST")
               .map(modList => ({
