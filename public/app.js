@@ -1280,9 +1280,8 @@ const app = {
 
     confirmOrder() {
         const content = document.getElementById('modal-content');
-        alert(this.state.cart[0]);
         if (!content) return;
-        let html = '';
+        let html = ''; alert(this.state.cart[0].id)
         for(let id in this.state.cart) {
             if(this.state.cart[id] > 0) {
                 const m = this.state.menus.find(x => x.square_item_id === id);
