@@ -1529,10 +1529,10 @@ const app = {
     },
 
     // =========================================================
-    // 注文確定処理（app.js 内に追加、または既存の関数を上書き）
+    // 注文送信・確定処理 (submitOrder)
     // =========================================================
     async submitOrder() {
-        // 1. バリデーションチェック
+        // 1. 基本バリデーションチェック
         if (!this.state.selectedDate) {
             alert("受取日を選択してください。");
             return;
@@ -1544,7 +1544,8 @@ const app = {
             return;
         }
 
-        // 顧客IDの特定（管理者による代理注文があればその選択値、通常はログイン中の本人ID）
+        // 2. 注文者ID（Squareの顧客ID）の特定
+        // 管理者画面で代理注文の顧客が選ばれている場合はそのID、それ以外はログイン中本人のID
         let orderCustomerId = this.state.user.id;
         const adminCustomerSelect = document.getElementById('admin-customer-select');
         if (this.state.user.isAdmin && adminCustomerSelect) {
@@ -1559,42 +1560,37 @@ const app = {
 
         if (!confirm("この内容で注文を確定しますか？")) return;
 
-        // 二重送信・連打防止
-        const submitBtn = document.getElementById('order-submit-btn');
+        // ボタンの二重押し（連打）防止制御
+        const submitBtn = document.getElementById('order-submit-btn'); // HTML側の注文確定ボタンのID
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerText = "注文処理中...";
+            submitBtn.innerText = "注文を確定中...";
         }
 
-        // 2. 送信データの組み立てと合計金額（total_amount）の算出
-        let totalAmount = 0;
-        const items = cartKeys.map(key => {
-            const qty = this.state.cart[key].quantity;
-            
-            // keyにバリエーションやトッピング情報（例 "VAR_REG_01:MOD_01"）が含まれる場合のパース
-            // メニュー単体のIDの場合は key そのものが menu_id になります
-            const [menuId] = key.split(':'); 
-            
-            // メニュー一覧（this.state.menus など）から該当商品の単価を取得して合計金額を計算
-            // ※（実際の価格計算ロジックに沿って微調整してください）
-            const itemPrice = 500; // 仮の単価
-            totalAmount += itemPrice * qty;
+        // 3. 送信データの組み立て
+        // バックエンド側で処理しやすいようにカートデータを配列の構造に整形します
+        const orderItems = cartKeys.map(key => {
+            // カート内キーの構造が "variationId" 単体、または "variationId:modifierId1,modifierId2" などの
+            // 組み合わせ文字列で格納されている場合のパース（仕様に合わせて調整してください）
+            const [variationId, modifierGroup] = key.split(':');
+            const modifierIds = modifierGroup ? modifierGroup.split(',') : [];
 
             return {
-                menu_id: menuId,
-                quantity: qty
+                variation_id: variationId,
+                modifiers: modifierIds,
+                quantity: this.state.cart[key] // カートに保存されている個数
             };
         });
 
         const payload = {
-            customer_id: orderCustomerId,
-            delivery_date: this.state.selectedDate, // カレンダーで選ばれた日付 (YYYY-MM-DD)
-            total_amount: totalAmount,
-            items: items
+            customer_id: orderCustomerId,         // 注文主のID (本人 or 代理顧客)
+            order_date: this.state.selectedDate,  // 指定された受取日
+            items: orderItems,                    // 整形した商品・数量リスト
+            created_by_admin: this.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
         };
 
         try {
-            // 3. バックエンドAPIへPOSTリクエストを送信
+            // 4. APIへのリクエスト送信
             const response = await fetch('/api/orders', {
                 method: 'POST',
                 headers: {
@@ -1606,21 +1602,27 @@ const app = {
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert("注文が確定しました！注文番号: " + result.order_id);
+                // 5. 注文成功時のクリーンアップ処理
+                alert("注文が確定しました！ありがとうございます。");
                 
-                // カートとUIのリフレッシュ
-                this.state.cart = {};
-                if (typeof this.updateCartBar === 'function') this.updateCartBar();
-                
-                // 履歴画面または適切な画面へ遷移
-                router.go(this.state.user.isAdmin ? 'admin' : 'history');
+                this.state.cart = {};          // カートの状態を空にする
+                this.updateCartBar();          // 下部のカートバーUIをリフレッシュ
+
+                // 必要に応じて、注文履歴画面などへ遷移させる
+                if (this.state.user.isAdmin) {
+                    router.go('admin');        // 管理者ならダッシュボードへ戻す
+                } else {
+                    router.go('history');      // 一般ユーザーなら注文履歴（history）へ
+                }
             } else {
-                alert(`注文確定に失敗しました:\n${result.message || 'エラーが発生しました。'}`);
+                // サーバーエラーや在庫切れなどのエラーハンドリング
+                alert(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
             }
         } catch (error) {
-            console.error("注文リクエストエラー:", error);
-            alert("通信に失敗しました。ネットワーク環境をお確かめください。");
+            console.error("注文送信エラー:", error);
+            alert("通信エラーが発生しました。電波状況をご確認の上、再度お試しください。");
         } finally {
+            // ボタン状態の復元
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerText = "注文を確定する";
