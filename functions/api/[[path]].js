@@ -604,7 +604,7 @@ export async function onRequest(context) {
               .map(modList => ({
                 id: modList.id,
                 name: modList.modifier_list_data.name,
-                selection_type: modList.modifier_list_data.selection_type,
+                max_selected_modifiers: modList.modifier_list_data.max_selected_modifiers,
                 modifiers: (modList.modifier_list_data.modifiers || []).map(m => ({
                   id: m.id,
                   name: m.modifier_data.name,

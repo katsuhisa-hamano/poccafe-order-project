@@ -1355,12 +1355,12 @@ const app = {
                         ${item.options.map((optList, oIdx) => `
                             <div class="mb-6 text-left">
                                 <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-gray-400 pl-2">
-                                    ${optList.name} ${optList.selection_type === 'SINGLE' ? '(1つまで・再タップで解除可)' : '(複数選択可)'}
+                                    ${optList.name} ${optList.max_selected_modifiers === 0 ? '(複数選択可・再タップで解除可)' : '(1つまで・再タップで解除可)'}
                                 </label>
                                 <div class="space-y-2">
                                     ${optList.modifiers.map((m, mIdx) => {
                                         const checkId = `mod_${m.id.replace(/[^a-zA-Z0-9]/g, '_')}_${oIdx}_${mIdx}`;
-                                        const inputType = optList.selection_type === 'SINGLE' ? 'radio' : 'checkbox';
+                                        const inputType = optList.max_selected_modifiers === 0 ? 'checkbox' : 'radio';
                                         return `
                                         <label for="${checkId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
                                             <span class="flex items-center">
