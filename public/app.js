@@ -1320,7 +1320,7 @@ const app = {
             if (!data.success) throw new Error(data.message);
 
             const item = data.item;
-            alert(item.modifier_list_info[0].max_selected_modifiers);
+            alert(item.max_selected_modifiers);
 
             modal.innerHTML = `
                 <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
