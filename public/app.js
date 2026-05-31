@@ -1280,7 +1280,7 @@ const app = {
 
     confirmOrder() {
         const content = document.getElementById('modal-content');
-        alert(this.state.cart);
+        alert(this.state.cart[0]);
         if (!content) return;
         let html = '';
         for(let id in this.state.cart) {
