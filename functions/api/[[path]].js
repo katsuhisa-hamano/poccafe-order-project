@@ -599,12 +599,12 @@ export async function onRequest(context) {
             description: item.description || '',
             variations: variations, // 有効なバリエーションのみ
             // オプション（トッピングなど）
+            max_selected_modifiers: item.modifier_list_info[0].max_selected_modifiers,
             options: related
               .filter(obj => obj.type === "MODIFIER_LIST")
               .map(modList => ({
                 id: modList.id,
                 name: modList.modifier_list_data.name,
-                max_selected_modifiers: modList.modifier_list_data.max_selected_modifiers,
                 modifiers: (modList.modifier_list_data.modifiers || []).map(m => ({
                   id: m.id,
                   name: m.modifier_data.name,
