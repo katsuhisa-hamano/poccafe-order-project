@@ -1186,8 +1186,8 @@ const app = {
         let count = 0;
         let currentTargetDate = '';
         
-        for (let key in this.state.cart) {
-            const item = this.state.cart[key];
+        for (let key in app.state.cart) {
+            const item = app.state.cart[key];
             total += item.price * item.quantity;
             count += item.quantity;
             currentTargetDate = item.orderDate;
@@ -1228,7 +1228,6 @@ const app = {
                 cartBar.style.justifyContent = "between"; 
                 cartBar.style.alignItems = "center";
             }
-            alert(cartBar);
         } else {
             if (totalDisplay) totalDisplay.innerText = '¥0';
             
@@ -1534,12 +1533,12 @@ const app = {
     // =========================================================
     async submitOrder() {
         // 1. 基本バリデーションチェック
-        if (!this.state.selectedDate) {
+        if (!app.state.selectedDate) {
             alert("受取日を選択してください。");
             return;
         }
 
-        const cartKeys = Object.keys(this.state.cart);
+        const cartKeys = Object.keys(app.state.cart);
         if (cartKeys.length === 0) {
             alert("カートに商品が入っていません。");
             return;
@@ -1547,9 +1546,9 @@ const app = {
 
         // 2. 注文者ID（Squareの顧客ID）の特定
         // 管理者画面で代理注文の顧客が選ばれている場合はそのID、それ以外はログイン中本人のID
-        let orderCustomerId = this.state.user.id;
+        let orderCustomerId = app.state.user.id;
         const adminCustomerSelect = document.getElementById('admin-customer-select');
-        if (this.state.user.isAdmin && adminCustomerSelect) {
+        if (app.state.user.isAdmin && adminCustomerSelect) {
             orderCustomerId = adminCustomerSelect.value;
         }
 
@@ -1579,15 +1578,15 @@ const app = {
             return {
                 variation_id: variationId,
                 modifiers: modifierIds,
-                quantity: this.state.cart[key] // カートに保存されている個数
+                quantity: app.state.cart[key] // カートに保存されている個数
             };
         });
 
         const payload = {
             customer_id: orderCustomerId,         // 注文主のID (本人 or 代理顧客)
-            order_date: this.state.selectedDate,  // 指定された受取日
+            order_date: app.state.selectedDate,  // 指定された受取日
             items: orderItems,                    // 整形した商品・数量リスト
-            created_by_admin: this.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
+            created_by_admin: app.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
         };
 
         try {
@@ -1606,11 +1605,11 @@ const app = {
                 // 5. 注文成功時のクリーンアップ処理
                 alert("注文が確定しました！ありがとうございます。");
                 
-                this.state.cart = {};          // カートの状態を空にする
-                this.updateCartBar();          // 下部のカートバーUIをリフレッシュ
+                app.state.cart = {};          // カートの状態を空にする
+                app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
                 // 必要に応じて、注文履歴画面などへ遷移させる
-                if (this.state.user.isAdmin) {
+                if (app.state.user.isAdmin) {
                     router.go('admin');        // 管理者ならダッシュボードへ戻す
                 } else {
                     router.go('history');      // 一般ユーザーなら注文履歴（history）へ
