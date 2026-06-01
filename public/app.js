@@ -1282,7 +1282,56 @@ const app = {
         const content = document.getElementById('modal-content');
         if (!content) return;
         let html = '';
-        for(let id in this.state.cart) {
+        let totalAmount = 0; // 合計金額の計算用
+
+        for (let key in app.state.cart) {
+            const cartItem = app.state.cart[key];
+            
+            // カートアイテムが存在し、数量が1以上の場合のみ処理
+            if (cartItem && cartItem.quantity > 0) {
+                const qty = parseInt(cartItem.quantity, 10);
+                const unitPrice = parseInt(cartItem.unit_price, 10) || 0;
+                const subtotal = unitPrice * qty; // この商品の小計 (単価×数量)
+                totalAmount += subtotal;
+
+                // キー（例: "ITEM_ID:MOD_1,MOD_2"）から元のメニューIDだけを取り出す
+                const [menuId] = key.split(':');
+                
+                // キャッシュされている menus から該当の商品データを検索
+                const m = this.state.menus.find(x => x.square_item_id === menuId || x.id === menuId);
+                const itemName = m ? m.name : "不明な商品";
+
+                // 【追加】もし選択されたトッピング等があれば、確認画面に副題として出すためのテキスト生成
+                let modifierText = '';
+                if (cartItem.modifiers && cartItem.modifiers.length > 0) {
+                    // ※もしトッピング名も画面に細かく出したい場合は、ここに名前引きの処理を書けます。
+                    // 今回はシンプルに「カスタマイズあり」などの表記、または選択数を小さく表示します。
+                    modifierText = `<div class="text-xs text-gray-400 mt-0.5">カスタム: ${cartItem.modifiers.length}件</div>`;
+                }
+
+                html += `
+                <div class="flex justify-between items-center py-3 border-b border-gray-50">
+                    <div class="flex flex-col">
+                        <span class="font-medium text-gray-700">
+                            ${itemName} 
+                            <span class="text-orange-600 font-bold text-xs ml-1">x${qty}</span>
+                        </span>
+                        ${modifierText}
+                    </div>
+                    <span class="font-black text-gray-900">¥${subtotal.toLocaleString()}</span>
+                </div>`;
+            }
+        }
+
+        // もしHTML側に合計金額を再セットするロジック（#confirm-total-price 等）があれば
+        // ここで totalAmount を代入してあげると合計金額表示もバグりません。
+        const confirmTotalDisplay = document.getElementById('confirm-total-price');
+        if (confirmTotalDisplay) {
+            confirmTotalDisplay.innerText = `¥${totalAmount.toLocaleString()}`;
+        }
+/*
+        let html = '';
+        for(let id in app.state.cart) {
             if(this.state.cart[id] > 0) {
                 const m = this.state.menus.find(x => x.square_item_id === id);
                 html += `
@@ -1292,6 +1341,7 @@ const app = {
                 </div>`;
             }
         }
+*/
         if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
