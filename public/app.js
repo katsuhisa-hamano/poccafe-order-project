@@ -1682,7 +1682,7 @@ const app = {
         };
         */
        let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
-       payload.items = this.state.cart.map(cartItem => this.state.cart[cartItem]); // カートの内容を配列形式に変換してpayloadにセット（必要に応じてさらに整形）
+         payload.items = this.state.cart.map(key => {return this.state.cart[key]}); // カートの内容をAPIの期待する形式に整形してpayloadにセットする処理をここで行います
 
         try {
             // 4. APIへのリクエスト送信
