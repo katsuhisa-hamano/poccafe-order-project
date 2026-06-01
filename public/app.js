@@ -1316,7 +1316,7 @@ const app = {
                     <div class="flex flex-col">
                         <span class="font-medium text-gray-700">
                             ${itemName} 
-                            <span class="text-orange-700 font-bold text-xs ml-1">x${qty}</span>
+                            <span class="text-orange-600 font-bold text-xl ml-1">x${qty}</span>
                         </span>
                         ${modifierText}
                     </div>
