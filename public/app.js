@@ -1308,7 +1308,7 @@ const app = {
                     //cartItem.modifiers.forEach(arr => modName & modName=="" ? "" : "," & arr.name);
                     // ※もしトッピング名も画面に細かく出したい場合は、ここに名前引きの処理を書けます。
                     // 今回はシンプルに「カスタマイズあり」などの表記、または選択数を小さく表示します。
-                    //modifierText = `<div class="text-xs text-gray-400 mt-0.5">カスタム: ${cartItem.modifiers.length}件 （${modName}）</div>`;
+                    modifierText = `<div class="text-xs text-gray-400 mt-0.5">カスタム: ${cartItem.modifiers.length}件 （${modName}）</div>`;
                 }
 
                 html += `
