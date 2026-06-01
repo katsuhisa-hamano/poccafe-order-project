@@ -1682,7 +1682,7 @@ const app = {
         };
         */
        let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
-       payload['items'] = this.state.cart;
+       payload.items = this.state.cart.map(cartItem => this.state.cart[cartItem]); // カートの内容を配列形式に変換してpayloadにセット（必要に応じてさらに整形）
 
         try {
             // 4. APIへのリクエスト送信
@@ -1693,7 +1693,6 @@ const app = {
                 },
                 body: JSON.stringify(payload)
             });
-            alert(JSON.stringify(payload));
 
             const result = await response.json();
 
