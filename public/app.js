@@ -1304,9 +1304,11 @@ const app = {
                 // 【追加】もし選択されたトッピング等があれば、確認画面に副題として出すためのテキスト生成
                 let modifierText = '';
                 if (cartItem.modifiers && cartItem.modifiers.length > 0) {
+                    let modName = "";
+                    cartItem.modifiers.forEach(arr => modName & modName=="" ? "" : "," & arr.name)
                     // ※もしトッピング名も画面に細かく出したい場合は、ここに名前引きの処理を書けます。
                     // 今回はシンプルに「カスタマイズあり」などの表記、または選択数を小さく表示します。
-                    modifierText = `<div class="text-xs text-gray-400 mt-0.5">カスタム: ${cartItem.modifiers.length}件</div>`;
+                    modifierText = `<div class="text-xs text-gray-400 mt-0.5">カスタム: ${cartItem.modifiers.length}件 （${modName}）</div>`;
                 }
 
                 html += `
