@@ -1324,6 +1324,13 @@ const app = {
                 </div>`;
             }
         }
+        html += `
+        <div class="flex justify-between items-center py-3 border-b border-gray-50">
+            <div class="flex flex-col">
+                <span class="font-medium text-gray-700">合計</span>
+            </div>
+            <span class="font-black text-gray-900">¥${totalAmount.toLocaleString()}</span>
+        </div>`;
 
         // もしHTML側に合計金額を再セットするロジック（#confirm-total-price 等）があれば
         // ここで totalAmount を代入してあげると合計金額表示もバグりません。
