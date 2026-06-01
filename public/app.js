@@ -1290,9 +1290,9 @@ const app = {
             // カートアイテムが存在し、数量が1以上の場合のみ処理
             if (cartItem && cartItem.quantity > 0) {
                 const qty = parseInt(cartItem.quantity, 10);
-                const unitPrice = parseInt(cartItem.unit_price, 10) || 0;
+                const unitPrice = parseInt(cartItem.price, 10) || 0;
                 const subtotal = unitPrice * qty; // この商品の小計 (単価×数量)
-                totalAmount += subtotal; alert(unitPrice);
+                totalAmount += subtotal;
 
                 // キー（例: "ITEM_ID:MOD_1,MOD_2"）から元のメニューIDだけを取り出す
                 const [menuId] = key.split(':');
