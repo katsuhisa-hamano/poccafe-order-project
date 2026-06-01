@@ -332,6 +332,13 @@ const app = {
     state: { 
         menus: [], 
         cart: {}, 
+        payload: {
+            customer_id: null, // 注文主のID (本人 or 代理顧客)
+            customerName: null, // 表示用ネーム
+            order_date: null,  // 指定された受取日,
+            overallPrice: 0,     // カート全体の合計金額
+            creater_id: null,  // 注文を作成したユーザーID（管理者が代理注文する場合は管理者のID）
+        },
         user: { id: null, name: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
@@ -1184,21 +1191,22 @@ const app = {
     updateCartBar() {
         let total = 0;
         let count = 0;
-        let currentTargetDate = '';
+        //let currentTargetDate = '';
         
         for (let key in app.state.cart) {
             const item = app.state.cart[key];
             total += item.price * item.quantity;
             count += item.quantity;
-            currentTargetDate = item.orderDate;
+            //currentTargetDate = item.orderDate;
         }
         
         const totalDisplay = document.getElementById('cart-total-display');
         const cartBar = document.getElementById('cart-bar');
+        this.state.overallPrice = total; // カートの合計金額をstateに保存（必要に応じて他のコンポーネントからも参照可能にするため）
         
         if (count > 0) {
             if (totalDisplay) {
-                totalDisplay.innerText = `【${currentTargetDate} 受取分】 合計: ¥${total.toLocaleString()}`;
+                totalDisplay.innerText = `【${this.state.selectedDate} 受取分】 合計: ¥${total.toLocaleString()}`;
             }
             
             let clearBtn = document.getElementById('cart-clear-btn');
@@ -1212,6 +1220,13 @@ const app = {
                     e.stopPropagation(); 
                     if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
                         app.state.cart = {}; 
+                        app.state.payload = {
+                            customer_id: null,
+                            customerName: null,
+                            order_date: null,
+                            overallPrice: 0,
+                            creater_id: null,
+                        }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
                         alert("カートを空にしました。");
@@ -1282,7 +1297,7 @@ const app = {
         const content = document.getElementById('modal-content');
         if (!content) return;
         let html = '';
-        let totalAmount = 0; // 合計金額の計算用
+        //let totalAmount = 0; // 合計金額の計算用
 
         for (let key in app.state.cart) {
             const cartItem = app.state.cart[key];
@@ -1295,10 +1310,10 @@ const app = {
                 totalAmount += subtotal;
 
                 // キー（例: "ITEM_ID:MOD_1,MOD_2"）から元のメニューIDだけを取り出す
-                const [menuId] = key.split(':');
+                //const [menuId] = key.split(':');
                 
                 // キャッシュされている menus から該当の商品データを検索
-                const m = this.state.menus.find(x => x.square_item_id === menuId || x.id === menuId);
+                //const m = this.state.menus.find(x => x.square_item_id === menuId || x.id === menuId);
                 const itemName = `${cartItem.itemName} ( ${cartItem.variationName} )`;
 
                 // 【追加】もし選択されたトッピング等があれば、確認画面に副題として出すためのテキスト生成
@@ -1333,25 +1348,12 @@ const app = {
             <span class="font-black text-gray-900">¥${totalAmount.toLocaleString()}</span>
         </div>`;
 
-        // もしHTML側に合計金額を再セットするロジック（#confirm-total-price 等）があれば
-        // ここで totalAmount を代入してあげると合計金額表示もバグりません。
         const confirmTotalDisplay = document.getElementById('confirm-total-price');
         if (confirmTotalDisplay) {
             confirmTotalDisplay.innerText = `¥${totalAmount.toLocaleString()}`;
         }
-/*
-        let html = '';
-        for(let id in app.state.cart) {
-            if(this.state.cart[id] > 0) {
-                const m = this.state.menus.find(x => x.square_item_id === id);
-                html += `
-                <div class="flex justify-between items-center py-3 border-b border-gray-50">
-                    <span class="font-medium text-gray-700">${m.name} <span class="text-gray-400 text-xs ml-1">x${this.state.cart[id]}</span></span>
-                    <span class="font-black text-gray-900">¥${(m.price * this.state.cart[id]).toLocaleString()}</span>
-                </div>`;
-            }
-        }
-*/
+        this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
+
         if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
@@ -1566,9 +1568,9 @@ const app = {
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
-                orderDate, 
-                customerId: targetCustomerId,     // ★ カートの要素に注文対象の顧客IDを持たせる
-                customerName: targetCustomerName, // 表示用ネーム
+                //orderDate, 
+                //customerId: targetCustomerId,     // ★ カートの要素に注文対象の顧客IDを持たせる
+                //customerName: targetCustomerName, // 表示用ネーム
                 itemId,
                 itemName,
                 variationId,
@@ -1580,6 +1582,10 @@ const app = {
         } else {
             this.state.cart[cartKey].quantity += quantity;
         }
+        this.state.payload.order_date = orderDate; // 受取日をpayloadにも保存しておく（注文確定時に参照するため）
+        this.state.payload.customer_id = targetCustomerId; // 注文確定時に誰の注文か分かるように顧客IDも保存
+        this.state.payload.customer_name = targetCustomerName; // 表示用に顧客名も保存
+        this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
 
         alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
@@ -1628,6 +1634,31 @@ const app = {
         }
 
         // 3. 送信データの組み立て
+        // app.js の submitOrder() 内のデータ生成部分のイメージ
+        const items = cartKeys.map(key => {
+            const cartItem = app.state.cart[key];
+            
+            // トッピング情報の配列を成形して添付する
+            // ※ cartItem.modifiers_detailed などに {id, name, price} のオブジェクト配列として
+            // 保存しておいたもの、またはIDから随時マッピングしたものを渡します
+            const formattedModifiers = (cartItem.modifiers || []).map(modId => {
+                // マスターデータから名前と価格を逆引き
+                const modDetails = app.findModifierDetails(cartItem.menu_id, modId); 
+                return {
+                    id: modId,
+                    name: modDetails ? modDetails.name : "トッピング",
+                    price: modDetails ? modDetails.price : 0
+                };
+            });
+
+            return {
+                menu_id: cartItem.menu_id,
+                variation_id: cartItem.variation_id,
+                quantity: cartItem.quantity,
+                unit_price: cartItem.unit_price, // 商品本体 + トッピングの単価
+                modifiers: formattedModifiers   // 紐付くトッピングの配列
+            };
+        });
         // バックエンド側で処理しやすいようにカートデータを配列の構造に整形します
         const orderItems = cartKeys.map(key => {
             // カート内キーの構造が "variationId" 単体、または "variationId:modifierId1,modifierId2" などの
