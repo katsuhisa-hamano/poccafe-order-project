@@ -1299,7 +1299,7 @@ const app = {
                 
                 // キャッシュされている menus から該当の商品データを検索
                 const m = this.state.menus.find(x => x.square_item_id === menuId || x.id === menuId);
-                const itemName = ' ${cartItem.itemName} (${cartItem.variationName}) ';
+                const itemName = ` ${cartItem.itemName} (${cartItem.variationName}) `;
 
                 // 【追加】もし選択されたトッピング等があれば、確認画面に副題として出すためのテキスト生成
                 let modifierText = '';
