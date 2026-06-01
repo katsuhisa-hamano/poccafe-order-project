@@ -1635,6 +1635,7 @@ const app = {
 
         // 3. 送信データの組み立て
         // app.js の submitOrder() 内のデータ生成部分のイメージ
+/*
         const items = cartKeys.map(key => {
             const cartItem = app.state.cart[key];
             
@@ -1679,6 +1680,9 @@ const app = {
             items: orderItems,                    // 整形した商品・数量リスト
             created_by_admin: app.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
         };
+        */
+       let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
+       payload['items'] = cart;
 
         try {
             // 4. APIへのリクエスト送信
@@ -1689,6 +1693,7 @@ const app = {
                 },
                 body: JSON.stringify(payload)
             });
+            alert(payload);
 
             const result = await response.json();
 
