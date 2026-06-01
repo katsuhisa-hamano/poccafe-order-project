@@ -1297,7 +1297,7 @@ const app = {
         const content = document.getElementById('modal-content');
         if (!content) return;
         let html = '';
-        //let totalAmount = 0; // 合計金額の計算用
+        let totalAmount = 0; // 合計金額の計算用
 
         for (let key in app.state.cart) {
             const cartItem = app.state.cart[key];
