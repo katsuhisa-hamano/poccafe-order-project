@@ -1320,7 +1320,7 @@ const app = {
                         </span>
                         ${modifierText}
                     </div>
-                    <span class="font-black text-gray-900">¥${subtotal.toLocaleString()}</span>
+                    <span class="font-black text-gray-900">¥${subtotal}</span>
                 </div>`;
             }
         }
