@@ -1281,8 +1281,9 @@ const app = {
     confirmOrder() {
         const content = document.getElementById('modal-content');
         if (!content) return;
-        let html = ''; alert(this.state.cart[0].id);
+        let html = '';
         for(let id in this.state.cart) {
+            alert(id)
             if(this.state.cart[id] > 0) {
                 const m = this.state.menus.find(x => x.square_item_id === id);
                 html += `
