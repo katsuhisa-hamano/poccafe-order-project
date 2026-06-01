@@ -1228,6 +1228,7 @@ const app = {
                 cartBar.style.justifyContent = "between"; 
                 cartBar.style.alignItems = "center";
             }
+            alert(cartBar);
         } else {
             if (totalDisplay) totalDisplay.innerText = '¥0';
             
@@ -1283,7 +1284,6 @@ const app = {
         if (!content) return;
         let html = '';
         for(let id in this.state.cart) {
-            alert(id)
             if(this.state.cart[id] > 0) {
                 const m = this.state.menus.find(x => x.square_item_id === id);
                 html += `
