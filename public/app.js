@@ -1682,7 +1682,7 @@ const app = {
         };
         */
        let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
-       payload['items'] = cart;
+       payload['items'] = this.state.cart;
 
         try {
             // 4. APIへのリクエスト送信
