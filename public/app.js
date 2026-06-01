@@ -1693,7 +1693,7 @@ const app = {
                 },
                 body: JSON.stringify(payload)
             });
-            alert(payload);
+            alert(JSON.stringify(payload));
 
             const result = await response.json();
 
