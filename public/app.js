@@ -1681,8 +1681,9 @@ const app = {
             created_by_admin: app.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
         };
         */
-       let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
-         payload.items = this.state.cart.map(key => {return this.state.cart[key]}); // カートの内容をAPIの期待する形式に整形してpayloadにセットする処理をここで行います
+        let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
+        const cart = this.state.cart; // カートの内容をAPIの期待する形式に整形してpayloadにセットする処理をここで行います
+        payload.items = cart.map(key => {return cart[key]}); // カートの内容をAPIの期待する形式に整形してpayloadにセットする処理をここで行います
 
         try {
             // 4. APIへのリクエスト送信
