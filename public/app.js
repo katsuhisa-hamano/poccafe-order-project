@@ -1325,6 +1325,7 @@ const app = {
             }
         }
         html += `
+        <hr class="border-t-2 border-blue-500 my-4" />
         <div class="flex justify-between items-center py-3 border-b border-gray-50">
             <div class="flex flex-col">
                 <span class="font-medium text-gray-700">合計</span>
