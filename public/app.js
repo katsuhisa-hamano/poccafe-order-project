@@ -1683,7 +1683,7 @@ const app = {
         */
         let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
         payload.items = Object.keys(app.state.cart || {}).map(key => app.state.cart[key]);
-        alert(JSON.stringify(payload));
+
         try {
             // 4. APIへのリクエスト送信
             const response = await fetch('/api/orders', {
@@ -1701,6 +1701,13 @@ const app = {
                 alert("注文が確定しました！ありがとうございます。");
                 
                 app.state.cart = {};          // カートの状態を空にする
+                app.state.payload = {
+                    customer_id: null,
+                    customerName: null,
+                    order_date: null,
+                    overallPrice: 0,
+                    creater_id: null,
+                }
                 app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
                 // 必要に応じて、注文履歴画面などへ遷移させる
