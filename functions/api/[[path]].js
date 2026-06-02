@@ -22,17 +22,17 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/orders' && method === 'POST') {
       try {
-        const { customer_id, delivery_date, total_amount, items } = await request.json();
+        const { payload } = await request.json();
 
         // 必須入力項目のバリデーション
-        if (!customer_id || !delivery_date || total_amount === undefined || !items || items.length === 0) {
+        if (!payload || payload.length === 0) {
           return new Response(JSON.stringify({ success: false, message: 'リクエストデータが不足しています。' }), { status: 400, headers: corsHeaders });
         }
 
         if (!env.DB) {
           return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
         }
-
+/*
         // 1. 最初に orders テーブルに新規作成するSQL（親）を用意
         const insertOrderStmt = env.DB.prepare(`
           INSERT INTO orders (customer_id, delivery_date, total_amount)
@@ -77,6 +77,7 @@ export async function onRequest(context) {
           message: '注文処理中にサーバーエラーが発生しました: ' + dbErr.message 
         }), { status: 500, headers: corsHeaders });
       }
+      */
     }
 
     // =========================================================
