@@ -334,10 +334,11 @@ const app = {
         cart: {}, 
         payload: {
             customer_id: null, // 注文主のID (本人 or 代理顧客)
-            customerName: null, // 表示用ネーム
+            customer_name: null, // 注文主名
             order_date: null,  // 指定された受取日,
             overallPrice: 0,     // カート全体の合計金額
             creater_id: null,  // 注文を作成したユーザーID（管理者が代理注文する場合は管理者のID）
+            creater_name: null //注文作成者名
         },
         user: { id: null, name: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
@@ -1238,10 +1239,11 @@ const app = {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
-                            customerName: null,
+                            customer_name: null,
                             order_date: null,
                             overallPrice: 0,
                             creater_id: null,
+                            creater_name: null
                         }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
@@ -1600,8 +1602,9 @@ const app = {
         }
         this.state.payload.order_date = orderDate; // 受取日をpayloadにも保存しておく（注文確定時に参照するため）
         this.state.payload.customer_id = targetCustomerId; // 注文確定時に誰の注文か分かるように顧客IDも保存
-        this.state.payload.customer_name = targetCustomerName; // 表示用に顧客名も保存
+        this.state.payload.customer_name = adminCustomers[targetCustomerId].name;
         this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
+        this.state.payload.creater_name = this.state.user.name;
 
         alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
