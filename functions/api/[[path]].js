@@ -32,7 +32,8 @@ export async function onRequest(context) {
         if (!env.DB) {
           return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
         }
-/*
+        /*
+
         // 1. 最初に orders テーブルに新規作成するSQL（親）を用意
         const insertOrderStmt = env.DB.prepare(`
           INSERT INTO orders (customer_id, delivery_date, total_amount)
@@ -62,6 +63,7 @@ export async function onRequest(context) {
         if (itemStatements.length > 0) {
           await env.DB.batch(itemStatements);
         }
+        */
 
         // 5. 成功レスポンスの返却
         return new Response(JSON.stringify({ 
@@ -77,7 +79,7 @@ export async function onRequest(context) {
           message: '注文処理中にサーバーエラーが発生しました: ' + dbErr.message 
         }), { status: 500, headers: corsHeaders });
       }
-      */
+      
     }
 
     // =========================================================
