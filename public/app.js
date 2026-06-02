@@ -602,12 +602,12 @@ const app = {
 
     // ★【追加】管理者用：日付選択の上部に顧客一覧セレクターを動的に挿入・構築する関数
     renderAdminCustomerSelector() {
-        // 配置用のラッパー（HTML側にあらかじめ <div id="admin-customer-selector-wrapper"></div> を設置してください）
+        // 配置用のラッパー
         const wrapper = document.getElementById('admin-customer-selector-wrapper');
         if (!wrapper) return;
 
         // 管理者でなければ、中身を空にして非表示にする
-        if (!this.state.user.isAdmin) {
+        if (!this.state.user || !this.state.user.isAdmin) {
             wrapper.innerHTML = '';
             wrapper.classList.add('hidden');
             return;
@@ -615,9 +615,19 @@ const app = {
 
         wrapper.classList.remove('hidden');
         
+        // =========================================================
+        // 【重要】書き換え前に、現在ユーザーが選んでいる値を取得しておく
+        // =========================================================
+        const currentSelect = document.getElementById('admin-customer-select');
+        // もしすでに要素が存在していればその選択値を、なければログイン中の本人IDをデフォルトにする
+        const selectedValue = currentSelect ? currentSelect.value : this.state.user.id;
+        
         // すでにカートに商品がある場合は変更不可にするための属性制御
-        const isCartActive = Object.keys(this.state.cart).length > 0;
+        const isCartActive = Object.keys(this.state.cart || {}).length > 0;
         const disabledAttr = isCartActive ? 'disabled' : '';
+
+        // 本人注文オプションの selected 判定
+        const isUserSelected = selectedValue === this.state.user.id ? 'selected' : '';
 
         wrapper.innerHTML = `
             <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
@@ -626,11 +636,17 @@ const app = {
                     代理注文：対象の顧客（注文者）を選択してください
                 </label>
                 <select id="admin-customer-select" ${disabledAttr} class="w-full bg-white border border-amber-300 h-11 px-3 rounded-md text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition">
-                    <option value="${this.state.user.id}">【本人として注文】 ${this.state.user.name}様</option>
-                    ${this.state.adminCustomers.map(cust => {
+                    <option value="${this.state.user.id}" ${isUserSelected}>【本人として注文】 ${this.state.user.name}様</option>
+                    ${(this.state.adminCustomers || []).map(cust => {
                         // 本人以外を表示
                         if (cust.square_customer_id === this.state.user.id) return '';
-                        return `<option value="${cust.square_customer_id}">${cust.name}様 (${cust.email || 'メールなし'})</option>`;
+                        
+                        // =========================================================
+                        // 【重要】事前に退避したselectedValueと一致すれば 'selected' を付与
+                        // =========================================================
+                        const isSelected = cust.square_customer_id === selectedValue ? 'selected' : '';
+                        
+                        return `<option value="${cust.square_customer_id}" ${isSelected}>${cust.name}様 (${cust.email || 'メールなし'})</option>`;
                     }).join('')}
                 </select>
                 ${isCartActive ? `<p class="text-xs text-red-600 mt-1 font-bold">※カートに商品が入っているため、注文者を変更できません。</p>` : ''}
