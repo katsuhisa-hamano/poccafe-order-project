@@ -22,7 +22,7 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/orders' && method === 'POST') {
       try {
-        const { payload } = await request.json();
+        const payload = await request.json();
 
         // 必須入力項目のバリデーション
         if (!payload || payload.length === 0) {
