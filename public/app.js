@@ -335,6 +335,7 @@ const app = {
         payload: {
             customer_id: null, // 注文主のID (本人 or 代理顧客)
             customer_name: null, // 注文主名
+            customer_email: null,
             order_date: null,  // 指定された受取日,
             overallPrice: 0,     // カート全体の合計金額
             creater_id: null,  // 注文を作成したユーザーID（管理者が代理注文する場合は管理者のID）
