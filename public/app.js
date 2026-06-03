@@ -1710,7 +1710,6 @@ const app = {
         */
         let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
         payload.items = Object.keys(app.state.cart || {}).map(key => app.state.cart[key]);
-        alert(JSON.stringify(payload)); // デバッグ用：送信前のペイロード内容を確認
 
         try {
             // 4. APIへのリクエスト送信
