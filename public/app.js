@@ -363,6 +363,7 @@ const app = {
                 const user = result.user;
                 this.state.user.id = user.square_customer_id;
                 this.state.user.name = user.name;
+                this.state.user.email = user.email;
                 this.state.user.isAdmin = user.is_admin === 1; 
                 
                 localStorage.setItem('cafe_user_id', user.square_customer_id);
