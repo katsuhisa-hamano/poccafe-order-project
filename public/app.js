@@ -1244,6 +1244,7 @@ const app = {
                         app.state.payload = {
                             customer_id: null,
                             customer_name: null,
+                            customer_email: null,
                             order_date: null,
                             overallPrice: 0,
                             creater_id: null,
@@ -1728,10 +1729,12 @@ const app = {
                 app.state.cart = {};          // カートの状態を空にする
                 app.state.payload = {
                     customer_id: null,
-                    customerName: null,
+                    customer_name: null,
+                    customer_email: null,
                     order_date: null,
                     overallPrice: 0,
                     creater_id: null,
+                    creater_name: null
                 }
                 app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
