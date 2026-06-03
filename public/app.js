@@ -341,7 +341,7 @@ const app = {
             creater_id: null,  // 注文を作成したユーザーID（管理者が代理注文する場合は管理者のID）
             creater_name: null //注文作成者名
         },
-        user: { id: null, name: null, isAdmin: false },
+        user: { id: null, name: null, email: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
         squareCatalogItems: [],
@@ -367,6 +367,7 @@ const app = {
                 
                 localStorage.setItem('cafe_user_id', user.square_customer_id);
                 localStorage.setItem('cafe_user_name', user.name);
+                localStorage.setItem('cafe_user_email', user.email);
                 localStorage.setItem('cafe_user_is_admin', user.is_admin); 
 
                 const display = document.getElementById('userDisplay');
@@ -404,7 +405,7 @@ const app = {
     logout() {
         if (!confirm("ログアウトしますか？")) return;
         localStorage.clear();
-        this.state.user = { id: null, name: null, isAdmin: false };
+        this.state.user = { id: null, name: null, email: null, isAdmin: false };
         this.state.adminCustomers = []; // クリア
         this.state.cart = {};
         this.updateCartBar();
@@ -548,6 +549,7 @@ const app = {
 
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
+        const savedEmail = localStorage.getItem('cafe_user_email');
         const savedIsAdmin = localStorage.getItem('cafe_user_is_admin'); 
         
         if (document.getElementById('order-date')) {
@@ -560,6 +562,7 @@ const app = {
         if (savedId && savedName) {
             this.state.user.id = savedId;
             this.state.user.name = savedName;
+            this.state.user.email = savedEmail;
             this.state.user.isAdmin = savedIsAdmin === '1'; 
 
             const display = document.getElementById('userDisplay');
