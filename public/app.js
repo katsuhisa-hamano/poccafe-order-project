@@ -1602,8 +1602,8 @@ const app = {
         }
         this.state.payload.order_date = orderDate; // 受取日をpayloadにも保存しておく（注文確定時に参照するため）
         this.state.payload.customer_id = targetCustomerId; // 注文確定時に誰の注文か分かるように顧客IDも保存
-        this.state.payload.customer_name = this.state.adminCustomers[square_customer_id === targetCustomerId].name;
-        this.state.payload.customer_email = this.state.adminCustomers[square_customer_id === targetCustomerId].email;
+        this.state.payload.customer_name = this.state.adminCustomers.find(item => item.id === targetCustomerId).name;
+        this.state.payload.customer_email = this.state.adminCustomers.find(item => item.id === targetCustomerId).email;
         this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
         this.state.payload.creater_name = this.state.user.name;
 
