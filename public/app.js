@@ -1606,7 +1606,7 @@ const app = {
         } else {
             this.state.cart[cartKey].quantity += quantity;
         }
-        alert(JSON.stringify(this.state.adminCustomers.find(item => item.square_customer_id === targetCustomerId)));
+        alert(this.state.adminCustomers.find(item => item.square_customer_id === targetCustomerId).name);
         this.state.payload.order_date = orderDate; // 受取日をpayloadにも保存しておく（注文確定時に参照するため）
         this.state.payload.customer_id = targetCustomerId; // 注文確定時に誰の注文か分かるように顧客IDも保存
         this.state.payload.customer_name = this.state.isAdmin ? this.state.adminCustomers.find(item => item.square_customer_id === targetCustomerId).name : this.state.user.name;
