@@ -23,7 +23,7 @@ export async function onRequest(context) {
     if (path === '/api/orders' && method === 'POST') {
       try {
         const payload = await request.json();
-        return new Response(JSON.stringify({ success: false, message: JSON.stringify(payload) }), { status: 400, headers: corsHeaders });
+        const items = payload.items
 
         // 必須入力項目のバリデーション
         if (!payload || payload.length === 0) {
@@ -33,13 +33,12 @@ export async function onRequest(context) {
         if (!env.DB) {
           return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
         }
-        /*
 
         // 1. 最初に orders テーブルに新規作成するSQL（親）を用意
         const insertOrderStmt = env.DB.prepare(`
-          INSERT INTO orders (customer_id, delivery_date, total_amount)
-          VALUES (?, ?, ?)
-        `).bind(customer_id, delivery_date, total_amount);
+          INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice);
 
         // 2. 親の実行処理
         const orderResult = await insertOrderStmt.run();
@@ -64,7 +63,6 @@ export async function onRequest(context) {
         if (itemStatements.length > 0) {
           await env.DB.batch(itemStatements);
         }
-        */
 
         // 5. 成功レスポンスの返却
         return new Response(JSON.stringify({ 
