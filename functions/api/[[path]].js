@@ -34,37 +34,35 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
         }
 
-        // 1. 最初に orders テーブルに新規作成するSQL（親）を用意
-        const insertOrderStmt = env.DB.prepare(`
-          INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice);
+        const statements = [];
 
-        // 2. 親の実行処理
-        const orderResult = await insertOrderStmt.run();
-        
-        // SQLite/D1で直前に自動採番（AUTOINCREMENT）された id を取得
-        const newOrderId = orderResult.meta.last_row_id;
+        statements.push(
+          env.DB.prepare(`
+            INSERT INTOorders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice)
+        );
 
-        if (!newOrderId) {
-          throw new Error('注文IDの生成に失敗しました。');
-        }
-
-        // 3. 子テーブル（order_items）へ保存する各SQLステートメントの配列を作成
-        const itemStatements = items.map(item => {
-          return env.DB.prepare(`
-            INSERT INTO order_items (order_id, menu_id, quantity)
-            VALUES (?, ?, ?)
-          `).bind(newOrderId, item.menu_id, item.quantity);
+        items.forEach(item => {
+          statements.push(
+            env.DB.prepare(`
+              INSERT INTO order_items (order_id, menu_id, quantity)
+              VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)
+            `).bind(item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
+          );
+          item.modifiers.forEach(mod => {
+            statements.push(
+              env.DB.prepare(`
+                INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
+                VALUES (last_insert_rowid(), ?, ?, ?)
+              `).bind(mod.modifier_id, mod.modifier_name, mod.modifier_price)
+            );
+          });
         });
 
-        // 4. db.batch を使用し、子テーブルへの挿入をアトミックに一括実行
-        // （いずれか1点でも失敗すると自動的にすべての変更が破棄・ロールバックされます）
-        if (itemStatements.length > 0) {
-          await env.DB.batch(itemStatements);
-        }
+        const batchResults = await env.DB.batch(statements);
+        const newOrderId = batchResults[0].lastInsertRowId; // 最初のINSERT文のIDを取得
 
-        // 5. 成功レスポンスの返却
         return new Response(JSON.stringify({ 
           success: true, 
           message: '注文が正常に登録されました。',
