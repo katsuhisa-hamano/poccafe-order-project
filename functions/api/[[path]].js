@@ -23,7 +23,7 @@ export async function onRequest(context) {
     if (path === '/api/orders' && method === 'POST') {
       try {
         const payload = await request.json();
-        return new Response(JSON.stringify(payload), { headers: corsHeaders });
+        return new Response(JSON.stringify({ success: false, message: JSON.stringify(payload) }), { status: 400, headers: corsHeaders });
 
         // 必須入力項目のバリデーション
         if (!payload || payload.length === 0) {
