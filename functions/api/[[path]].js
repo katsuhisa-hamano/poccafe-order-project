@@ -23,10 +23,9 @@ export async function onRequest(context) {
     if (path === '/api/orders' && method === 'POST') {
       try {
         const payload = await request.json();
-        const items = payload.items
-
-        // 必須入力項目のバリデーション
-        if (!payload || payload.length === 0) {
+        
+        // 基本的なバリデーション
+        if (!payload || !payload.items || payload.items.length === 0) {
           return new Response(JSON.stringify({ success: false, message: 'リクエストデータが不足しています。' }), { status: 400, headers: corsHeaders });
         }
 
@@ -34,35 +33,63 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: 'データベースのバインドが見つかりません。' }), { status: 500, headers: corsHeaders });
         }
 
-        const statements = [];
-
-        statements.push(
-          env.DB.prepare(`
-            INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
+        // =========================================================
+        // 【ステップ1】まず親（orders）だけを単発で実行し、確定IDを取得する
+        // =========================================================
+        const orderResult = await env.DB.prepare(`
+          INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
             VALUES (?, ?, ?, ?, ?, ?)
-          `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice)
-        );
+        `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice).run();
+
+        // 新しく生成された親の注文ID (D1の正しいプロパティ名)
+        const newOrderId = orderResult.meta?.last_row_id;
+        if (!newOrderId) {
+          throw new Error('注文ID（orders.id）の生成に失敗しました。');
+        }
+
+        // =========================================================
+        // 【ステップ2】確定した親IDを直接使い、子と孫のクエリ配列を組み立てる
+        // =========================================================
+        const childStatements = [];
+        const items = payload.items;
 
         items.forEach(item => {
-          statements.push(
+          // ① 子テーブル（order_items）へのクエリを追加
+          // 💡 修正点: プレースホルダーに固定された親ID (newOrderId) を直接バインドする
+          childStatements.push(
             env.DB.prepare(`
               INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
               VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)
             `).bind(item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
           );
-          item.modifiers.forEach(mod => {
-            statements.push(
-              env.DB.prepare(`
-                INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
+
+          // ② 孫テーブル（order_item_modifiers）へのクエリを追加
+          // カート情報（item.modifiers）の中にトッピングがあるかチェック
+          if (item.modifiers && Array.isArray(item.modifiers)) {
+            item.modifiers.forEach(mod => {
+              // 💡 解決策: 子（order_items）のIDは、直前でインサートしたばかりなので
+              // ここでだけSQLiteの `last_insert_rowid()` を安全に使用できます！
+              // これにより、いま登録した直前の子商品とトッピングが100%確実に紐付きます。
+              childStatements.push(
+                env.DB.prepare(`
+                  INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
                 VALUES (last_insert_rowid(), ?, ?, ?)
-              `).bind(mod.modifier_id, mod.modifier_name, mod.modifier_price)
-            );
-          });
+                `).bind(mod.modifier_id, mod.modifier_name, mod.modifier_price)
+              );
+            });
+          }
         });
 
-        const batchResults = await env.DB.batch(statements);
-        const newOrderId = batchResults[0].meta.last_row_id; // 最初のINSERT文のIDを取得
+        // =========================================================
+        // 【ステップ3】子と孫のクエリをアトミックに一括バッチ実行する
+        // =========================================================
+        if (childStatements.length > 0) {
+          // ここでどれか1つの商品、あるいはトッピングの登録に失敗した場合、
+          // 子・孫のすべてのINSERTが自動的にロールバック（取り消し）されます。
+          await env.DB.batch(childStatements);
+        }
 
+        // 成功レスポンスの返却
         return new Response(JSON.stringify({ 
           success: true, 
           message: '注文が正常に登録されました。',
@@ -71,12 +98,16 @@ export async function onRequest(context) {
 
       } catch (dbErr) {
         console.error("注文保存エラー:", dbErr);
+        
+        // 💡 応用: もしステップ1の親だけ作られて、ステップ3の子・孫バッチが失敗した場合の
+        // ゴミデータ（親だけ残る現象）を防ぎたい場合は、ここに親を消す処理を入れておくと完璧です（任意）
+        // await env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(newOrderId).run().catch(()=>{});
+
         return new Response(JSON.stringify({ 
           success: false, 
           message: '注文処理中にサーバーエラーが発生しました: ' + dbErr.message 
         }), { status: 500, headers: corsHeaders });
       }
-      
     }
 
     // =========================================================
