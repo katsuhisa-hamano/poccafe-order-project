@@ -38,7 +38,7 @@ export async function onRequest(context) {
 
         statements.push(
           env.DB.prepare(`
-            INSERT INTOorders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
+            INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
             VALUES (?, ?, ?, ?, ?, ?)
           `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice)
         );
@@ -46,7 +46,7 @@ export async function onRequest(context) {
         items.forEach(item => {
           statements.push(
             env.DB.prepare(`
-              INSERT INTO order_items (order_id, menu_id, quantity)
+              INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
               VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)
             `).bind(item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
           );
@@ -61,7 +61,7 @@ export async function onRequest(context) {
         });
 
         const batchResults = await env.DB.batch(statements);
-        const newOrderId = batchResults[0].lastInsertRowId; // 最初のINSERT文のIDを取得
+        const newOrderId = batchResults[0].meta.last_row_id; // 最初のINSERT文のIDを取得
 
         return new Response(JSON.stringify({ 
           success: true, 
