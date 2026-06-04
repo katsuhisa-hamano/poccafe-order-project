@@ -1667,7 +1667,7 @@ const app = {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(this.state.payload)
             });
 
             const result = await response.json();
