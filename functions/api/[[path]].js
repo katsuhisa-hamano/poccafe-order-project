@@ -59,8 +59,8 @@ export async function onRequest(context) {
           childStatements.push(
             env.DB.prepare(`
               INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
-              VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)
-            `).bind(item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).bind(newOrderId, item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
           );
 
           // ② 孫テーブル（order_item_modifiers）へのクエリを追加

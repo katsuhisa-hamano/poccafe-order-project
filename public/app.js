@@ -1660,57 +1660,6 @@ const app = {
             submitBtn.innerText = "注文を確定中...";
         }
 
-        // 3. 送信データの組み立て
-        // app.js の submitOrder() 内のデータ生成部分のイメージ
-/*
-        const items = cartKeys.map(key => {
-            const cartItem = app.state.cart[key];
-            
-            // トッピング情報の配列を成形して添付する
-            // ※ cartItem.modifiers_detailed などに {id, name, price} のオブジェクト配列として
-            // 保存しておいたもの、またはIDから随時マッピングしたものを渡します
-            const formattedModifiers = (cartItem.modifiers || []).map(modId => {
-                // マスターデータから名前と価格を逆引き
-                const modDetails = app.findModifierDetails(cartItem.menu_id, modId); 
-                return {
-                    id: modId,
-                    name: modDetails ? modDetails.name : "トッピング",
-                    price: modDetails ? modDetails.price : 0
-                };
-            });
-
-            return {
-                menu_id: cartItem.menu_id,
-                variation_id: cartItem.variation_id,
-                quantity: cartItem.quantity,
-                unit_price: cartItem.unit_price, // 商品本体 + トッピングの単価
-                modifiers: formattedModifiers   // 紐付くトッピングの配列
-            };
-        });
-        // バックエンド側で処理しやすいようにカートデータを配列の構造に整形します
-        const orderItems = cartKeys.map(key => {
-            // カート内キーの構造が "variationId" 単体、または "variationId:modifierId1,modifierId2" などの
-            // 組み合わせ文字列で格納されている場合のパース（仕様に合わせて調整してください）
-            const [variationId, modifierGroup] = key.split(':');
-            const modifierIds = modifierGroup ? modifierGroup.split(',') : [];
-
-            return {
-                variation_id: variationId,
-                modifiers: modifierIds,
-                quantity: app.state.cart[key] // カートに保存されている個数
-            };
-        });
-
-        const payload = {
-            customer_id: orderCustomerId,         // 注文主のID (本人 or 代理顧客)
-            order_date: app.state.selectedDate,  // 指定された受取日
-            items: orderItems,                    // 整形した商品・数量リスト
-            created_by_admin: app.state.user.isAdmin ? 1 : 0 // 管理者による代理注文フラグ
-        };
-        */
-        let payload = this.state.payload; // カート追加処理の中で逐次更新しているpayloadをそのまま送るイメージ
-        payload.items = Object.keys(app.state.cart || {}).map(key => app.state.cart[key]);
-
         try {
             // 4. APIへのリクエスト送信
             const response = await fetch('/api/orders', {
