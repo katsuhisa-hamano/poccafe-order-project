@@ -86,7 +86,7 @@ export async function onRequest(context) {
               statements.push(
                 env.DB.prepare(`
                   INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
-                  VALUES (last_insert_rowid(), ?, ?, ?)
+                  VALUES ((SELECT MAX(id) FROM order_items), ?, ?, ?)
                 `).bind(
                   mod.id ?? "",
                   mod.name ?? "",
