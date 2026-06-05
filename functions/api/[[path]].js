@@ -39,7 +39,7 @@ export async function onRequest(context) {
         const orderResult = await env.DB.prepare(`
           INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
             VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.delivery_date, payload.overallPrice).run();
+        `).bind(payload.customer_id, payload.customer_name, payload.creater_id, payload.creater_name, payload.order_date, payload.overallPrice).run();
 
         // 新しく生成された親の注文ID (D1の正しいプロパティ名)
         const newOrderId = orderResult.meta?.last_row_id;
@@ -60,7 +60,7 @@ export async function onRequest(context) {
             env.DB.prepare(`
               INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
               VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).bind(newOrderId, item.menu_id, item.menu_name, item.variation_id, item.variation_name, item.quantity, item.unit_price)
+            `).bind(newOrderId, item.itemId, item.itemName, item.variationId, item.variationName, item.quantity, item.price)
           );
 
           // ② 孫テーブル（order_item_modifiers）へのクエリを追加
@@ -74,7 +74,7 @@ export async function onRequest(context) {
                 env.DB.prepare(`
                   INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
                 VALUES (last_insert_rowid(), ?, ?, ?)
-                `).bind(mod.modifier_id, mod.modifier_name, mod.modifier_price)
+                `).bind(mod.id, mod.name, mod.price)
               );
             });
           }
