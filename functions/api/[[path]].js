@@ -37,16 +37,8 @@ export async function onRequest(context) {
         const statements = [];
 
         // ---------------------------------------------------------
-        // 1. トランザクションの開始
+        // 1. 親（orders）テーブルへの挿入クエリを配列の最初に追加
         // ---------------------------------------------------------
-        statements.push(env.DB.prepare("BEGIN TRANSACTION"));
-
-        // ---------------------------------------------------------
-        // 2. 【最重要】親IDを一時的に記憶するためのメモリ上のテンポラリテーブルを作成
-        // ---------------------------------------------------------
-        statements.push(env.DB.prepare("CREATE TEMP TABLE temp_parent_order (id INTEGER)"));
-
-        // 3. 親（orders）テーブルへの挿入
         statements.push(
           env.DB.prepare(`
             INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
@@ -61,25 +53,21 @@ export async function onRequest(context) {
           )
         );
 
-        // 4. 【最重要】いま挿入したばかりの「親ID」をテンポラリテーブルに書き込んでロック（固定）する
-        statements.push(env.DB.prepare("INSERT INTO temp_parent_order (id) VALUES (last_insert_rowid())"));
-
-        // 5. 子（商品）と孫（トッピング）の挿入（ループ処理）
-        Object.keys(items).forEach((key, index) => {
+        // ---------------------------------------------------------
+        // 2. 連想配列（オブジェクト）をループ展開して子と孫のクエリを生成
+        // ---------------------------------------------------------
+        Object.keys(items).forEach(key => {
           const item = items[key]; // キーに対応する商品のオブジェクトを取得
           if (!item) return;
 
-          // 記憶用：各商品（子）の自動採番IDを個別に一時退避させるためのテンポラリテーブル
-          const tempChildTableName = `temp_child_item_${index}`;
-          statements.push(env.DB.prepare(`CREATE TEMP TABLE ${tempChildTableName} (id INTEGER)`));
-
           // ① 子（order_items）の挿入
-          // 💡 解決の鍵: order_id には、last_insert_rowid() ではなく、最初に固定したテンポラリテーブルから親IDをセレクトして入れる！
-          // これにより、ループの何回転目であっても、直前にトッピングが入ろうが、常に正しい親IDがセットされます。
+          // 💡 重複問題の解決策: 配列の[0]番目でインサートした『親のID』を安全に引き出すため、
+          // SQLiteの「(SELECT seq FROM sqlite_sequence WHERE name='orders')」または「(SELECT MAX(id) FROM orders)」を使用します。
+          // これにより、この後のクエリで last_insert_rowid() が何に上書きされようが、常に「今回の親注文のID」が固定で入ります。
           statements.push(
             env.DB.prepare(`
               INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
-              VALUES ((SELECT id FROM temp_parent_order LIMIT 1), ?, ?, ?, ?, ?, ?)
+              VALUES ((SELECT MAX(id) FROM orders), ?, ?, ?, ?, ?, ?)
             `).bind(
               item.itemId ?? "",
               item.itemName ?? "",
@@ -90,10 +78,7 @@ export async function onRequest(context) {
             )
           );
 
-          // ② いま挿入した「この商品（子）のID」を専用のテンポラリに即座に退避して固定
-          statements.push(env.DB.prepare(`INSERT INTO ${tempChildTableName} (id) VALUES (last_insert_rowid())`));
-
-          // ③ 孫（order_item_modifiers）の挿入
+          // ② 孫（order_item_modifiers）の挿入
           if (item.modifiers && Array.isArray(item.modifiers)) {
             item.modifiers.forEach(mod => {
               // 💡 解決の鍵: order_item_id には、この商品のループ直前に固定した子テーブル用テンポラリからIDをセレクトして入れる！
@@ -101,7 +86,7 @@ export async function onRequest(context) {
               statements.push(
                 env.DB.prepare(`
                   INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, modifier_price)
-                  VALUES ((SELECT id FROM ${tempChildTableName} LIMIT 1), ?, ?, ?)
+                  VALUES (last_insert_rowid(), ?, ?, ?)
                 `).bind(
                   mod.id ?? "",
                   mod.name ?? "",
@@ -112,20 +97,16 @@ export async function onRequest(context) {
           }
         });
 
-        // ---------------------------------------------------------
-        // 6. コミット（すべて成功した場合のみ確定）
-        // ---------------------------------------------------------
-        statements.push(env.DB.prepare("COMMIT"));
-
         // =========================================================
-        // 【実行】すべての処理を1つの D1 バッチとして転送
+        // 3. 【一括実行】すべてのクエリを1つのバッチとしてD1に転送
         // =========================================================
-        // もし途中のトッピングや子商品のインサートで1箇所でも失敗した場合、
-        // 最後の COMMIT に到達しないため、SQLiteが最初の親注文（orders）も含めて「すべて無かったこと」にロールバックします。
+        // 💡D1公式の仕様: env.DB.batch() に渡された配列は自動的に1つのトランザクションになります。
+        // 親・子・孫のインサート中、どこか1箇所でもエラー（制約違反や型エラーなど）が発生した場合、
+        // 例外がスローされ、一番上の「親（orders）」も含めてデータベースから【自動で完全にロールバック】されます。
         const batchResults = await env.DB.batch(statements);
 
-        // 新しく生成された親注文のIDを、親インサート文（[2]番目のクエリ）のメタデータから取得
-        const newOrderId = batchResults[2]?.meta?.last_row_id
+        // 新しく生成された親注文のIDを、親インサート文（[0]番目のクエリ）のメタデータから取得
+        const newOrderId = batchResults[0]?.meta?.last_row_id;
 
         // 成功レスポンスの返却
         return new Response(JSON.stringify({ 
