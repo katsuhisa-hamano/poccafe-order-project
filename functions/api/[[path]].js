@@ -41,11 +41,12 @@ export async function onRequest(context) {
         // ---------------------------------------------------------
         statements.push(
           env.DB.prepare(`
-            INSERT INTO orders (customer_id, customer_name, creater_id, creater_name, delivery_date, total_amount)
+            INSERT INTO orders (customer_id, customer_name, customer_email, creater_id, creater_name, delivery_date, total_amount)
             VALUES (?, ?, ?, ?, ?, ?)
           `).bind(
             payload.customer_id ?? "",
             payload.customer_name ?? "ゲスト",
+            payload.customer_email ?? null,
             payload.creater_id ?? "",
             payload.creater_name ?? "",
             payload.order_date ?? "",
