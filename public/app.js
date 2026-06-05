@@ -339,7 +339,8 @@ const app = {
             order_date: null,  // 指定された受取日,
             overallPrice: 0,     // カート全体の合計金額
             creater_id: null,  // 注文を作成したユーザーID（管理者が代理注文する場合は管理者のID）
-            creater_name: null //注文作成者名
+            creater_name: null, //注文作成者名
+            items: null
         },
         user: { id: null, name: null, email: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
@@ -1249,7 +1250,8 @@ const app = {
                             order_date: null,
                             overallPrice: 0,
                             creater_id: null,
-                            creater_name: null
+                            creater_name: null,
+                            items: null
                         }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
@@ -1377,6 +1379,7 @@ const app = {
             confirmTotalDisplay.innerText = `¥${totalAmount.toLocaleString()}`;
         }
         this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
+        this.state.payload.items = this.state.cart
 
         if(!html) return alert("商品を選択してください");
         content.innerHTML = html;
@@ -1684,7 +1687,8 @@ const app = {
                     order_date: null,
                     overallPrice: 0,
                     creater_id: null,
-                    creater_name: null
+                    creater_name: null,
+                    items: null
                 }
                 app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
