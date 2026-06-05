@@ -106,7 +106,7 @@ export async function onRequest(context) {
         const batchResults = await env.DB.batch(statements);
 
         // 新しく生成された親注文のIDを、親インサート文（[0]番目のクエリ）のメタデータから取得
-        const newOrderId = batchResults[0]?.meta?.last_row_id;
+        const newOrderId = batchResults[0].meta.last_row_id;
 
         // 成功レスポンスの返却
         return new Response(JSON.stringify({
