@@ -109,7 +109,7 @@ export async function onRequest(context) {
         const newOrderId = batchResults[0]?.meta?.last_row_id;
 
         // 成功レスポンスの返却
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: true, 
           message: '注文が正常に登録されました。',
           order_id: newOrderId 
