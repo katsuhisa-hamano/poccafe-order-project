@@ -1585,9 +1585,10 @@ const app = {
         const selectedModifiers = [];
         const modifierInputs = document.querySelectorAll('input[name^="square_modifier_"]:checked');
         modifierInputs.forEach(input => {
-            totalPrice += Number(input.getAttribute('data-price')) || 0;
+            const modPrice = Number(input.getAttribute('data-price'))
+            totalPrice += modPrice || 0;
             const modName = input.closest('label').querySelector('.text-gray-700').innerText;
-            selectedModifiers.push({ id: input.value, name: modName });
+            selectedModifiers.push({ id: input.value, name: modName, price: modPrice });
         });
 
         // カートのキー（注文主ごとに別のカートアイテムとして保持できるよう顧客IDも結合）
