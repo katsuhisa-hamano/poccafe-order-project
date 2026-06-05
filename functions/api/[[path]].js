@@ -65,7 +65,10 @@ export async function onRequest(context) {
         statements.push(env.DB.prepare("INSERT INTO temp_parent_order (id) VALUES (last_insert_rowid())"));
 
         // 5. 子（商品）と孫（トッピング）の挿入（ループ処理）
-        items.forEach((item, index) => {
+        Object.keys(items).forEach((key, index) => {
+          const item = items[key]; // キーに対応する商品のオブジェクトを取得
+          if (!item) return;
+
           // 記憶用：各商品（子）の自動採番IDを個別に一時退避させるためのテンポラリテーブル
           const tempChildTableName = `temp_child_item_${index}`;
           statements.push(env.DB.prepare(`CREATE TEMP TABLE ${tempChildTableName} (id INTEGER)`));
@@ -91,8 +94,8 @@ export async function onRequest(context) {
           statements.push(env.DB.prepare(`INSERT INTO ${tempChildTableName} (id) VALUES (last_insert_rowid())`));
 
           // ③ 孫（order_item_modifiers）の挿入
-          if (item.modifiers && Array.isArray(item.modifiers)) {
-            item.modifiers.forEach(mod => {
+          if (item.modifiers) {
+            Object.keys(item.modifiers).forEach(mod => {
               // 💡 解決の鍵: order_item_id には、この商品のループ直前に固定した子テーブル用テンポラリからIDをセレクトして入れる！
               // これにより、トッピングが何個連続でインサートされても、一切IDがブレなくなります。
               statements.push(
