@@ -94,8 +94,8 @@ export async function onRequest(context) {
           statements.push(env.DB.prepare(`INSERT INTO ${tempChildTableName} (id) VALUES (last_insert_rowid())`));
 
           // ③ 孫（order_item_modifiers）の挿入
-          if (item.modifiers) {
-            Object.keys(item.modifiers).forEach(mod => {
+          if (item.modifiers && Array.isArray(item.modifiers)) {
+            item.modifiers.forEach(mod => {
               // 💡 解決の鍵: order_item_id には、この商品のループ直前に固定した子テーブル用テンポラリからIDをセレクトして入れる！
               // これにより、トッピングが何個連続でインサートされても、一切IDがブレなくなります。
               statements.push(
