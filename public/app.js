@@ -815,8 +815,12 @@ const app = {
             }
 
             container.innerHTML = menus.map((menu, idx) => {
+                // データベースから取得した既存の曜日設定をパース (設定がなければ空配列)
+                const allowedDays = menu.available_days ? JSON.parse(menu.available_days) : [];
+                const isLimitOn = allowedDays.length > 0;
+
                 return `
-                    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden" data-menu-id="${menu.id}">
+                    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden mb-6" data-menu-id="${menu.id}">
                         <div class="p-4 bg-gray-50 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <div class="flex flex-col gap-1">
@@ -834,35 +838,44 @@ const app = {
                                 <select id="change-square-select-${menu.id}" class="bg-gray-50 border border-gray-300 text-xs rounded-lg px-2 py-1.5 font-medium text-gray-700 focus:outline-none focus:bg-white">
                                     <option value="">-- 商品を選択 --</option>
                                     ${(this.state.availableSquareItems || []).map(sqItem => `
-                                        <option value="${sqItem.id}">${sqItem.name} (${sqItem.variations.length}個のバリエーション)</option>
+                                        <option value="${sqItem.id}" ${menu.square_item_id === sqItem.id ? 'selected' : ''}>${sqItem.name} (${sqItem.variations.length}個のバリエーション)</option>
                                     `).join('')}
                                 </select>
                                 <button onclick="app.submitItemMappingChange(${menu.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap shadow-sm">
                                     変更適用
                                 </button>
                             </div>
-                            <div class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                <div class="flex items-center justify-between mb-3">
-                                    <div>
-                                        <label class="block text-gray-800 font-bold text-sm">曜日限定設定</label>
-                                        <p class="text-xs text-gray-400">特定の曜日のみ注文可能にする場合はONにします</p>
-                                    </div>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="menu-day-limit-toggle" onchange="app.toggleDayLimitCheckboxes(this.checked)" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                                    </label>
-                                </div>
+                        </div>
 
-                                <div id="menu-days-checkbox-wrapper" class="hidden border-t border-gray-200 pt-3 mt-2 animate-fade-in">
-                                    <p class="text-xs text-gray-500 mb-2 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
-                                    <div class="grid grid-cols-4 gap-2">
-                                        ${['日', '月', '火', '水', '木', '金', '土'].map((day, idx) => `
-                                            <label class="flex items-center justify-center p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:bg-orange-50 has-[:checked]:border-orange-500 has-[:checked]:text-orange-700 transition">
-                                                <input type="checkbox" name="menu-available-days" value="${idx}" class="sr-only">
-                                                ${day}曜日
+                        <div class="p-4 bg-amber-50/40 border-b border-gray-100">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-gray-800 font-bold text-sm">曜日限定設定</label>
+                                    <p class="text-xs text-gray-400">特定の曜日のみ注文可能にする場合はONにします</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="menu-day-limit-toggle-${menu.id}" onchange="app.toggleMenuDayLimit(${menu.id}, this.checked)" class="sr-only peer" ${isLimitOn ? 'checked' : ''}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                </label>
+                            </div>
+
+                            <div id="menu-days-checkbox-wrapper-${menu.id}" class="${isLimitOn ? '' : 'hidden'} border-t border-gray-200/60 pt-3 mt-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <p class="text-xs text-gray-500 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
+                                    <button onclick="app.saveMenuAvailableDays(${menu.id})" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition shadow-sm self-end sm:self-auto">
+                                        曜日設定を保存
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-4 sm:grid-cols-7 gap-2 mt-2">
+                                    ${['日', '月', '火', '水', '木', '金', '土'].map((day, dIdx) => {
+                                        const isChecked = allowedDays.includes(dIdx.toString());
+                                        return `
+                                            <label class="flex items-center justify-center p-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:bg-orange-50 has-[:checked]:border-orange-400 has-[:checked]:text-orange-700 transition">
+                                                <input type="checkbox" name="menu-available-days-${menu.id}" value="${dIdx}" class="sr-only" ${isChecked ? 'checked' : ''}>
+                                                ${day}曜
                                             </label>
-                                        `).join('')}
-                                    </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
                         </div>
