@@ -920,7 +920,6 @@ const app = {
         }
 
         // メニューデータを読み込んだ直後の処理
-        const availableDays = menu.available_days ? JSON.parse(menu.available_days) : [];
         const toggle = document.getElementById('menu-day-limit-toggle');
 
         if (availableDays && availableDays.length > 0) {
