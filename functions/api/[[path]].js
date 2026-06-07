@@ -1010,6 +1010,37 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
+    // 【追加】管理者用：メニュー単位の曜日限定設定更新 (PUT /api/admin/menus/:id/available-days)
+    // ---------------------------------------------------------
+    // URLパスが "/api/admin/menus/数字/available-days" のパターンに一致するか判定
+    const availableDaysMatch = path.match(/^\/api\/admin\/menus\/(\d+)\/available-days$/);
+    if (availableDaysMatch && method === 'PUT') {
+      const menuId = availableDaysMatch[1]; // URLからmenu_idを抽出
+      try {
+        const { available_days } = await request.json();
+
+        if (available_days === undefined) {
+          return new Response(JSON.stringify({ success: false, message: "設定データが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        if (!env.DB) {
+          return new Response(JSON.stringify({ success: false, message: "データベースのバインドが見つかりません。" }), { status: 500, headers: corsHeaders });
+        }
+
+        // menus テーブルの available_days カラムに JSON文字列（例: '["1","3"]'）を保存
+        await env.DB.prepare(`
+          UPDATE menus 
+          SET available_days = ? 
+          WHERE id = ?
+        `).bind(available_days, menuId).run();
+
+        return new Response(JSON.stringify({ success: true, message: "曜日限定設定を更新しました。" }), { headers: corsHeaders });
+      } catch (dbErr) {
+        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // ---------------------------------------------------------
     // 管理者用：既存ITEMのSquare商品マッピング変更 (POST /api/admin/menus/change-item)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus/change-item' && method === 'POST') {
