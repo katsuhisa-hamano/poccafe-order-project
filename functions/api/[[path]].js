@@ -1013,12 +1013,12 @@ export async function onRequest(context) {
     // 管理者用：既存ITEMのSquare商品マッピング変更 (POST /api/admin/menus/change-item)
     // ---------------------------------------------------------
     if (path === '/api/admin/menus/change-item' && method === 'POST') {
-      const { menu_id, square_item_id, name, variations } = await request.json();
+      const { menu_id, square_item_id, name, available_days, variations } = await request.json();
       try {
         // 1. 親情報の更新
         await env.DB.prepare(`
-          UPDATE menus SET square_item_id = ?, name = ? WHERE id = ?
-        `).bind(square_item_id, name, menu_id).run();
+          UPDATE menus SET square_item_id = ?, name = ?, available_days = ? WHERE id = ?
+        `).bind(square_item_id, name, available_days ?? '[]', menu_id).run();
 
         // 2. 旧バリエーションの削除
         await env.DB.prepare(`DELETE FROM menu_variations WHERE menu_id = ?`).bind(menu_id).run();

@@ -841,6 +841,30 @@ const app = {
                                     変更適用
                                 </button>
                             </div>
+                            <div class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div>
+                                        <label class="block text-gray-800 font-bold text-sm">曜日限定設定</label>
+                                        <p class="text-xs text-gray-400">特定の曜日のみ注文可能にする場合はONにします</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="menu-day-limit-toggle" onchange="app.toggleDayLimitCheckboxes(this.checked)" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                    </label>
+                                </div>
+
+                                <div id="menu-days-checkbox-wrapper" class="hidden border-t border-gray-200 pt-3 mt-2 animate-fade-in">
+                                    <p class="text-xs text-gray-500 mb-2 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        ${['日', '月', '火', '水', '木', '金', '土'].map((day, idx) => `
+                                            <label class="flex items-center justify-center p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:bg-orange-50 has-[:checked]:border-orange-500 has-[:checked]:text-orange-700 transition">
+                                                <input type="checkbox" name="menu-available-days" value="${idx}" class="sr-only">
+                                                ${day}曜日
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="divide-y divide-gray-100 p-2 bg-white">
@@ -880,6 +904,25 @@ const app = {
 
         } catch (err) {
             container.innerHTML = `<p class="text-center text-red-500 py-12 text-sm">エラー: ${err.message}</p>`;
+        }
+
+        // メニューデータを読み込んだ直後の処理
+        const availableDays = menuData.available_days ? JSON.parse(menuData.available_days) : [];
+        const toggle = document.getElementById('menu-day-limit-toggle');
+
+        if (availableDays && availableDays.length > 0) {
+            // 曜日限定データがあればスイッチをONにして表示
+            toggle.checked = true;
+            app.toggleDayLimitCheckboxes(true);
+
+            // 一致する曜日のチェックボックスをONにする
+            availableDays.forEach(dayIndex => {
+                const cb = document.querySelector(`input[name="menu-available-days"][value="${dayIndex}"]`);
+                if (cb) cb.checked = true;
+            });
+        } else {
+            toggle.checked = false;
+            app.toggleDayLimitCheckboxes(false);
         }
     },
 
@@ -932,6 +975,20 @@ const app = {
         }
     },
 
+    toggleDayLimitCheckboxes(isLimitOn) {
+        const wrapper = document.getElementById('menu-days-checkbox-wrapper');
+        if (!wrapper) return;
+
+        if (isLimitOn) {
+            wrapper.classList.remove('hidden');
+        } else {
+            wrapper.classList.add('hidden');
+            // OFFにされたらチェックボックスの選択をすべてクリアする
+            const checkboxes = document.querySelectorAll('input[name="menu-available-days"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+    },
+
     // 5. SquareメニューセレクターによるITEM変更（マッピング修正）の処理
 
     /**
@@ -966,6 +1023,15 @@ const app = {
             return;
         }
 
+        // メニューを保存する関数（送信データの組み立て部分）内で実行
+        const toggle = document.getElementById('menu-day-limit-toggle');
+        let availableDays = [];
+
+        if (toggle && toggle.checked) {
+            const checkedBoxes = document.querySelectorAll('input[name="menu-available-days"]:checked');
+            availableDays = Array.from(checkedBoxes).map(cb => cb.value); // 例: ["1", "3"]
+        }
+
         // 4. 新しい商品構造に合わせてバリエーション配列をフォーマット
         const variationsSrc = selectedSqItem.variations || [];
         const formattedVariations = variationsSrc.map(v => ({
@@ -984,6 +1050,7 @@ const app = {
                     menu_id: menuId,
                     square_item_id: selectedSqItem.id,
                     name: selectedSqItem.name || "名称未設定の商品",
+                    available_days: JSON.stringify(availableDays), // データベース保存用にJSON文字列化
                     variations: formattedVariations
                 })
             });
