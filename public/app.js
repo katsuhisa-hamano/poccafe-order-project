@@ -1408,17 +1408,28 @@ const app = {
         const container = document.getElementById('menu-list');
         if (!container) return;
 
+        let currentDayOfWeek = null;
+        if (app.state.selectedDate) {
+            const selectedDateObj = new Date(app.state.selectedDate);
+            currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 水曜日なら "3"
+        }
+
         if (this.state.menus.length === 0) {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
             return;
         }
 
-        container.innerHTML = this.state.menus.map(item => `
-            <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
-                ${item.image_url ? `
-                    <div onclick="app.openOptionModal('${item.square_item_id}')" 
-                         role="button"
-                         tabindex="0"
+        container.innerHTML = this.state.menus.map(item => {
+            const allowedDays = item.available_days ? JSON.parse(item.available_days) : [];
+            if (!allowedDays.includes(currentDayOfWeek)) {
+                return '';
+            }
+            return `
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
+                    ${item.image_url ? `
+                        <div onclick="app.openOptionModal('${item.square_item_id}')" 
+                             role="button"
+                             tabindex="0"
                          class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
                          style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
                         <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
@@ -1438,7 +1449,7 @@ const app = {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
 
     confirmOrder() {

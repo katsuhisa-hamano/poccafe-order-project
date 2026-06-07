@@ -672,7 +672,7 @@ export async function onRequest(context) {
       try {
         // 表示ON(1)かつ在庫が1以上あるバリエーションを最低1つ持っている親商品（menus）だけを取得
         const { results: menus } = await env.DB.prepare(`
-          SELECT DISTINCT m.id, m.square_item_id
+          SELECT DISTINCT m.id, m.square_item_id, m.available_days
           FROM menus m
           JOIN menu_variations mv ON m.id = mv.menu_id
           WHERE mv.is_visible = 1 AND mv.remaining > 0
@@ -732,7 +732,8 @@ export async function onRequest(context) {
                 name: itemData.name,
                 description: itemData.description || '',
                 price: minPrice, 
-                image_url: imageUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80' // 画像がない場合のプレースホルダー
+                image_url: imageUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80', // 画像がない場合のプレースホルダー
+                available_days: m.available_days
               });
             }
           } catch(e) {
