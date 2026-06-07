@@ -988,16 +988,23 @@ const app = {
         }
     },
 
-    toggleDayLimitCheckboxes(isLimitOn) {
-        const wrapper = document.getElementById('menu-days-checkbox-wrapper');
-        if (!wrapper) return;
+    toggleMenuDayLimit(menuId, isLimitOn) {
+        // HTML側で埋め込んだ `${menu.id}` と完全に一致するIDを取得
+        const wrapper = document.getElementById(`menu-days-checkbox-wrapper-${menuId}`);
+        if (!wrapper) {
+            console.error(`要素が見つかりません: menu-days-checkbox-wrapper-${menuId}`);
+            return;
+        }
 
         if (isLimitOn) {
+            // ONになったら hidden クラスを削除して表示する
             wrapper.classList.remove('hidden');
         } else {
+            // OFFになったら hidden クラスを追加して非表示にする
             wrapper.classList.add('hidden');
-            // OFFにされたらチェックボックスの選択をすべてクリアする
-            const checkboxes = document.querySelectorAll('input[name="menu-available-days"]');
+            
+            // OFFにされた場合は、選択されていたチェックボックスをすべてクリアする
+            const checkboxes = document.querySelectorAll(`input[name="menu-available-days-${menuId}"]`);
             checkboxes.forEach(cb => cb.checked = false);
         }
     },
