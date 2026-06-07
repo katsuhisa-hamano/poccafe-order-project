@@ -1009,6 +1009,41 @@ const app = {
         }
     },
 
+    async saveMenuAvailableDays(menuId) {
+        const toggle = document.getElementById(`menu-day-limit-toggle-${menuId}`);
+        let availableDays = [];
+
+        // トグルがONの場合のみ、選択された曜日（0〜6）を取得
+        if (toggle && toggle.checked) {
+            const checkedBoxes = document.querySelectorAll(`input[name="menu-available-days-${menuId}"]:checked`);
+            availableDays = Array.from(checkedBoxes).map(cb => cb.value);
+            
+            if (availableDays.length === 0) {
+                alert("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
+                return;
+            }
+        }
+
+        try {
+            const res = await fetch(`/api/admin/menus/${menuId}/available-days`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ available_days: JSON.stringify(availableDays) })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                alert("曜日の販売制限設定を保存しました。");
+                app.loadAdminMenuList(); // リスト再読み込み
+            } else {
+                alert(`保存失敗: ${result.message}`);
+            }
+        } catch (error) {
+            console.error("曜日設定保存エラー:", error);
+            alert("通信エラーが発生しました。");
+        }
+    },
+
     // 5. SquareメニューセレクターによるITEM変更（マッピング修正）の処理
 
     /**
