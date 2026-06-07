@@ -859,13 +859,14 @@ const app = {
                                 </label>
                             </div>
 
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <p class="text-xs text-gray-500 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
+                                <button onclick="app.saveMenuAvailableDays(${menu.id})" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition shadow-sm self-end sm:self-auto">
+                                    曜日設定を保存
+                                </button>
+                            </div>
+
                             <div id="menu-days-checkbox-wrapper-${menu.id}" class="${isLimitOn ? '' : 'hidden'} border-t border-gray-200/60 pt-3 mt-3">
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <p class="text-xs text-gray-500 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
-                                    <button onclick="app.saveMenuAvailableDays(${menu.id})" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition shadow-sm self-end sm:self-auto">
-                                        曜日設定を保存
-                                    </button>
-                                </div>
                                 <div class="grid grid-cols-4 sm:grid-cols-7 gap-2 mt-2">
                                     ${['日', '月', '火', '水', '木', '金', '土'].map((day, dIdx) => {
                                         const isChecked = allowedDays.includes(dIdx.toString());
