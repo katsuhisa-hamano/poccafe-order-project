@@ -918,7 +918,7 @@ const app = {
         } catch (err) {
             container.innerHTML = `<p class="text-center text-red-500 py-12 text-sm">エラー: ${err.message}</p>`;
         }
-
+/*
         // メニューデータを読み込んだ直後の処理
         const toggle = document.getElementById('menu-day-limit-toggle');
 
@@ -935,7 +935,7 @@ const app = {
         } else {
             toggle.checked = false;
             app.toggleDayLimitCheckboxes(false);
-        }
+        }*/
     },
 
     // 3. セレクター要素にSquareカタログ情報を流し込む共通処理
