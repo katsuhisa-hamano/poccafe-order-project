@@ -346,8 +346,7 @@ const app = {
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
         squareCatalogItems: [],
-        availableSquareItems: [],
-        selectedDate: new Date().toISOString().split('T')[0]
+        availableSquareItems: []
     },
 
     // ログイン処理
