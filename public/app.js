@@ -1416,10 +1416,10 @@ const app = {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
             return;
         }
-        alert(JSON.stringify(this.state.menus));
 
         container.innerHTML = this.state.menus.map(item => {
             const allowedDays = item.available_days ? JSON.parse(item.available_days) : [];
+            alert("allowedDays: " + allowedDays.join(", ") + "currentDayOfWeek: " + currentDayOfWeek); // デバッグ用アラート
             if (!allowedDays.includes(currentDayOfWeek)) {
                 return '';
             }
