@@ -1883,7 +1883,12 @@ const app = {
             const data = await res.json();
             if (!data.success) return;
 
-            const { disabledMatrix = [], cutoffTime = "14:00", specificHolidays = [] } = data.settings;
+            const {
+                disabledMatrix = [],
+                cutoffTime = "14:00",
+                specificHolidays = [],
+                maxOrderMonth = ""
+            } = data.settings;
             
             // マトリックスチェックボックスの復元
             document.querySelectorAll('.holiday-matrix-checkbox').forEach(el => {
