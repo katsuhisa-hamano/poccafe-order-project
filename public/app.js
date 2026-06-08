@@ -221,14 +221,6 @@ const holidayEditView = {
                             </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">特定の臨時休業日を追加</label>
-                        <div class="flex space-x-2 mb-3">
-                            <input type="date" id="new-holiday" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
-                            <button onclick="app.addSpecificHoliday()" class="bg-gray-900 text-white px-6 rounded-2xl text-sm font-bold hover:bg-gray-800 transition">追加</button>
-                        </div>
-                        <div id="admin-holiday-list" class="flex flex-wrap gap-2"></div>
-                    </div>
-                    <div>
                         <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">注文期限月</label>
                         <input type="month" id="max-order-month" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
                         <p class="text-[10px] text-gray-400 mt-1.5">※ここで指定した月より先の未来日は、一般ユーザーの注文カレンダーで選択できなくなります（空欄にすると無制限になります）。</p>
