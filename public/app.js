@@ -2004,17 +2004,18 @@ async function initOrderCalendar() {
             disableRules.push(todayStr);
         }
 
-        // ★マトリックス定休日判定ロジック
+        // 定休日マトリックス判定用ロジックの共通化
+        function isMatrixHoliday(date) {
+            const d = date.getDay(); // 曜日 (0:日 〜 6:土)
+            const w = Math.ceil(date.getDate() / 7); // その月の第何週目か (1〜5)
+            const currentKey = `${w}-${d}`;
+            return disabledMatrix.includes(currentKey);
+        }
+
+        // ★マトリックス定休日判定ロジックをdisableRulesに追加
         if (disabledMatrix && disabledMatrix.length > 0) {
             disableRules.push(function(date) {
-                const d = date.getDay(); // 曜日 (0:日 〜 6:土)
-                const w = Math.ceil(date.getDate() / 7); // その月の第何週目か (1〜5)
-
-                // カレンダーの「その日」の "週-曜日" キーを生成
-                const currentKey = `${w}-${d}`;
-
-                // 定休日マトリックスにこのキーが含まれていれば true(選択不可) を返す
-                return disabledMatrix.includes(currentKey);
+                return isMatrixHoliday(date);
             });
         }
 
@@ -2023,6 +2024,37 @@ async function initOrderCalendar() {
             specificHolidays.forEach(h => disableRules.push(h));
         }
 
+        // ---------------------------------------------------------
+        // 💡【新設】自動でデフォルト日付（今日 or 翌営業日）を算出するロジック
+        // ---------------------------------------------------------
+        let defaultTargetDate = app.state.selectedDate; // すでに選択中ならそれを優先
+
+        if (!defaultTargetDate) {
+            // app.state.selectedDate が空（初期状態）の場合のみ自動計算
+            let checkDate = new Date(); // 今日からチェック開始
+            
+            // 最大30日先までループして、休み（disable）じゃない一番近い日を探す
+            for (let i = 0; i < 30; i++) {
+                const checkStr = checkDate.getFullYear() + '-' + String(checkDate.getMonth() + 1).padStart(2, '0') + '-' + String(checkDate.getDate()).padStart(2, '0');
+                
+                const isCutoff = (i === 0 && now > cutoffDate); // 今日かつ締め切りを過ぎているか
+                const isMatrix = isMatrixHoliday(checkDate);   // 定休日か
+                const isSpecific = specificHolidays && specificHolidays.includes(checkStr); // 臨時休業か
+
+                // どの休みルールにも引っかからなければ、この日をデフォルト日に決定！
+                if (!isCutoff && !isMatrix && !isSpecific) {
+                    defaultTargetDate = checkStr;
+                    break;
+                }
+                // 休みだったら次の日に進む
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+            
+            // アプリの状態（state）にも割り出した日付を保存しておく
+            app.state.selectedDate = defaultTargetDate;
+        }
+        // ---------------------------------------------------------
+
         flatpickr("#order-date", {
             inline: true,
             appendTo: document.getElementById('inline-calendar-container'),
@@ -2030,7 +2062,8 @@ async function initOrderCalendar() {
             minDate: "today",
             disable: disableRules,
             dateFormat: "Y-m-d",
-            defaultDate: app.state.selectedDate || null,
+            // 💡 算出したデフォルト日付を設定（今日、または直近の営業日）
+            defaultDate: defaultTargetDate || null, 
             onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
@@ -2038,6 +2071,16 @@ async function initOrderCalendar() {
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
+                    // 💡 日付（曜日）が変わったので、メニューの表示/非表示をリアルタイムに再適用する
+                    if (typeof app.renderMenus === "function") {
+                        app.renderMenus();
+                    }
+                }
+            },
+            // 💡 カレンダーが生成完了した瞬間に一度メニューの曜日フィルターをかける
+            onReady: function(selectedDates, dateStr) {
+                if (typeof app.renderMenus === "function") {
+                    app.renderMenus();
                 }
             }
         });
