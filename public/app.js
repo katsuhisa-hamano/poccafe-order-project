@@ -2076,14 +2076,13 @@ async function initOrderCalendar() {
         }
         // ---------------------------------------------------------
 
-        flatpickr("#order-date", {
+        const fp = flatpickr("#order-date", {
             inline: true,
             appendTo: document.getElementById('inline-calendar-container'),
             locale: "ja",
             minDate: "today",
             disable: disableRules,
             dateFormat: "Y-m-d",
-            // 💡 算出したデフォルト日付を設定（今日、または直近の営業日）
             defaultDate: defaultTargetDate || null, 
             onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
@@ -2092,19 +2091,27 @@ async function initOrderCalendar() {
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
-                    // 💡 日付（曜日）が変わったので、メニューの表示/非表示をリアルタイムに再適用する
                     if (typeof app.renderMenus === "function") {
                         app.renderMenus();
                     }
                 }
             },
-            // 💡 カレンダーが生成完了した瞬間に一度メニューの曜日フィルターをかける
             onReady: function(selectedDates, dateStr) {
                 if (typeof app.renderMenus === "function") {
                     app.renderMenus();
                 }
             }
         });
+
+        // ---------------------------------------------------------
+        // 💡【新設】起動時に選択色を強制的に反映させるコアロジック
+        // ---------------------------------------------------------
+        if (fp && defaultTargetDate) {
+            // 第2引数を true にすると onChange イベントを発火させずに選択状態（色付け）だけを同期できます
+            fp.setDate(defaultTargetDate, false); 
+        }
+        // ---------------------------------------------------------
+
     } catch (err) {
         console.error("カレンダー初期化エラー:", err);
     }
