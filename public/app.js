@@ -220,7 +220,19 @@ const holidayEditView = {
                         <div id="admin-holiday-list" class="flex flex-wrap gap-2">
                             </div>
                     </div>
-
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">特定の臨時休業日を追加</label>
+                        <div class="flex space-x-2 mb-3">
+                            <input type="date" id="new-holiday" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
+                            <button onclick="app.addSpecificHoliday()" class="bg-gray-900 text-white px-6 rounded-2xl text-sm font-bold hover:bg-gray-800 transition">追加</button>
+                        </div>
+                        <div id="admin-holiday-list" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">注文期限月</label>
+                        <input type="month" id="max-order-month" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
+                        <p class="text-[10px] text-gray-400 mt-1.5">※ここで指定した月より先の未来日は、一般ユーザーの注文カレンダーで選択できなくなります（空欄にすると無制限になります）。</p>
+                    </div>
                     <div class="pt-4 border-t border-gray-100">
                         <button onclick="app.saveHolidaySettings()" class="w-full bg-orange-500 text-white px-8 py-4 rounded-2xl font-bold hover:bg-orange-600 transition text-sm shadow-sm">
                             設定を保存する
@@ -1888,6 +1900,10 @@ const app = {
                 el.checked = disabledMatrix.includes(`${w}-${d}`);
             });
 
+            // 💡 注文期限月の設定値を入力フォームに反映
+            const maxMonthInput = document.getElementById('max-order-month');
+            if (maxMonthInput) maxMonthInput.value = maxOrderMonth;
+
             // 締め切り時間
             const cutoffInput = document.getElementById('cutoff-time');
             if (cutoffInput) cutoffInput.value = cutoffTime;
@@ -1941,6 +1957,8 @@ const app = {
         });
 
         const cutoffTime = document.getElementById('cutoff-time').value;
+        // 💡 注文期限月の入力値 (例: "2026-08") を取得
+        const maxOrderMonth = document.getElementById('max-order-month').value;
 
         try {
             const res = await fetch('/api/holiday-settings', {
@@ -1949,6 +1967,7 @@ const app = {
                 body: JSON.stringify({
                     disabledMatrix,
                     cutoffTime,
+                    maxOrderMonth, // 💡 追加した注文期限月の値も一緒に送る
                     specificHolidays: app.adminSpecificHolidays // API側で自動的に年月分解して保存されます
                 })
             });
@@ -2009,7 +2028,7 @@ async function initOrderCalendar() {
         const data = await res.json();
         if (!data.success) return;
 
-        const { disabledMatrix = [], specificHolidays, cutoffTime } = data.settings;
+        const { disabledMatrix = [], specificHolidays, cutoffTime, maxOrderMonth } = data.settings;
 
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
@@ -2042,6 +2061,17 @@ async function initOrderCalendar() {
         // 任意の臨時休業日
         if (specificHolidays && specificHolidays.length > 0) {
             specificHolidays.forEach(h => disableRules.push(h));
+        }
+
+        // 💡 注文期限月の「最終日」を計算する
+        let maxCalendarDate = null;
+        if (maxOrderMonth && maxOrderMonth.includes('-')) {
+            const [y, m] = maxOrderMonth.split('-').map(Number);
+            // 翌月の0日目を指定することで、指定した月の「最終日」を自動算出（例: 2026-08 指定なら 2026-08-31）
+            const lastDayOfMaxMonth = new Date(y, m, 0); 
+            maxCalendarDate = lastDayOfMaxMonth.getFullYear() + '-' + 
+                               String(lastDayOfMaxMonth.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(lastDayOfMaxMonth.getDate()).padStart(2, '0');
         }
 
         // ---------------------------------------------------------
@@ -2080,6 +2110,7 @@ async function initOrderCalendar() {
             appendTo: document.getElementById('inline-calendar-container'),
             locale: "ja",
             minDate: "today",
+            maxDate: maxCalendarDate || null,
             disable: disableRules,
             dateFormat: "Y-m-d",
             defaultDate: defaultTargetDate || null, 

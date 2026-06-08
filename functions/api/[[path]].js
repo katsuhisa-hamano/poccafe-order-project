@@ -137,11 +137,15 @@ export async function onRequest(context) {
         // 2. 注文締め切り時間の取得
         const cutoffRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'holiday_cutoff_time'").first();
         const cutoffTime = cutoffRow ? cutoffRow.value : "14:00";
+        
+        // 3. 注文期限月の取得
+        const maxMonthRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'max_order_month'").first();
+        const maxOrderMonth = maxMonthRow ? maxMonthRow.value : ""; // データがなければ空文字
 
-        // 3. 臨時休業（年月ごとに保存された全データを結合して返却する）
+        // 4. 臨時休業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
         const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
-        
+
         let specificHolidays = [];
         if (results && results.length > 0) {
           results.forEach(row => {
@@ -159,6 +163,7 @@ export async function onRequest(context) {
           settings: {
             disabledMatrix,
             cutoffTime,
+            maxOrderMonth,
             specificHolidays
           }
         }), { headers: corsHeaders });
@@ -172,7 +177,7 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/holiday-settings' && method === 'POST') {
       try {
-        const { disabledMatrix, cutoffTime, specificHolidays } = await request.json();
+        const { disabledMatrix, cutoffTime, specificHolidays, maxOrderMonth } = await request.json();
 
         // 1. 定休日マトリックスを個別保存
         if (disabledMatrix !== undefined) {
@@ -188,7 +193,14 @@ export async function onRequest(context) {
             .run();
         }
 
-        // 3. 臨時休業日を「年月ごと (YYYY-MM)」に key 分けして保存
+        // 3. 注文期限月を保存
+        if (maxOrderMonth !== undefined) {
+          await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('max_order_month', ?)")
+            .bind(maxOrderMonth)
+            .run();
+        }
+
+        // 4. 臨時休業日を「年月ごと (YYYY-MM)」に key 分けして保存
         if (specificHolidays !== undefined) {
           // まずは既存の holiday_specific_ で始まる全レコードをいったんお掃除
           await env.DB.prepare("DELETE FROM settings WHERE key LIKE 'holiday_specific_%'").run();
