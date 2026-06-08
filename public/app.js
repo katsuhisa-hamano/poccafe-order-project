@@ -1408,49 +1408,70 @@ const app = {
         if (!container) return;
 
         let currentDayOfWeek = null;
-        alert("selectedDate: " + app.state.selectedDate)
+        
         if (app.state.selectedDate) {
             const selectedDateObj = new Date(app.state.selectedDate);
             currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 水曜日なら "3"
         }
 
         if (this.state.menus.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付のメニューはありません。</p>';
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">メニューデータがありません。</p>';
             return;
         }
 
-        container.innerHTML = this.state.menus.map(item => {
+        // 💡 改善ポイント: 最初に .filter() を使って、表示すべき商品だけに絞り込みます
+        const visibleMenus = this.state.menus.filter(item => {
             const allowedDays = item.available_days ? JSON.parse(item.available_days) : [];
-            alert("allowedDays: " + allowedDays.join(", ") + "currentDayOfWeek: " + currentDayOfWeek); // デバッグ用アラート
-            if (!allowedDays.includes(currentDayOfWeek)) {
-                return '';
+            
+            // 【超重要】曜日設定が空（[]）の場合は、制限なし（毎日販売）なので常に表示する(true)
+            if (allowedDays.length === 0) {
+                return true;
             }
+
+            // 日付（曜日）が取得できていない初期状態の時は、念のためすべて表示させておく場合
+            if (!currentDayOfWeek) {
+                return true; 
+            }
+
+            // 曜日設定がある場合のみ、選択された曜日が含まれているかチェック
+            return allowedDays.includes(currentDayOfWeek);
+        });
+
+        // もし選択された日のメニューが1つも残らなかった場合
+        if (visibleMenus.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">選択された日付に提供可能なメニューはありません。</p>';
+            return;
+        }
+
+        // 💡 絞り込まれた綺麗な配列（visibleMenus）に対してのみ HTML を生成して出力
+        container.innerHTML = visibleMenus.map(item => {
             return `
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
                     ${item.image_url ? `
                         <div onclick="app.openOptionModal('${item.square_item_id}')" 
                              role="button"
                              tabindex="0"
-                         class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
-                         style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
-                        <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
-                    </div>
-                ` : ''}
-                
-                <div class="p-4 flex flex-col flex-grow justify-between">
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
-                        <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description || ''}</p>
-                    </div>
-                    <div class="mt-4 flex justify-between items-center">
-                        <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
-                        <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
-                            選択する
-                        </button>
+                             class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
+                             style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
+                            <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
+                        </div>
+                    ` : ''}
+                    
+                    <div class="p-4 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
+                            <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description || ''}</p>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
+                            <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
+                                選択する
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `}).join('');
+            `;
+        }).join('');
     },
 
     confirmOrder() {
