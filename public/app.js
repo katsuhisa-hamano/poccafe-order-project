@@ -1407,9 +1407,9 @@ const app = {
         if (!container) return;
 
         let currentDayOfWeek = null;
+        alert("selectedDate: " + app.state.selectedDate)
         if (app.state.selectedDate) {
             const selectedDateObj = new Date(app.state.selectedDate);
-            alert("selectedDate: " + app.state.selectedDate + "selectedDateObj: " + selectedDateObj); // デバッグ用アラート
             currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 水曜日なら "3"
         }
 
