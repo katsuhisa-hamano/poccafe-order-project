@@ -47,10 +47,10 @@ const adminView = {
                                 <thead>
                                     <tr class="bg-gray-50/70 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
                                         <th class="p-4">アイテム（バリエーション）名</th>
-                                        <th class="p-4 text-center w-40">当日の製造個数</th>
-                                        <th class="p-4 text-center w-28">予約数</th>
-                                        <th class="p-4 text-center w-28">Squareレジ売上</th>
-                                        <th class="p-4 text-center w-28">残り数</th>
+                                        <th class="p-4 text-center w-40">販売総数</th>
+                                        <th class="p-4 text-center w-28">予約販売数</th>
+                                        <th class="p-4 text-center w-28">店頭販売数</th>
+                                        <th class="p-4 text-center w-28">残数</th>
                                     </tr>
                                 </thead>
                                 <tbody id="daily-stats-table-body" class="divide-y divide-gray-100 text-sm text-gray-700">
