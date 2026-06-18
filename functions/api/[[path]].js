@@ -1218,7 +1218,7 @@ export async function onRequest(context) {
           SELECT oi.id as menu_variation_id, SUM(quantity) as reserved_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.pickup_date = ?
+          WHERE o.delivery_date = ?
           GROUP BY oi.id
         `).bind(targetDate).all();
         
