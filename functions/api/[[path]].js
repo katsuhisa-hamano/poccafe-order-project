@@ -1203,7 +1203,7 @@ export async function onRequest(context) {
         const { results: items } = await env.DB.prepare(`
           SELECT 
             m.id as menu_id, m.square_item_id,
-            mv.id as variation_id, mv.name as variation_name, mv.remaining as default_quantity,
+            mv.id as variation_id, m.name+"("+mv.name+")" as variation_name, mv.remaining as default_quantity,
             dma.adjusted_quantity
           FROM menu_variations mv
           INNER JOIN menus m ON mv.menu_id = m.id
