@@ -2092,7 +2092,7 @@ const app = {
                                        value="${item.manufactureCount}" 
                                        min="0"
                                        class="w-20 p-1.5 text-center font-bold text-xs rounded-lg border focus:outline-none transition ${inputBgClass}">
-                                <button onclick="app.updateDailyManufacture(${item.variationId})" 
+                                <button onclick="app.updateDailyManufacture('${item.variationId}')" 
                                         class="bg-gray-800 hover:bg-gray-900 text-white text-[11px] px-2 py-1.5 rounded-lg font-bold transition">
                                     更新
                                 </button>
