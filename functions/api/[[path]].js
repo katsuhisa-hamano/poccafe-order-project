@@ -1215,11 +1215,11 @@ export async function onRequest(context) {
         // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
         // ※実際の注文テーブル名やカラム名に合わせて調整してください
         const { results: reservations } = await env.DB.prepare(`
-          SELECT menu_variation_id, SUM(quantity) as reserved_count
+          SELECT oi.id as menu_variation_id, SUM(quantity) as reserved_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.pickup_date = ? AND o.status IN ('confirmed', 'completed')
-          GROUP BY menu_variation_id
+          WHERE o.pickup_date = ?
+          GROUP BY oi.id
         `).bind(targetDate).all();
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
