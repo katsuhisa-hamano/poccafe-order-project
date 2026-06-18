@@ -1998,50 +1998,83 @@ const app = {
         }
     },
 
-    // 【新設】管理者ダッシュボード：統計データの読み込みと描画
+    // =========================================================
+    // 【修正版】管理者ダッシュボード：統計データの読み込みと描画（店舗休日連動版）
+    // =========================================================
     loadDailyStats: async function() {
         const dateInput = document.getElementById('stats-target-date');
         const tbody = document.getElementById('daily-stats-table-body');
         if (!dateInput || !tbody) return;
 
-        const targetDate = dateInput.value;
+        const targetDate = dateInput.value; // "YYYY-MM-DD"
 
         try {
             tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">データを読み込み中...</td></tr>`;
 
-            const res = await fetch(`/api/admin/daily-stats?date=${targetDate}`);
-            const data = await res.json();
-            if (!data.success) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">エラー: ${data.message}</td></tr>`;
+            // 1. 統計データおよび休日設定を一括で取得（または個別にfetch）
+            // ※既存の /api/holiday-settings からも休日ルールを取得します
+            const [statsRes, holidayRes] = await Promise.all([
+                fetch(`/api/admin/daily-stats?date=${targetDate}`),
+                fetch('/api/holiday-settings')
+            ]);
+
+            const statsData = await statsRes.json();
+            const holidayData = await holidayRes.json();
+
+            if (!statsData.success || !holidayData.success) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">設定データの読み込みに失敗しました。</td></tr>`;
                 return;
             }
 
             // ---------------------------------------------------------
-            // 💡【新設】選択された表示日の曜日（"0"〜"6"）を割り出す
+            // 💡【新設】選択された日が「店舗休日」に該当するかチェック
             // ---------------------------------------------------------
             const selectedDateObj = new Date(targetDate);
-            const currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 月曜日なら "1"
+            const d = selectedDateObj.getDay(); // 曜日 (0:日 〜 6:土)
+            const w = Math.ceil(selectedDateObj.getDate() / 7); // 第何週目か (1〜5)
+            const currentMatrixKey = `${w}-${d}`;
 
-            // 💡 曜日限定メニューの設定に基づいてアイテムをフィルタリング
-            const visibleStats = data.stats.filter(item => {
-                // availableDays が空、または解析できない場合は毎日販売扱い（制限なし）
+            const { disabledMatrix = [], specificHolidays = [] } = holidayData.settings;
+
+            // A. 定休日マトリックス判定
+            const isMatrixHoliday = disabledMatrix.includes(currentMatrixKey);
+            // B. 臨時休業日判定
+            const isSpecificHoliday = specificHolidays.includes(targetDate);
+
+            // 💡 どちらかの休日ルールに該当した場合、テーブルの中に警告を表示して処理を抜ける
+            if (isMatrixHoliday || isSpecificHoliday) {
+                const holidayReason = isSpecificHoliday ? '【臨時休業日】' : '【定休日】';
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-12 text-center bg-red-50/50 rounded-2xl">
+                            <p class="text-base font-black text-red-600 flex items-center justify-center gap-1">
+                                ⚠️ 選択された日付は ${holidayReason} に設定されています。
+                            </p>
+                            <p class="text-xs text-gray-400 mt-1">店舗休業日のため、一般注文の受付および当日統計情報の表示はありません。</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            // ---------------------------------------------------------
+
+            // 2. 選択された日の曜日（"0"〜"6"）を割り出す
+            const currentDayOfWeek = d.toString();
+
+            // 3. 曜日限定メニューの設定に基づいてアイテムをフィルタリング
+            const visibleStats = statsData.stats.filter(item => {
                 if (!item.availableDays) return true;
-                
                 const allowedDays = JSON.parse(item.availableDays);
-                // 曜日設定が空配列 `[]` の場合も制限なし（毎日販売）
                 if (allowedDays.length === 0) return true;
-
-                // 曜日設定がある場合は、現在の曜日が含まれているかチェック
                 return allowedDays.includes(currentDayOfWeek);
             });
-            // ---------------------------------------------------------
 
             if (visibleStats.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">この日付（曜日）に提供可能なメニューアイテムはありません。</td></tr>`;
                 return;
             }
 
-            // 💡 フィルタリングされた `visibleStats` を使ってテーブルを描画
+            // 4. フィルタリングされたデータを使ってテーブルをレンダリング
             tbody.innerHTML = visibleStats.map(item => {
                 const remainingClass = item.remainingCount < 0 ? 'text-red-600 font-black' : (item.remainingCount === 0 ? 'text-amber-600 font-bold' : 'text-green-600 font-bold');
                 const inputBgClass = item.isAdjusted ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-700';
