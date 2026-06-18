@@ -1202,7 +1202,7 @@ export async function onRequest(context) {
         // 1. メニューとバリエーション、および当日変更値（結合）の取得
         const { results: items } = await env.DB.prepare(`
           SELECT 
-            m.id as menu_id, m.square_item_id,
+            m.id as menu_id, m.square_item_id, m.available_days,
             mv.id as variation_id, m.name as item_name, mv.name as variation_name, mv.remaining as default_quantity,
             dma.adjusted_quantity
           FROM menu_variations mv
@@ -1247,6 +1247,7 @@ export async function onRequest(context) {
             menuId: item.menu_id,
             variationId: item.variation_id,
             itemName: item.item_name + " (" + item.variation_name + ")",
+            availableDays: item.available_days,
             isAdjusted: item.adjusted_quantity !== null, // 変更済みフラグ
             manufactureCount,
             reservedCount,

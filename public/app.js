@@ -2016,15 +2016,34 @@ const app = {
                 return;
             }
 
-            if (data.stats.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">表示可能なメニューアイテムがありません。</td></tr>`;
+            // ---------------------------------------------------------
+            // 💡【新設】選択された表示日の曜日（"0"〜"6"）を割り出す
+            // ---------------------------------------------------------
+            const selectedDateObj = new Date(targetDate);
+            const currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 月曜日なら "1"
+
+            // 💡 曜日限定メニューの設定に基づいてアイテムをフィルタリング
+            const visibleStats = data.stats.filter(item => {
+                // availableDays が空、または解析できない場合は毎日販売扱い（制限なし）
+                if (!item.availableDays) return true;
+                
+                const allowedDays = JSON.parse(item.availableDays);
+                // 曜日設定が空配列 `[]` の場合も制限なし（毎日販売）
+                if (allowedDays.length === 0) return true;
+
+                // 曜日設定がある場合は、現在の曜日が含まれているかチェック
+                return allowedDays.includes(currentDayOfWeek);
+            });
+            // ---------------------------------------------------------
+
+            if (visibleStats.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">この日付（曜日）に提供可能なメニューアイテムはありません。</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = data.stats.map(item => {
-                // 残り数がマイナスの場合は赤文字、0以下なら警告色などのクラス判定
+            // 💡 フィルタリングされた `visibleStats` を使ってテーブルを描画
+            tbody.innerHTML = visibleStats.map(item => {
                 const remainingClass = item.remainingCount < 0 ? 'text-red-600 font-black' : (item.remainingCount === 0 ? 'text-amber-600 font-bold' : 'text-green-600 font-bold');
-                // 当日値が変更されている場合は入力欄の背景を少し変える
                 const inputBgClass = item.isAdjusted ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-700';
 
                 return `
