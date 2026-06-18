@@ -1203,7 +1203,7 @@ export async function onRequest(context) {
         const { results: items } = await env.DB.prepare(`
           SELECT 
             m.id as menu_id, m.square_item_id, m.available_days,
-            mv.id as variation_id, m.name as item_name, mv.name as variation_name, mv.remaining as default_quantity,
+            mv.square_variation_id as variation_id, m.name as item_name, mv.name as variation_name, mv.remaining as default_quantity,
             dma.adjusted_quantity
           FROM menu_variations mv
           INNER JOIN menus m ON mv.menu_id = m.id
@@ -1215,7 +1215,7 @@ export async function onRequest(context) {
         // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
         // ※実際の注文テーブル名やカラム名に合わせて調整してください
         const { results: reservations } = await env.DB.prepare(`
-          SELECT oi.id as menu_variation_id, SUM(quantity) as reserved_count
+          SELECT oi.variation_id as menu_variation_id, SUM(quantity) as reserved_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
           WHERE o.delivery_date = ?
