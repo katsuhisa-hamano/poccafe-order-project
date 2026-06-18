@@ -1219,7 +1219,7 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
           WHERE o.delivery_date = ?
-          GROUP BY oi.id
+          GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
