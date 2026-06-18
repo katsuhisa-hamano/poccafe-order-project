@@ -1208,7 +1208,7 @@ export async function onRequest(context) {
           FROM menu_variations mv
           INNER JOIN menus m ON mv.menu_id = m.id
           LEFT JOIN daily_manufacture_adjustments dma 
-            ON mv.id = dma.menu_variation_id AND dma.target_date = ?
+            ON mv.square_variation_id = dma.menu_variation_id AND dma.target_date = ?
           WHERE mv.is_visible = 1
         `).bind(targetDate).all();
 
