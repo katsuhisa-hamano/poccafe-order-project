@@ -3,6 +3,7 @@
 // =========================================================
 const adminView = {
     render: () => {
+        const todayStr = new Date().toISOString().split('T')[0];
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
@@ -28,18 +29,34 @@ const adminView = {
                 </div>
 
                 <!-- 簡易ステータスカード -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">本日の総注文数</p>
-                        <p id="admin-total-orders-count" class="text-3xl font-black text-gray-800 mt-2">-- 件</p>
+                <div class="max-w-6xl mx-auto px-4 py-8">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-gray-200 mb-6">
+                        <div>
+                            <h1 class="text-2xl font-black text-gray-800">当日販売・予約統計</h1>
+                            <p class="text-xs text-gray-500 mt-1">当日の製造個数の調整、予約状況、レジ売上、実在庫の残り数をリアルタイムに確認します。</p>
+                        </div>
+                        <div class="mt-4 sm:mt-0 flex items-center space-x-2">
+                            <label class="text-xs font-bold text-gray-500">表示日:</label>
+                            <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${todayStr}">
+                        </div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">未受け渡しの注文</p>
-                        <p id="admin-pending-orders-count" class="text-3xl font-black text-amber-600 mt-2">-- 件</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">本日の売上（目安）</p>
-                        <p id="admin-total-sales-amount" class="text-3xl font-black text-emerald-600 mt-2">¥--,---</p>
+
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50/70 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                        <th class="p-4">アイテム（バリエーション）名</th>
+                                        <th class="p-4 text-center w-40">当日の製造個数</th>
+                                        <th class="p-4 text-center w-28">予約数</th>
+                                        <th class="p-4 text-center w-28">Squareレジ売上</th>
+                                        <th class="p-4 text-center w-28">残り数</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="daily-stats-table-body" class="divide-y divide-gray-100 text-sm text-gray-700">
+                                    </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1974,6 +1991,103 @@ const app = {
                 alert("休日および注文制限設定を細分化して保存しました。");
             } else {
                 alert("保存に失敗しました: " + data.message);
+            }
+        } catch (err) {
+            alert("通信エラーが発生しました: " + err.message);
+        }
+    },
+
+    // 【新設】管理者ダッシュボード：統計データの読み込みと描画
+    loadDailyStats: async function() {
+        const dateInput = document.getElementById('stats-target-date');
+        const tbody = document.getElementById('daily-stats-table-body');
+        if (!dateInput || !tbody) return;
+
+        const targetDate = dateInput.value;
+
+        try {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">データを読み込み中...</td></tr>`;
+
+            const res = await fetch(`/api/admin/daily-stats?date=${targetDate}`);
+            const data = await res.json();
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">エラー: ${data.message}</td></tr>`;
+                return;
+            }
+
+            if (data.stats.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">表示可能なメニューアイテムがありません。</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.stats.map(item => {
+                // 残り数がマイナスの場合は赤文字、0以下なら警告色などのクラス判定
+                const remainingClass = item.remainingCount < 0 ? 'text-red-600 font-black' : (item.remainingCount === 0 ? 'text-amber-600 font-bold' : 'text-green-600 font-bold');
+                // 当日値が変更されている場合は入力欄の背景を少し変える
+                const inputBgClass = item.isAdjusted ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-700';
+
+                return `
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="p-4 font-bold text-gray-800">
+                            ${item.itemName}
+                            ${item.isAdjusted ? '<span class="ml-1.5 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-medium">当日値に変更中</span>' : ''}
+                        </td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center space-x-1">
+                                <input type="number" 
+                                       id="m-count-${item.variationId}" 
+                                       value="${item.manufactureCount}" 
+                                       min="0"
+                                       class="w-20 p-1.5 text-center font-bold text-xs rounded-lg border focus:outline-none transition ${inputBgClass}">
+                                <button onclick="app.updateDailyManufacture(${item.variationId})" 
+                                        class="bg-gray-800 hover:bg-gray-900 text-white text-[11px] px-2 py-1.5 rounded-lg font-bold transition">
+                                    更新
+                                </button>
+                            </div>
+                        </td>
+                        <td class="p-4 text-center font-semibold text-gray-600">${item.reservedCount}</td>
+                        <td class="p-4 text-center font-semibold text-gray-600">${item.squareSalesCount}</td>
+                        <td class="p-4 text-center text-base ${remainingClass}">${item.remainingCount}</td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">通信エラー: ${err.message}</td></tr>`;
+        }
+    },
+
+    // 【新設】管理者ダッシュボード：特定のアイテムの当日製造個数を更新
+    updateDailyManufacture: async function(variationId) {
+        const dateInput = document.getElementById('stats-target-date');
+        const qtyInput = document.getElementById(`m-count-${variationId}`);
+        if (!dateInput || !qtyInput) return;
+
+        const targetDate = dateInput.value;
+        const quantity = parseInt(qtyInput.value, 10);
+
+        if (isNaN(quantity) || quantity < 0) {
+            alert("正しいうち数（0以上の数値）を入力してください。");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/daily-stats/adjust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetDate,
+                    variationId,
+                    quantity
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                // 再読み込みして、残り数や「当日値に変更中」のバッジをリフレッシュ
+                app.loadDailyStats();
+            } else {
+                alert("更新に失敗しました: " + data.message);
             }
         } catch (err) {
             alert("通信エラーが発生しました: " + err.message);

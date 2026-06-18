@@ -1188,6 +1188,102 @@ export async function onRequest(context) {
       }
     }
 
+    // =========================================================
+    // 【新設】当日統計情報の取得 (GET /api/admin/daily-stats?date=YYYY-MM-DD)
+    // =========================================================
+    if (path === '/api/admin/daily-stats' && method === 'GET') {
+      try {
+        const url = new URL(request.url);
+        const targetDate = url.searchParams.get('date'); // 例: "2026-06-18"
+        if (!targetDate) {
+          return new Response(JSON.stringify({ success: false, message: "日付が指定されていません。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // 1. メニューとバリエーション、および当日変更値（結合）の取得
+        const { results: items } = await env.DB.prepare(`
+          SELECT 
+            m.id as menu_id, m.square_item_id,
+            mv.id as variation_id, mv.name as variation_name, mv.remaining as default_quantity,
+            dma.adjusted_quantity
+          FROM menu_variations mv
+          INNER JOIN menus m ON mv.menu_id = m.id
+          LEFT JOIN daily_manufacture_adjustments dma 
+            ON mv.id = dma.menu_variation_id AND dma.target_date = ?
+          WHERE mv.is_visible = 1
+        `).bind(targetDate).all();
+
+        // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
+        // ※実際の注文テーブル名やカラム名に合わせて調整してください
+        const { results: reservations } = await env.DB.prepare(`
+          SELECT menu_variation_id, SUM(quantity) as reserved_count
+          FROM order_items oi
+          INNER JOIN orders o ON oi.order_id = o.id
+          WHERE o.pickup_date = ? AND o.status IN ('confirmed', 'completed')
+          GROUP BY menu_variation_id
+        `).bind(targetDate).all();
+        
+        const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
+
+        // 3. Squareレジからの本日売上数の取得 (Square API: SearchOrders などを使用)
+        // ここでは擬似的にSquareから本日販売されたデータを取得してマッピングするロジックを挟みます
+        // (簡易化のため、ここでは0を初期値とし、Square連携ロジックから反映させる前提にします)
+        const squareSalesMap = new Map(); 
+        /* 【参考】Square APIを叩く場合のイメージ:
+          const squareSales = await fetchSquareTodaySales(env, targetDate); 
+          // 各カタログオブジェクトIDごとに販売数をマップに格納
+        */
+
+        // 4. フロントエンド向けにデータを整形
+        const stats = items.map(item => {
+          // 製造個数: 当日変更値があればそれ、なければデフォルト(remaining)
+          const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.default_quantity;
+          const reservedCount = reservationMap.get(item.variation_id) || 0;
+          const squareSalesCount = squareSalesMap.get(item.square_item_id) || 0; // SquareのアイテムIDベース
+          
+          // 残り数 = 製造個数 - 予約数 - レジ売上数
+          const remainingCount = manufactureCount - reservedCount - squareSalesCount;
+
+          return {
+            menuId: item.menu_id,
+            variationId: item.variation_id,
+            itemName: item.variation_name,
+            isAdjusted: item.adjusted_quantity !== null, // 変更済みフラグ
+            manufactureCount,
+            reservedCount,
+            squareSalesCount,
+            remainingCount
+          };
+        });
+
+        return new Response(JSON.stringify({ success: true, stats }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】当日製造個数の変更保存 (POST /api/admin/daily-stats/adjust)
+    // =========================================================
+    if (path === '/api/admin/daily-stats/adjust' && method === 'POST') {
+      try {
+        const { targetDate, variationId, quantity } = await request.json();
+
+        if (!targetDate || !variationId || quantity === undefined) {
+          return new Response(JSON.stringify({ success: false, message: "必要なパラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // INSERT OR REPLACE で日付×バリエーションの数値を保存
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity)
+          VALUES (?, ?, ?)
+        `).bind(targetDate, variationId, quantity).run();
+
+        return new Response(JSON.stringify({ success: true, message: "当日の製造個数を更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
