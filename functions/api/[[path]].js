@@ -1224,21 +1224,72 @@ export async function onRequest(context) {
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
 
-        // 3. Squareレジからの本日売上数の取得 (Square API: SearchOrders などを使用)
-        // ここでは擬似的にSquareから本日販売されたデータを取得してマッピングするロジックを挟みます
-        // (簡易化のため、ここでは0を初期値とし、Square連携ロジックから反映させる前提にします)
-        const squareSalesMap = new Map(); 
-        /* 【参考】Square APIを叩く場合のイメージ:
-          const squareSales = await fetchSquareTodaySales(env, targetDate); 
-          // 各カタログオブジェクトIDごとに販売数をマップに格納
-        */
+        const squareSalesMap = new Map();
+
+        // 3. Square API から当日のレジ販売数をリアルタイム取得
+        // Squareのアクセストークンや環境変数が設定されている場合のみ実行
+        if (env.SQUARE_ACCESS_TOKEN) {
+          try {
+            // 指定日（日本時間）の開始時刻と終了時刻を ISO 8601 形式（UTC）に変換
+            // 例: "2026-06-19" -> 開始 "2026-06-18T15:00:00Z" / 終了 "2026-06-19T15:00:00Z"
+            const startOfDay = new Date(`${targetDate}T00:00:00+09:00`).toISOString();
+            const endOfDay = new Date(`${targetDate}T23:59:59+09:00`).toISOString();
+
+            const squareResponse = await fetch(`https://connect.squareup.com/v2/orders/search`, {
+              method: 'POST',
+              headers: {
+                'Square-Version': '2024-03-20', // 本番環境のバージョンに合わせて調整してください
+                'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                location_ids: [env.SQUARE_LOCATION_ID], // 環境変数から店舗IDを指定
+                query: {
+                  filter: {
+                    state_filter: { states: ["COMPLETED"] }, // 完了済みの売上のみ
+                    date_time_filter: {
+                      closed_at: { start_at: startOfDay, end_at: endOfDay } // 指定日に決済されたもの
+                    }
+                  },
+                  sort: { sort_field: "CLOSED_AT", sort_order: "DESC" }
+                }
+              })
+            });
+
+            if (squareResponse.ok) {
+              const squareData = await squareResponse.json();
+              const orders = squareData.orders || [];
+
+              // 注文データから商品（Line Items）を取り出して集計
+              orders.forEach(order => {
+                if (order.line_items) {
+                  order.line_items.forEach(item => {
+                    // Squareの商品バリエーションID（カタログオブジェクトID）を取得
+                    const catalogId = item.catalog_object_id;
+                    const quantity = parseInt(item.quantity, 10) || 0;
+
+                    if (catalogId) {
+                      const currentQty = squareSalesMap.get(catalogId) || 0;
+                      squareSalesMap.set(catalogId, currentQty + quantity);
+                    }
+                  });
+                }
+              });
+            } else {
+              console.error("Square API Error:", await squareResponse.text());
+            }
+          } catch (squareErr) {
+            console.error("Square通信例外エラー:", squareErr);
+            // Square APIが落ちていてもシステム全体を止めないよう、エラーはキャッチしてスルーします
+          }
+        }
 
         // 4. フロントエンド向けにデータを整形
         const stats = items.map(item => {
           // 製造個数: 当日変更値があればそれ、なければデフォルト(remaining)
           const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.default_quantity;
           const reservedCount = reservationMap.get(item.variation_id) || 0;
-          const squareSalesCount = squareSalesMap.get(item.square_item_id) || 0; // SquareのアイテムIDベース
+          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
           
           // 残り数 = 製造個数 - 予約数 - レジ売上数
           const remainingCount = manufactureCount - reservedCount - squareSalesCount;
