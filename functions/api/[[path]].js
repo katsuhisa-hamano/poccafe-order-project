@@ -1298,7 +1298,7 @@ export async function onRequest(context) {
           // 製造個数: 当日変更値があればそれ、なければデフォルト(remaining)
           const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.default_quantity;
           const reservedCount = reservationMap.get(item.variation_id) || 0;
-          const squareSalesCount = squareSalesMap.get(item.variation_id) || 5;
+          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
           
           // 残り数 = 製造個数 - 予約数 - レジ売上数
           const remainingCount = manufactureCount - reservedCount - squareSalesCount;
