@@ -1225,6 +1225,7 @@ export async function onRequest(context) {
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
 
         const squareSalesMap = new Map();
+        squareSalesMap.set("35RYLFUQ6CJZ6X3O3EKIFJA6", 20);
 
         // 3. Square API から当日のレジ販売数をリアルタイム取得
         // Squareのアクセストークンや環境変数が設定されている場合のみ実行
