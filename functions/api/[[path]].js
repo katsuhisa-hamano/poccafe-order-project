@@ -285,6 +285,7 @@ export async function onRequest(context) {
 
       let squareCustomerId = targetUser ? targetUser.square_customer_id : null;
       const headers = {
+        'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
         'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
         'Content-Type': 'application/json'
       };
@@ -614,6 +615,7 @@ export async function onRequest(context) {
           const squareRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${squareItemId}?include_related_objects=true`, {
             method: 'GET',
             headers: {
+              'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
               'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
               'Content-Type': 'application/json'
             }
@@ -697,7 +699,12 @@ export async function onRequest(context) {
           try {
             // 画像情報を関連オブジェクト（include_related_objects=true）として一緒に取得する
             const sqRes = await fetch(`https://connect.squareup.com/v2/catalog/object/${m.square_item_id}?include_related_objects=true`, {
-              headers: { 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}` }
+              method: 'GET',
+              headers: {
+                'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
+                'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+              }
             });
             
             if (sqRes.ok) {
@@ -850,10 +857,6 @@ export async function onRequest(context) {
           let allCustomers = [];
           let cursor = undefined;
           let hasMore = true;
-          const headers = {
-            'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-            'Content-Type': 'application/json'
-          };
 
           try {
             while (hasMore) {
@@ -864,7 +867,11 @@ export async function onRequest(context) {
 
               const listRes = await fetch('https://connect.squareup.com/v2/customers/search', {
                 method: 'POST',
-                headers: headers,
+                headers: {
+                  'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
+                  'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(bodyPayload) // 空、またはcursorのみを指定すると全件取得の動きになります
               });
 
@@ -1140,9 +1147,10 @@ export async function onRequest(context) {
         
         // 実際のSquare API呼び出し例:
         const squareResponse = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
+          method: 'GET',
           headers: {
+            'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
             'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-            'Square-Version': '2024-01-17',
             'Content-Type': 'application/json'
           }
         });
@@ -1238,7 +1246,7 @@ export async function onRequest(context) {
             const squareResponse = await fetch(`https://connect.squareup.com/v2/orders/search`, {
               method: 'POST',
               headers: {
-                'Square-Version': '2024-01-17', // 本番環境のバージョンに合わせて調整してください
+                'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
                 'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
                 'Content-Type': 'application/json'
               },
