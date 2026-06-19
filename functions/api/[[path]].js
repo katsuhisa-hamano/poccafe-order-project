@@ -1233,6 +1233,7 @@ export async function onRequest(context) {
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
 
         const squareSalesMap = new Map();
+        let squareResponse;
 
         // 3. Square API から当日のレジ販売数をリアルタイム取得
         // Squareのアクセストークンや環境変数が設定されている場合のみ実行
@@ -1243,7 +1244,7 @@ export async function onRequest(context) {
             const startOfDay = new Date(`${targetDate}T00:00:00+09:00`).toISOString();
             const endOfDay = new Date(`${targetDate}T23:59:59+09:00`).toISOString();
 
-            const squareResponse = await fetch(`https://connect.squareup.com/v2/orders/search`, {
+            squareResponse = await fetch(`https://connect.squareup.com/v2/orders/search`, {
               method: 'POST',
               headers: {
                 'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
@@ -1316,7 +1317,7 @@ export async function onRequest(context) {
           };
         });
 
-        return new Response(JSON.stringify({ success: true, stats }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ success: true, stats, squareResponse }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
