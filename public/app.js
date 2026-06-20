@@ -1188,6 +1188,28 @@ const app = {
         }
     },
 
+    async saveVariationSettings(variationId) {
+        const remaining = parseInt(document.getElementById(`v-stock-${variationId}`).value) || 0;
+        const isVisible = parseInt(document.getElementById(`v-visible-${variationId}`).value);
+        const stockGroupId = document.getElementById(`v-stock-group-${variationId}`).value || null; // ★追加
+
+        try {
+            const res = await fetch(`/api/admin/variations/${variationId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ remaining, is_visible: isVisible, stock_group_id: stockGroupId }) // ★引数を追加
+            });
+            const result = await res.json();
+            if (res.ok && result.success) {
+                alert("バリエーション設定を保存しました。");
+            } else {
+                alert("保存失敗: " + result.message);
+            }
+        } catch (err) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
     toggleMenuDayLimit(menuId, isLimitOn) {
         // HTML側で埋め込んだ `${menu.id}` と完全に一致するIDを取得
         const wrapper = document.getElementById(`menu-days-checkbox-wrapper-${menuId}`);
