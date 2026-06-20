@@ -377,8 +377,9 @@ const router = {
                 break;
 
             case 'stock-group-edit': // ★ここを追加
+                const stockGroupTarget = document.getElementById('view-stock-group-edit');
                 // 画面のHTMLを流し込む
-                mainContent.innerHTML = stockGroupEditView.render();
+                stockGroupTarget.innerHTML = stockGroupEditView.render();
                 // 画面構築後、即座にAPI経由で最新データをFetchして一覧を描画する
                 app.loadAdminStockGroups();
                 break;
