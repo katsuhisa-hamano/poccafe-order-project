@@ -967,6 +967,13 @@ const app = {
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">在庫数:</label>
                                             <input type="number" id="v-stock-${v.id}" value="${v.remaining}" min="0" class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" />
+                                            <label class="text-xs text-gray-500 font-medium">在庫共有:</label>
+                                            <select id="v-stock-group-${v.id}" class="border border-gray-300 rounded-md px-2 py-1 text-xs font-bold bg-gray-50 focus:bg-white">
+                                                <option value="">(共有しない - 単独在庫)</option>
+                                                ${(app.state.stockGroups || []).map(g => `
+                                                    <option value="${g.id}" ${v.stock_group_id === g.id ? 'selected' : ''}>${g.name}</option>
+                                                `).join('')}
+                                            </select>
                                         </div>
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">表示状態:</label>
