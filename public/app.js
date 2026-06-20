@@ -22,6 +22,9 @@ const adminView = {
                         <button onclick="router.go('menu-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
                             メニューを管理する
                         </button>
+                        <button onclick="router.go('stock-group-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
+                            在庫共有を管理する
+                        </button>
                         <button onclick="router.go('holiday-edit')" class="bg-orange-500 text-white px-5 py-2.5 rounded-full font-bold hover:bg-orange-600 transition text-sm shadow-sm">
                             休日・制限を管理する
                         </button>
