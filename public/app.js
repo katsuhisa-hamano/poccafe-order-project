@@ -103,7 +103,7 @@ const menuEditView = {
                     <p class="text-center text-gray-400 py-12 text-sm">メニューデータを読み込んでいます...</p>
                 </div>
 
-                <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm">
+                <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm mb-12">
                     <h3 class="text-sm font-black text-orange-800 mb-3 flex items-center">
                         <span class="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">新規追加</span>
                         Squareから新しいITEMを追加する
@@ -118,7 +118,7 @@ const menuEditView = {
                     </div>
                 </div>
 
-                <div class="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm mb-12">
+                <div class="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
                     <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
                         <h3 class="text-base font-black text-gray-800 mb-4 flex items-center">
                             <span class="w-2.5 h-2.5 bg-indigo-600 rounded-full mr-2"></span>
