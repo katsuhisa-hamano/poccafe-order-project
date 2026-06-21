@@ -118,7 +118,7 @@ const menuEditView = {
                     </div>
                 </div>
 
-                <div class="max-w-4xl mx-auto px-4 py-8 pb-32">
+                <div class="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
                     <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
                         <h3 class="text-base font-black text-gray-800 mb-4 flex items-center">
                             <span class="w-2.5 h-2.5 bg-indigo-600 rounded-full mr-2"></span>
