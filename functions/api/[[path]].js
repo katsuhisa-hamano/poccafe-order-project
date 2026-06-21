@@ -1363,7 +1363,7 @@ export async function onRequest(context) {
           const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
           let cnt = 0;
           if(item.stock_group_id !== null) {
-            items.filter(i => i.stock_group_id === item.stock_group_id).forEach(i => {cnt += reservationMap.get(i.variation_id) + squareSalesMap.get(i.variation_id)});
+            items.filter(i => i.stock_group_id === item.stock_group_id).forEach(x => {cnt += reservationMap.get(x.variation_id) + squareSalesMap.get(x.variation_id)});
           } else {
             cnt = reservedCount + squareSalesCount;
           }
