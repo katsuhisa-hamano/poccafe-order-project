@@ -953,9 +953,7 @@ const app = {
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">在庫数:</label>
                                             <input type="number" id="v-stock-${v.id}" value="${displayStock}" min="0"
-                                            ${isShared ? 'disabled class="w-16 p-1 text-center font-bold rounded border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"' : 'class="w-16 p-1 text-center font-bold rounded border border-gray-300 bg-white text-gray-800"'}
-                                            <!-- class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" -->
-                                            />
+                                            ${isShared ? 'disabled class="w-16 p-1 text-center font-bold rounded border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"' : 'class="w-16 p-1 text-center font-bold rounded border border-gray-300 bg-white text-gray-800"'}>
                                             <select onchange="app.changeStockType('${v.id}', this.value)" class="text-xs bg-white border border-gray-300 p-1.5 rounded focus:outline-none">
                                                 <option value="single" ${!isShared ? 'selected' : ''}>単独在庫管理</option>
                                                 ${this.state.stockGroups.map(g => `
