@@ -1274,11 +1274,12 @@ export async function onRequest(context) {
           SELECT 
             m.id as menu_id, m.square_item_id, m.available_days,
             mv.square_variation_id as variation_id, m.name as item_name, mv.name as variation_name, mv.remaining as default_quantity,
-            dma.adjusted_quantity
+            mv.stock_group_id, msg.remaining as shared_quantity, dma.adjusted_quantity
           FROM menu_variations mv
           INNER JOIN menus m ON mv.menu_id = m.id
+          LEFT JOIN menu_stock_groups msg ON mv.stock_group_id = msg.id
           LEFT JOIN daily_manufacture_adjustments dma 
-            ON mv.square_variation_id = dma.menu_variation_id AND dma.target_date = ?
+            ON (mv.square_variation_id = dma.menu_variation_id OR mv.stock_group_id = dma.stock_group_id) AND dma.target_date = ?
           WHERE mv.is_visible = 1
         `).bind(targetDate).all();
 
@@ -1357,13 +1358,18 @@ export async function onRequest(context) {
 
         // 4. フロントエンド向けにデータを整形
         const stats = items.map(item => {
-          // 製造個数: 当日変更値があればそれ、なければデフォルト(remaining)
-          const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.default_quantity;
+          const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.stock_group_id !== null ? item.shared_quantity : item.default_quantity;
           const reservedCount = reservationMap.get(item.variation_id) || 0;
           const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
+          let cnt = 0;
+          if(item.stock_group_id !== null) {
+            items.filter(i => i.stock_group_id === item.stock_group_id).forEach(i => {cnt += reservationMap.get(i.variation_id) + squareSalesMap.get(i.variation_id)});
+          } else {
+            cnt = reservedCount + squareSalesCount;
+          }
           
           // 残り数 = 製造個数 - 予約数 - レジ売上数
-          const remainingCount = manufactureCount - reservedCount - squareSalesCount;
+          const remainingCount = manufactureCount - cnt;
 
           return {
             menuId: item.menu_id,
@@ -1374,7 +1380,8 @@ export async function onRequest(context) {
             manufactureCount,
             reservedCount,
             squareSalesCount,
-            remainingCount
+            remainingCount,
+            stockGroupId: item.stock_group_id
           };
         });
 
