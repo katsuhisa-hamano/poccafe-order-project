@@ -962,7 +962,7 @@ const app = {
                                             />
                                             <select onchange="app.changeStockType('${v.id}', this.value)" class="text-xs bg-white border border-gray-300 p-1.5 rounded focus:outline-none">
                                                 <option value="single" ${!isShared ? 'selected' : ''}>単独在庫管理</option>
-                                                ${stockGroups.map(g => `
+                                                ${this.state.stockGroups.map(g => `
                                                     <option value="${g.id}" ${v.stock_group_id === g.id ? 'selected' : ''}>[共有] ${g.name}</option>
                                                 `).join('')}
                                             </select>
