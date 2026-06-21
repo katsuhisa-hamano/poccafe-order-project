@@ -22,9 +22,6 @@ const adminView = {
                         <button onclick="router.go('menu-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
                             メニューを管理する
                         </button>
-                        <button onclick="router.go('stock-group-edit')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-bold hover:bg-emerald-700 transition text-sm shadow-sm">
-                            在庫共有を管理する
-                        </button>
                         <button onclick="router.go('holiday-edit')" class="bg-orange-500 text-white px-5 py-2.5 rounded-full font-bold hover:bg-orange-600 transition text-sm shadow-sm">
                             休日・制限を管理する
                         </button>
@@ -256,43 +253,6 @@ const holidayEditView = {
     }
 };
 
-const stockGroupEditView = {
-    render: () => {
-        return `
-            <div class="max-w-4xl mx-auto px-4 py-8">
-                <div class="flex items-center justify-between pb-6 border-b border-gray-200 mb-8">
-                    <div>
-                        <h1 class="text-2xl font-black text-gray-800 tracking-tight">在庫共有グループ（共通枠）管理</h1>
-                        <p class="text-xs text-gray-500 mt-1">複数の商品サイズや種類で共通して消費する「共有在庫枠」のマスターを設定・管理します。</p>
-                    </div>
-                    <button onclick="router.go('admin')" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-full font-bold hover:bg-gray-200 transition text-xs">
-                        ダッシュボード戻る
-                    </button>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 shadow-sm mb-8">
-                    <h3 class="text-sm font-black text-amber-800 mb-3">新しい共有枠グループを追加する</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                        <input type="text" id="new-sg-name" placeholder="グループ名（例: ベーグル共通焼き上げ枠）" class="bg-white border border-amber-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                        <input type="number" id="new-sg-remaining" placeholder="共通在庫の初期数（例: 50）" class="bg-white border border-amber-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                    </div>
-                    <button onclick="app.addStockGroup()" class="w-full bg-amber-600 text-white h-11 rounded-xl font-bold hover:bg-amber-700 text-sm shadow-sm transition">
-                        新規共有グループを登録
-                    </button>
-                </div>
-
-                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div class="p-4 bg-gray-50 border-b border-gray-100">
-                        <h2 class="font-black text-gray-800 text-sm">登録済みの在庫共有グループ一覧</h2>
-                    </div>
-                    <div class="divide-y divide-gray-100" id="admin-stock-group-list">
-                        </div>
-                </div>
-            </div>
-        `;
-    }
-};
-
 // =========================================================
 // 1. ルーター定義 (router)
 // =========================================================
@@ -374,15 +334,6 @@ const router = {
                 const holidayTarget = document.getElementById('view-holiday-edit');
                 holidayTarget.innerHTML = holidayEditView.render();
                 app.loadAdminHolidaySettings();
-                break;
-
-            case 'stock-group-edit': // ★ここを追加
-                const stockGroupTarget = document.getElementById('view-stock-group-edit');
-                // 画面のHTMLを流し込む
-                stockGroupTarget.innerHTML = stockGroupEditView.render();
-                // 画面構築後、即座にAPI経由で最新データをFetchして一覧を描画する
-                app.loadAdminStockGroups();
-                break;
 
             case 'home':
                 setTimeout(() => {
@@ -417,8 +368,7 @@ const app = {
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
         squareCatalogItems: [],
-        availableSquareItems: [],
-        stockGroups : [] // 取得した在庫共有グループをここに格納する
+        availableSquareItems: []
     },
 
     // ログイン処理
@@ -967,13 +917,6 @@ const app = {
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">在庫数:</label>
                                             <input type="number" id="v-stock-${v.id}" value="${v.remaining}" min="0" class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" />
-                                            <label class="text-xs text-gray-500 font-medium">在庫共有:</label>
-                                            <select id="v-stock-group-${v.id}" class="border border-gray-300 rounded-md px-2 py-1 text-xs font-bold bg-gray-50 focus:bg-white">
-                                                <option value="">(共有しない - 単独在庫)</option>
-                                                ${(app.state.stockGroups || []).map(g => `
-                                                    <option value="${g.id}" ${v.stock_group_id === g.id ? 'selected' : ''}>${g.name}</option>
-                                                `).join('')}
-                                            </select>
                                         </div>
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">表示状態:</label>
@@ -1061,151 +1004,6 @@ const app = {
                 alert("並び替えの保存に失敗しました");
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
-        }
-    },
-
-    // =========================================================
-    // 【新設】在庫共有グループ一覧を取得して描画する
-    // =========================================================
-    async loadAdminStockGroups() {
-        try {
-            const res = await fetch('/api/admin/stock-groups');
-            if (!res.ok) throw new Error('データ取得に失敗しました');
-            
-            const data = await res.json();
-            if (data.success) {
-                // 状態を更新
-                app.state.stockGroups = data.groups || [];
-                
-                // 画面上のリスト要素を取得して中身を書き換える
-                const listContainer = document.getElementById('admin-stock-group-list');
-                if (!listContainer) return;
-
-                if (app.state.stockGroups.length === 0) {
-                    listContainer.innerHTML = `
-                        <div class="p-8 text-center text-gray-400 text-xs">
-                            登録されている在庫共有グループはありません。
-                        </div>
-                    `;
-                    return;
-                }
-
-                listContainer.innerHTML = app.state.stockGroups.map(g => `
-                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50 transition">
-                        <div>
-                            <div class="font-bold text-gray-800 text-sm">${g.name}</div>
-                            <div class="text-[11px] text-gray-400 mt-0.5">グループID: ${g.id}</div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center gap-1">
-                                <span class="text-xs text-gray-500 font-medium">共有在庫数:</span>
-                                <input type="number" id="sg-remain-${g.id}" value="${g.remaining}" 
-                                    class="w-16 p-1 border border-gray-300 rounded text-center text-xs font-bold bg-gray-50 focus:bg-white focus:outline-none">
-                            </div>
-                            <button onclick="app.updateStockGroup(${g.id})" 
-                                    class="bg-gray-900 text-white text-xs px-3 py-1.5 rounded-md font-bold hover:bg-gray-800 transition shadow-sm">
-                                保存
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        } catch (err) {
-            console.error("在庫グループ取得エラー:", err);
-            alert("在庫共有グループの取得に失敗しました。");
-        }
-    },
-
-    // =========================================================
-    // 【新設】新しい在庫共有グループを登録する
-    // =========================================================
-    async addStockGroup() {
-        const nameInput = document.getElementById('new-sg-name');
-        const remainingInput = document.getElementById('new-sg-remaining');
-
-        const name = nameInput.value.trim();
-        const remaining = parseInt(remainingInput.value);
-
-        if (!name || isNaN(remaining)) {
-            alert("グループ名と初期在庫数を正しく入力してください。");
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/admin/stock-groups/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, remaining })
-            });
-
-            const data = await res.json();
-            if (res.ok && data.success) {
-                alert("新しい共有グループを登録しました。");
-                // フォームをクリア
-                nameInput.value = '';
-                remainingInput.value = '';
-                // リストを再読み込みして最新化
-                await app.loadAdminStockGroups();
-            } else {
-                alert("登録失敗: " + (data.message || 'サーバーエラー'));
-            }
-        } catch (err) {
-            console.error("在庫グループ追加エラー:", err);
-            alert("通信エラーが発生しました。");
-        }
-    },
-
-    // =========================================================
-    // 【新設】既存の在庫共有グループ（在庫数など）を直接更新する
-    // =========================================================
-    async updateStockGroup(groupId) {
-        const remainingVal = parseInt(document.getElementById(`sg-remain-${groupId}`).value);
-
-        if (isNaN(remainingVal)) {
-            alert("在庫数を正しい数値で入力してください。");
-            return;
-        }
-
-        try {
-            // ※バックエンド側で共通の保存用ルートに統合するか、専用のPUT/POSTを用意します
-            const res = await fetch('/api/admin/stock-groups/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: groupId, remaining: remainingVal })
-            });
-
-            const data = await res.json();
-            if (res.ok && data.success) {
-                alert("グループの在庫数を更新しました。");
-                await app.loadAdminStockGroups(); // 最新状態に同期
-            } else {
-                alert("更新失敗: " + data.message);
-            }
-        } catch (err) {
-            console.error("在庫グループ更新エラー:", err);
-            alert("通信エラーが発生しました。");
-        }
-    },
-
-    async saveVariationSettings(variationId) {
-        const remaining = parseInt(document.getElementById(`v-stock-${variationId}`).value) || 0;
-        const isVisible = parseInt(document.getElementById(`v-visible-${variationId}`).value);
-        const stockGroupId = document.getElementById(`v-stock-group-${variationId}`).value || null; // ★追加
-
-        try {
-            const res = await fetch(`/api/admin/variations/${variationId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ remaining, is_visible: isVisible, stock_group_id: stockGroupId }) // ★引数を追加
-            });
-            const result = await res.json();
-            if (res.ok && result.success) {
-                alert("バリエーション設定を保存しました。");
-            } else {
-                alert("保存失敗: " + result.message);
-            }
-        } catch (err) {
             alert("通信エラーが発生しました");
         }
     },

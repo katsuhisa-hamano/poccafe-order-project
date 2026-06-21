@@ -1345,25 +1345,6 @@ export async function onRequest(context) {
       }
     }
 
-    // =========================================================
-    // 在庫共有グループのマスター取得・追加 API例
-    // =========================================================
-
-    // GET /api/admin/stock-groups
-    if (path === '/api/admin/stock-groups' && method === 'GET') {
-      const groups = await env.DB.prepare("SELECT * FROM menu_stock_groups ORDER BY id DESC").all();
-      return new Response(JSON.stringify({ success: true, groups: groups.results }), { headers: corsHeaders });
-    }
-
-    // POST /api/admin/stock-groups/add
-    if (path === '/api/admin/stock-groups/add' && method === 'POST') {
-      const { name, remaining } = await request.json();
-      await env.DB.prepare("INSERT INTO menu_stock_groups (name, remaining) VALUES (?, ?)")
-        .bind(name, remaining)
-        .run();
-      return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
-    }
-
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
