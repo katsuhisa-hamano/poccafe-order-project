@@ -117,6 +117,41 @@ const menuEditView = {
                         </button>
                     </div>
                 </div>
+
+                <div class="max-w-4xl mx-auto px-4 py-8 pb-32">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
+                        <h3 class="text-base font-black text-gray-800 mb-4 flex items-center">
+                            <span class="w-2.5 h-2.5 bg-indigo-600 rounded-full mr-2"></span>
+                            共有在庫マスター管理
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <input type="text" id="new-stock-group-name" placeholder="共有在庫名" class="bg-white border border-gray-300 h-10 px-3 rounded-lg text-sm focus:outline-none" />
+                            <input type="number" id="new-stock-group-remaining" placeholder="在庫数" class="bg-white border border-gray-300 h-10 px-3 rounded-lg text-sm focus:outline-none" />
+                            <button onclick="app.saveStockGroup()" class="bg-indigo-600 text-white h-10 rounded-lg font-bold hover:bg-indigo-700 text-xs transition shadow-sm">
+                                新規共有在庫作成
+                            </button>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-sm text-gray-700">
+                                <thead>
+                                    <tr class="border-b border-gray-100 font-bold text-gray-500 text-xs uppercase tracking-wider">
+                                        <th class="pb-2">共有在庫名</th>
+                                        <th class="pb-2 w-32">共有在庫数</th>
+                                        <th class="pb-2 w-24 text-center">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-stock-group-list" class="divide-y divide-gray-50">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 shadow-sm">
+                    ...
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -903,12 +938,16 @@ const app = {
 
                         <div class="divide-y divide-gray-100 p-2 bg-white">
                             ${menu.variations.length === 0 ? '<p class="text-xs text-gray-400 p-4">バリエーション情報がありません。</p>' : ''}
-                            ${menu.variations.map(v => `
-                                <div class="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                        <div>
-                                            <span class="font-bold text-gray-700">${v.name}</span>
+                            ${menu.variations.map(v => {
+                                const isShared = v.stock_group_id !== null && v.stock_group_id !== undefined;
+                                const currentGroup = stockGroups.find(g => g.id === v.stock_group_id);
+                                const displayStock = isShared && currentGroup ? currentGroup.remaining : (v.remaining || 0);
+                                return `
+                                    <div class="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                            <div>
+                                                <span class="font-bold text-gray-700">${v.name}</span>
                                             <span class="text-xs text-gray-400 ml-2">¥${v.price.toLocaleString()}</span>
                                         </div>
                                     </div>
@@ -916,7 +955,16 @@ const app = {
                                     <div class="flex items-center gap-4 justify-between sm:justify-end">
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">在庫数:</label>
-                                            <input type="number" id="v-stock-${v.id}" value="${v.remaining}" min="0" class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" />
+                                            <input type="number" id="v-stock-${v.id}" value="${displayStock}" min="0"
+                                            ${isShared ? 'disabled class="w-16 p-1 text-center font-bold rounded border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"' : 'class="w-16 p-1 text-center font-bold rounded border border-gray-300 bg-white text-gray-800"'}
+                                            <!-- class="w-16 border border-gray-300 rounded-md px-2 py-1 text-center font-bold text-sm bg-gray-50 focus:bg-white focus:outline-none" -->
+                                            />
+                                            <select onchange="app.changeStockType('${v.id}', this.value)" class="text-xs bg-white border border-gray-300 p-1.5 rounded focus:outline-none">
+                                                <option value="single" ${!isShared ? 'selected' : ''}>単独在庫管理</option>
+                                                ${stockGroups.map(g => `
+                                                    <option value="${g.id}" ${v.stock_group_id === g.id ? 'selected' : ''}>[共有] ${g.name}</option>
+                                                `).join('')}
+                                            </select>
                                         </div>
                                         <div class="flex items-center gap-1.5">
                                             <label class="text-xs text-gray-500 font-medium">表示状態:</label>
@@ -930,7 +978,7 @@ const app = {
                                         </button>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     </div>
                 `;

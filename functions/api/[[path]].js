@@ -1197,6 +1197,68 @@ export async function onRequest(context) {
     }
 
     // =========================================================
+    // 【新設】共有在庫グループ一覧の取得 (GET /api/admin/stock-groups)
+    // =========================================================
+    if (path === '/api/admin/stock-groups' && method === 'GET') {
+      try {
+        const { results } = await env.DB.prepare("SELECT * FROM menu_stock_groups").all();
+        return new Response(JSON.stringify({ success: true, groups: results || [] }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】共有在庫グループの作成・更新 (POST /api/admin/stock-groups)
+    // =========================================================
+    if (path === '/api/admin/stock-groups' && method === 'POST') {
+      try {
+        const { id, name, remaining } = await request.json();
+
+        if (!name || remaining === undefined) {
+          return new Response(JSON.stringify({ success: false, message: "必要なパラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        if (id) {
+          // 更新
+          await env.DB.prepare(`
+            UPDATE menu_stock_groups SET name = ?, remaining = ? WHERE id = ?
+          `).bind(name, remaining, id).run();
+          return new Response(JSON.stringify({ success: true, message: "共有在庫を更新しました。" }), { headers: corsHeaders });
+        } else {
+          // 新規作成
+          await env.DB.prepare(`
+            INSERT INTO menu_stock_groups (name, remaining) VALUES (?, ?)
+          `).bind(name, remaining).run();
+          return new Response(JSON.stringify({ success: true, message: "共有在庫を作成しました。" }), { headers: corsHeaders });
+        }
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】バリエーションの在庫管理紐付け更新 (POST /api/admin/variations/stock-type)
+    // =========================================================
+    if (path === '/api/admin/variations/stock-type' && method === 'POST') {
+      try {
+        const { variationId, stockGroupId } = await request.json(); // stockGroupIdがnullの場合は単独在庫
+
+        if (!variationId) {
+          return new Response(JSON.stringify({ success: false, message: "バリエーションIDが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        await env.DB.prepare(`
+          UPDATE menu_variations SET stock_group_id = ? WHERE id = ?
+        `).bind(stockGroupId, variationId).run();
+
+        return new Response(JSON.stringify({ success: true, message: "在庫紐付けを更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
     // 【新設】当日統計情報の取得 (GET /api/admin/daily-stats?date=YYYY-MM-DD)
     // =========================================================
     if (path === '/api/admin/daily-stats' && method === 'GET') {
