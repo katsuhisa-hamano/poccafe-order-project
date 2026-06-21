@@ -1363,7 +1363,16 @@ export async function onRequest(context) {
           const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
           let cnt = 0;
           if(item.stock_group_id !== null) {
-            items.filter(i => i.stock_group_id === item.stock_group_id).forEach(x => {cnt += reservationMap.get(x.variation_id) + squareSalesMap.get(x.variation_id)});
+            items
+              .filter(i => i.stock_group_id === item.stock_group_id)
+              .forEach(x => {
+                // Mapから値を取得（存在しない場合は 0 を代入）
+                const reservedCount = reservationMap.get(x.variation_id) || 0;
+                const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
+
+                // 安全に加算
+                cnt += (reservedCount + squareSalesCount);
+              });
           } else {
             cnt = reservedCount + squareSalesCount;
           }
