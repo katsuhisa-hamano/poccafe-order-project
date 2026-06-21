@@ -403,7 +403,8 @@ const app = {
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
         squareCatalogItems: [],
-        availableSquareItems: []
+        availableSquareItems: [],
+        stockGroups: [], // 共有在庫グループの情報を保持する配列
     },
 
     // ログイン処理
@@ -940,7 +941,7 @@ const app = {
                             ${menu.variations.length === 0 ? '<p class="text-xs text-gray-400 p-4">バリエーション情報がありません。</p>' : ''}
                             ${menu.variations.map(v => {
                                 const isShared = v.stock_group_id !== null && v.stock_group_id !== undefined;
-                                const currentGroup = stockGroups.find(g => g.id === v.stock_group_id);
+                                const currentGroup = this.state.stockGroups.find(g => g.id === v.stock_group_id);
                                 const displayStock = isShared && currentGroup ? currentGroup.remaining : (v.remaining || 0);
                                 return `
                                     <div class="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
@@ -2194,6 +2195,113 @@ const app = {
             alert("通信エラーが発生しました: " + err.message);
         }
     },
+
+    // 共有在庫グループ一覧をロードして画面下部に描画、及びメニュー一覧にバインド
+    async loadStockGroups() {
+        try {
+            const res = await fetch('/api/admin/stock-groups');
+            const data = await res.json();
+            if (!data.success) return console.error(data.message);
+            
+            this.state.stockGroups = data.groups; // 状態に保存
+            
+            // 画面最下部の一覧をレンダリング
+            const tbody = document.getElementById('admin-stock-group-list');
+            if (!tbody) return;
+            
+            if (data.groups.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-gray-400 py-4 text-xs">登録済みの共有在庫はありません。</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.groups.map(g => `
+                <tr>
+                    <td class="py-2">
+                        <input type="text" id="group-name-${g.id}" value="${g.name}" class="bg-transparent border-b border-transparent focus:border-gray-300 px-1 py-0.5 focus:bg-white text-sm font-medium w-full" />
+                    </td>
+                    <td class="py-2">
+                        <input type="number" id="group-remaining-${g.id}" value="${g.remaining}" class="bg-transparent border-b border-transparent focus:border-gray-300 px-1 py-0.5 focus:bg-white text-sm font-bold w-20" />
+                    </td>
+                    <td class="py-2 text-center">
+                        <button onclick="app.saveStockGroup(${g.id})" class="text-xs bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800 transition font-bold">
+                            更新
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+        } catch (e) {
+            console.error("共有在庫の読み込みに失敗しました", e);
+        }
+    },
+
+    // 共有在庫の新規作成および個別変更の保存
+    async saveStockGroup(id = null) {
+        let name, remaining;
+        if (id) {
+            name = document.getElementById(`group-name-${id}`).value.trim();
+            remaining = parseInt(document.getElementById(`group-remaining-${id}`).value, 10);
+        } else {
+            name = document.getElementById('new-stock-group-name').value.trim();
+            remaining = parseInt(document.getElementById('new-stock-group-remaining').value, 10);
+        }
+
+        if (!name || isNaN(remaining)) return alert("共有在庫名とデフォルト在庫数を正しく入力してください");
+
+        try {
+            const res = await fetch('/api/admin/stock-groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, remaining })
+            });
+            const result = await res.json();
+            if (result.success) {
+                if(!id) {
+                    document.getElementById('new-stock-group-name').value = '';
+                    document.getElementById('new-stock-group-remaining').value = '';
+                }
+                alert(result.message);
+                // データの再ロードと再描画
+                await this.initMenuEditPage();
+            } else {
+                alert(result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました");
+        }
+    },
+
+    // 各バリエーションの在庫タイプ（単独 or 共有グループ）を変更した際のハンドラ
+    async changeStockType(variationId, val) {
+        const stockGroupId = val === 'single' ? null : parseInt(val, 10);
+        
+        try {
+            const res = await fetch('/api/admin/variations/stock-type', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variationId, stockGroupId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                // UIと数値を最新状態に同期するためにメニュー編集面全体を再ビルド
+                await this.initMenuEditPage();
+            } else {
+                alert(result.message);
+            }
+        } catch (e) {
+            alert("在庫設定の更新に失敗しました");
+        }
+    },
+
+    // メニュー管理ページの統合初期化ライフサイクルに共有在庫の読み込みを組み込む
+    async initMenuEditPage() {
+        // 1. 共有在庫マスターの読み込み
+        await this.loadStockGroups();
+        // 2. その後、最新のstockGroups情報を保持した状態で既存のメニュー階層一覧を描画
+        if (typeof this.loadAdminMenuList === "function") {
+            await this.loadAdminMenuList(); 
+        }
+    }
 };
 
 // =========================================================
