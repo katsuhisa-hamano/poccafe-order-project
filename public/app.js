@@ -35,7 +35,7 @@ const adminView = {
                             <h1 class="text-2xl font-black text-gray-800">当日販売・予約統計</h1>
                             <p class="text-xs text-gray-500 mt-1">当日の製造個数の調整、予約状況、レジ売上、実在庫の残り数をリアルタイムに確認します。</p>
                         </div>
-                        <div class="mt-4 sm:mt-0 flex items-center space-x-2">
+                        <div class="mt-4 sm:mt-0 flex items-center space-x-1">
                             <label class="text-xs font-bold text-gray-500">表示日:</label>
                             <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${todayStr}">
                         </div>
