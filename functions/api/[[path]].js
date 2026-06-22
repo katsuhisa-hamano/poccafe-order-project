@@ -1366,11 +1366,8 @@ export async function onRequest(context) {
             items
               .filter(i => i.stock_group_id === item.stock_group_id)
               .forEach(x => {
-                // Mapから値を取得（存在しない場合は 0 を代入）
                 const reservedCount = reservationMap.get(x.variation_id) || 0;
                 const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
-
-                // 安全に加算
                 cnt += (reservedCount + squareSalesCount);
               });
           } else {
@@ -1411,12 +1408,25 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "必要なパラメータが不足しています。" }), { status: 400, headers: corsHeaders });
         }
 
-        // INSERT OR REPLACE で日付×バリエーションの数値を保存
-        await env.DB.prepare(`
-          INSERT OR REPLACE INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity)
-          VALUES (?, ?, ?)
-        `).bind(targetDate, variationId, quantity).run();
+        const item = await env.DB.prepare(`
+          SELECT stock_group_id FROM menu_variations WHERE square_variation_id = ?
+        `).bind(variationId).first();
 
+        if(item && item.stock_group_id) {
+          await env.DB.prepare(`
+              INSERT INTO daily_manufacture_adjustments (target_date, stock_group_id, menu_variation_id, adjusted_quantity)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(target_date, stock_group_id) DO UPDATE SET 
+              adjusted_quantity = excluded.adjusted_quantity
+          `).bind(targetDate, item.stock_group_id, variationId, quantity).run();
+        } else {
+          await env.DB.prepare(`
+              INSERT INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity, stock_group_id)
+              VALUES (?, ?, ?, null)
+              ON CONFLICT(target_date, menu_variation_id) DO UPDATE SET 
+              adjusted_quantity = excluded.adjusted_quantity
+          `).bind(targetDate, variationId, quantity).run();
+        }
         return new Response(JSON.stringify({ success: true, message: "当日の製造個数を更新しました。" }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
