@@ -1279,7 +1279,7 @@ export async function onRequest(context) {
           INNER JOIN menus m ON mv.menu_id = m.id
           LEFT JOIN menu_stock_groups msg ON mv.stock_group_id = msg.id
           LEFT JOIN daily_manufacture_adjustments dma 
-            ON (mv.square_variation_id = dma.menu_variation_id OR mv.stock_group_id = dma.stock_group_id) AND dma.target_date = ?
+            ON mv.square_variation_id = dma.menu_variation_id AND dma.target_date = ?
           WHERE mv.is_visible = 1
         `).bind(targetDate).all();
 
@@ -1412,19 +1412,32 @@ export async function onRequest(context) {
           SELECT stock_group_id FROM menu_variations WHERE square_variation_id = ?
         `).bind(variationId).first();
 
-        if(item && item.stock_group_id) {
-          await env.DB.prepare(`
-              INSERT INTO daily_manufacture_adjustments (target_date, stock_group_id, menu_variation_id, adjusted_quantity)
-              VALUES (?, ?, ?, ?)
-              ON CONFLICT(target_date, stock_group_id) DO UPDATE SET 
-              adjusted_quantity = excluded.adjusted_quantity
-          `).bind(targetDate, item.stock_group_id, variationId, quantity).run();
-        } else {
-          await env.DB.prepare(`
-              INSERT INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity, stock_group_id)
-              VALUES (?, ?, ?, null)
+        if (item && item.stock_group_id) {
+          // 💡 共有在庫の場合：同じグループに属するすべてのバリエーションのIDを取得する
+          const { results: siblings } = await env.DB.prepare(`
+            SELECT square_variation_id FROM menu_variations WHERE stock_group_id = ?
+          `).bind(item.stock_group_id).all();
+
+          // グループ全体のバリエーションに同一の数量を反映（ON CONFLICTは当初の定義通り menu_variation_id を使用）
+          const statements = siblings.map(sibling => {
+            return env.DB.prepare(`
+              INSERT INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity)
+              VALUES (?, ?, ?)
               ON CONFLICT(target_date, menu_variation_id) DO UPDATE SET 
               adjusted_quantity = excluded.adjusted_quantity
+            `).bind(targetDate, sibling.square_variation_id, quantity);
+          });
+          
+          // D1のバッチ処理で高速・安全に一括更新
+          await env.DB.batch(statements);
+
+        } else {
+          // 💡 単独在庫の場合：対象のバリエーションのみを更新
+          await env.DB.prepare(`
+            INSERT INTO daily_manufacture_adjustments (target_date, menu_variation_id, adjusted_quantity)
+            VALUES (?, ?, ?)
+            ON CONFLICT(target_date, menu_variation_id) DO UPDATE SET 
+            adjusted_quantity = excluded.adjusted_quantity
           `).bind(targetDate, variationId, quantity).run();
         }
         return new Response(JSON.stringify({ success: true, message: "当日の製造個数を更新しました。" }), { headers: corsHeaders });
