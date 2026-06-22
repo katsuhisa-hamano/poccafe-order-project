@@ -39,6 +39,9 @@ const adminView = {
                             <label class="text-xs font-bold text-gray-500">表示日:</label>
                             <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${todayStr}">
                         </div>
+                        <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
+                            同期リフレッシュ
+                        </button>
                     </div>
 
                     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
