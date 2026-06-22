@@ -1383,7 +1383,7 @@ export async function onRequest(context) {
             itemName: item.item_name + " (" + item.variation_name + ")",
             availableDays: item.available_days,
             isAdjusted: item.adjusted_quantity !== null, // 変更済みフラグ
-            isOriginal: item.adjusted_quantity !== null ? item.adjusted_quantity === item.shared_quantity : item.adjusted_quantity === item.default_quantity, // 変更前に戻るフラグ
+            isOriginal: item.adjusted_quantity === (item.stock_group_id !== null ? item.shared_quantity : item.default_quantity), // 変更前に戻るフラグ
             manufactureCount,
             reservedCount,
             squareSalesCount,
