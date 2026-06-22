@@ -2120,13 +2120,13 @@ const app = {
             // 4. フィルタリングされたデータを使ってテーブルをレンダリング
             tbody.innerHTML = visibleStats.map(item => {
                 const remainingClass = item.remainingCount < 0 ? 'text-red-600 font-black' : (item.remainingCount === 0 ? 'text-amber-600 font-bold' : 'text-green-600 font-bold');
-                const inputBgClass = item.isAdjusted ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-700';
+                const inputBgClass = item.isAdjusted && !item.isOriginal ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-700';
 
                 return `
                     <tr class="hover:bg-gray-50/50 transition">
                         <td class="p-4 font-bold text-gray-800">
                             ${item.itemName}
-                            ${item.isAdjusted ? '<span class="ml-1.5 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-medium">当日値に変更中</span>' : ''}
+                            ${item.isAdjusted && !item.isOriginal ? '<span class="ml-1.5 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-medium">当日値に変更中</span>' : ''}
                         </td>
                         <td class="p-4 text-center">
                             <div class="flex items-center justify-center space-x-1">
