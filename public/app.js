@@ -3,8 +3,8 @@
 // =========================================================
 const adminView = {
     render: () => {
-        //const todayStr = new Date().toISOString().split('T')[0];
-        const todayStr = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }).replace(/\//g, '/');
+        const todayStr = new Date().toISOString().split('T')[0];
+        //const todayStr = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }).replace(/\//g, '/');
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
