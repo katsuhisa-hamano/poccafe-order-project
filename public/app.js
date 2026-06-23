@@ -3,7 +3,15 @@
 // =========================================================
 const adminView = {
     render: () => {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+        });
+        const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
+        const todayStr = `${year}/${month}/${day}`;
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
