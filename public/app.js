@@ -11,7 +11,7 @@ const adminView = {
         day: "2-digit"
         });
         const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
-        const todayStr = `${year}/${month}/${day}`;
+        const todayStr = year + "/" + month + "/" + day;
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
