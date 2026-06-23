@@ -3,15 +3,8 @@
 // =========================================================
 const adminView = {
     render: () => {
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-        });
-        const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
-        const todayStr = year + "/" + month + "/" + day;
+        //const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }).replace(/\//g, '/');
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
@@ -46,7 +39,7 @@ const adminView = {
                         <div class="mt-4 sm:mt-0 flex items-center gap-1.5">
                             <div class="mt-4 sm:mt-0 flex items-center space-x-1">
                                 <label class="text-xs font-bold text-gray-500">表示日:</label>
-                                <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${"2026/06/20"}">
+                                <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${todayStr}">
                             </div>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
                                 同期リフレッシュ
