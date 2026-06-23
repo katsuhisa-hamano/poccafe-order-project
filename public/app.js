@@ -2350,10 +2350,10 @@ async function initOrderCalendar() {
 
         const { disabledMatrix = [], specificHolidays, cutoffTime, maxOrderMonth } = data.settings;
 
-        const now = new Date();
+        const now = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });;
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const [cutoffHour, cutoffMinute] = cutoffTime.split(':').map(Number);
-        const cutoffDate = new Date();
+        const cutoffDate = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });;
         cutoffDate.setHours(cutoffHour, cutoffMinute, 0, 0);
 
         const disableRules = [];
