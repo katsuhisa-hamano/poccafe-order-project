@@ -10,8 +10,7 @@ const adminView = {
             day: "2-digit"   // ここで必ず2桁にする
         });
         const [{ value: y }, , { value: m }, , { value: d }] = formatter.formatToParts(new Date());
-        //const todayStr = `${y}-${m}-${d}`;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = `${y}-${m}-${d}`;
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
                 <!-- ヘッダーエリア -->
@@ -46,7 +45,7 @@ const adminView = {
                         <div class="mt-4 sm:mt-0 flex items-center gap-1.5">
                             <div class="mt-4 sm:mt-0 flex items-center space-x-1">
                                 <label class="text-xs font-bold text-gray-500">表示日:</label>
-                                <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value="${todayStr}">
+                                <input type="date" id="stats-target-date" onchange="app.loadDailyStats()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value=${todayStr}>
                             </div>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
                                 同期リフレッシュ
