@@ -1983,7 +1983,8 @@ const app = {
     renderAdminHolidayList: function() {
         const container = document.getElementById('admin-holiday-list');
         if (!container) return;
-        container.innerHTML = app.adminSpecificHolidays.map(d => `
+        const now = new Date();
+        container.innerHTML = app.adminSpecificHolidays.filter(dateStr => new Date(dateStr) >= new Date(now.getFullYear(), now.getMonth(), 1)).map(d => `
             <span class="bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-bold border border-red-100 inline-flex items-center">
                 ${d}
                 <button onclick="app.removeSpecificHoliday('${d}')" class="ml-2 text-red-400 hover:text-red-700 font-black text-sm">×</button>
