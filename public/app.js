@@ -10,7 +10,7 @@ const adminView = {
             day: "2-digit"   // ここで必ず2桁にする
         });
         const [{ value: y }, , { value: m }, , { value: d }] = formatter.formatToParts(new Date());
-        const todayStr = y + '/' + m + '/' + d;
+        const todayStr = `${y}-${m}-${d}`;
         //const todayStr = new Date().toISOString().split('T')[0];
         return `
             <div class="max-w-6xl mx-auto px-4 py-8">
