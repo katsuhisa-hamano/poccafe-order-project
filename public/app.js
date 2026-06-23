@@ -2354,7 +2354,14 @@ async function initOrderCalendar() {
         const { disabledMatrix = [], specificHolidays, cutoffTime, maxOrderMonth } = data.settings;
 
         const now = new Date();
-        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+        });
+        const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
+        const todayStr = `${year}/${month}/${day}`;
         const [cutoffHour, cutoffMinute] = cutoffTime.split(':').map(Number);
         const cutoffDate = new Date();
         cutoffDate.setHours(cutoffHour, cutoffMinute, 0, 0);
