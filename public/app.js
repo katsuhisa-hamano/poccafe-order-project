@@ -1532,8 +1532,8 @@ const app = {
                             <p class="text-gray-500 text-sm mt-1 line-clamp-2">${item.description || ''}</p>
                         </div>
                         <div class="mt-4 flex justify-between items-center">
-                            <span class="text-main font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
-                            <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-main text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
+                            <span class="text-orange-600 font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
+                            <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
                                 選択する
                             </button>
                         </div>
