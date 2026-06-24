@@ -1459,7 +1459,7 @@ export async function onRequest(context) {
 
         // 指定日の注文基本情報（注文者名など）を全件取得
         const { results: orders } = await env.DB.prepare(`
-          SELECT id, user_name, total_price, received_status 
+          SELECT id, customer_name, total_amount, received_status 
           FROM orders 
           WHERE delivery_date = ?
           ORDER BY id DESC
@@ -1496,8 +1496,8 @@ export async function onRequest(context) {
 
           return {
             id: order.id,
-            user_name: order.user_name || "不明な顧客",
-            total_price: order.total_price,
+            user_name: order.customer_name || "不明な顧客",
+            total_price: order.total_amount,
             received_status: order.received_status || 0,
             items: orderItems
           };
