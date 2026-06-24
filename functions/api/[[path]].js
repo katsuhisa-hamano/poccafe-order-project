@@ -1461,26 +1461,38 @@ export async function onRequest(context) {
         const { results: orders } = await env.DB.prepare(`
           SELECT id, user_name, total_price, received_status 
           FROM orders 
-          WHERE delivery_date = ? AND status != 'canceled'
+          WHERE delivery_date = ?
           ORDER BY id DESC
         `).bind(targetDate).all();
 
         // 指定日のすべての注文明細を取得
         const { results: items } = await env.DB.prepare(`
-          SELECT oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity
+          SELECT oi.id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity
           FROM order_items oi
-          JOIN menu_variations mv ON oi.variation_id = mv.id
-          JOIN menus m ON mv.menu_id = m.id
-          JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND o.status != 'canceled'
+          INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
+          INNER JOIN menus m ON mv.menu_id = m.id
+          INNERJOIN orders o ON oi.order_id = o.id
+          WHERE o.delivery_date = ?
+        `).bind(targetDate).all();
+
+        const { results: modifiers } = await env.DB.prepare(`
+          SELECT oi.id, oim.modifier_name
+          FROM order_item_modifiers oim
+          INNER JOIN order_items oi ON oim.order_item_id = oi.id
+          INNER JOIN orders o ON oi.order_id = o.id
+          WHERE o.delivery_date = ?
         `).bind(targetDate).all();
 
         // 注文ごとに明細アイテムをグルーピング
         const list = orders.map(order => {
-          const orderItems = items.filter(item => item.order_id === order.id).map(item => ({
-            name: `${item.menu_name} (${item.variation_name})`,
-            quantity: item.quantity
-          }));
+          const orderItems = items.filter(item => item.order_id === order.id).map(item => {
+            const itemModifiers = modifiers.filter(mod => mod.id === item.id).map(mod => mod.modifier_name).join(", ");
+            return {
+              name: `${item.menu_name} (${item.variation_name})` + (itemModifiers ? ` [${itemModifiers}]` : ""),
+              quantity: item.quantity,
+              modifiers: itemModifiers
+            };
+          });
 
           return {
             id: order.id,
