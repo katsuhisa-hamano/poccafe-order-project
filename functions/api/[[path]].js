@@ -1447,6 +1447,77 @@ export async function onRequest(context) {
       }
     }
 
+    // =========================================================
+    // 【新設】管理者用：指定日の注文受領リスト取得 (GET /api/admin/reception-list)
+    // =========================================================
+    if (path === '/api/admin/reception-list' && method === 'GET') {
+      try {
+        const targetDate = url.searchParams.get('date');
+        if (!targetDate) {
+          return new Response(JSON.stringify({ success: false, message: "日付が指定されていません。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // 指定日の注文基本情報（注文者名など）を全件取得
+        const { results: orders } = await env.DB.prepare(`
+          SELECT id, user_name, total_price, received_status 
+          FROM orders 
+          WHERE delivery_date = ? AND status != 'canceled'
+          ORDER BY id DESC
+        `).bind(targetDate).all();
+
+        // 指定日のすべての注文明細を取得
+        const { results: items } = await env.DB.prepare(`
+          SELECT oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity
+          FROM order_items oi
+          JOIN menu_variations mv ON oi.variation_id = mv.id
+          JOIN menus m ON mv.menu_id = m.id
+          JOIN orders o ON oi.order_id = o.id
+          WHERE o.delivery_date = ? AND o.status != 'canceled'
+        `).bind(targetDate).all();
+
+        // 注文ごとに明細アイテムをグルーピング
+        const list = orders.map(order => {
+          const orderItems = items.filter(item => item.order_id === order.id).map(item => ({
+            name: `${item.menu_name} (${item.variation_name})`,
+            quantity: item.quantity
+          }));
+
+          return {
+            id: order.id,
+            user_name: order.user_name || "不明な顧客",
+            total_price: order.total_price,
+            received_status: order.received_status || 0,
+            items: orderItems
+          };
+        });
+
+        return new Response(JSON.stringify({ success: true, list }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】管理者用：注文受領ステータスの更新 (POST /api/admin/reception-list/toggle)
+    // =========================================================
+    if (path === '/api/admin/reception-list/toggle' && method === 'POST') {
+      try {
+        const { orderId, status } = await request.json(); // status: 1(受領) または 0(未受領)
+
+        if (!orderId || status === undefined) {
+          return new Response(JSON.stringify({ success: false, message: "必要なパラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        await env.DB.prepare(`
+          UPDATE orders SET received_status = ? WHERE id = ?
+        `).bind(status, orderId).run();
+
+        return new Response(JSON.stringify({ success: true, message: "受領ステータスを更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 

@@ -73,20 +73,30 @@ const adminView = {
                 </div>
 
                 <!-- 注文一覧セクション -->
-                <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h2 class="font-bold text-gray-800 flex items-center">
-                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2"></span>
-                            リアルタイム注文受領リスト
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-black text-gray-800 flex items-center">
+                            <span class="w-3 h-3 bg-blue-600 rounded-full mr-2"></span>
+                            当日注文受領チェックリスト
                         </h2>
                         <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
                             同期リフレッシュ
                         </button>
                     </div>
-                    
-                    <!-- 注文データが流し込まれるコンテナ -->
-                    <div id="admin-orders-list" class="divide-y divide-gray-100 min-h-[200px]">
-                        <p class="text-center text-gray-400 py-12 text-sm">注文データを読み込んでいます...</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm text-gray-700">
+                            <thead>
+                                <tr class="border-b border-gray-100 font-bold text-gray-500 text-xs uppercase tracking-wider">
+                                    <th class="pb-3 px-2">注文者</th>
+                                    <th class="pb-3 px-2">注文商品と個数</th>
+                                    <th class="pb-3 px-2 text-right">合計金額</th>
+                                    <th class="pb-3 px-2 text-center w-36">ステータス・操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="daily-reception-table-body" class="divide-y divide-gray-50">
+                                <tr><td colspan="4" class="text-center text-gray-400 py-6 text-xs">データを読み込み中...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -994,24 +1004,6 @@ const app = {
         } catch (err) {
             container.innerHTML = `<p class="text-center text-red-500 py-12 text-sm">エラー: ${err.message}</p>`;
         }
-/*
-        // メニューデータを読み込んだ直後の処理
-        const toggle = document.getElementById('menu-day-limit-toggle');
-
-        if (availableDays && availableDays.length > 0) {
-            // 曜日限定データがあればスイッチをONにして表示
-            toggle.checked = true;
-            app.toggleDayLimitCheckboxes(true);
-
-            // 一致する曜日のチェックボックスをONにする
-            availableDays.forEach(dayIndex => {
-                const cb = document.querySelector(`input[name="menu-available-days"][value="${dayIndex}"]`);
-                if (cb) cb.checked = true;
-            });
-        } else {
-            toggle.checked = false;
-            app.toggleDayLimitCheckboxes(false);
-        }*/
     },
 
     // 3. セレクター要素にSquareカタログ情報を流し込む共通処理
@@ -1244,8 +1236,9 @@ const app = {
     async initMenuEditPage() {
         // A. まずSquareの未登録商品リストをバックエンドから取得
         await this.loadAvailableSquareItems();
-        
-        // B. 次に登録済みメニューの階層構造一覧を描画
+        // B. 共有在庫マスターの読み込み
+        await this.loadStockGroups();
+        // C. 次に登録済みメニューの階層構造一覧を描画
         await this.loadAdminMenuList();
     },
 
@@ -2303,13 +2296,97 @@ const app = {
         }
     },
 
-    // メニュー管理ページの統合初期化ライフサイクルに共有在庫の読み込みを組み込む
-    async initMenuEditPage() {
-        // 1. 共有在庫マスターの読み込み
-        await this.loadStockGroups();
-        // 2. その後、最新のstockGroups情報を保持した状態で既存のメニュー階層一覧を描画
-        if (typeof this.loadAdminMenuList === "function") {
-            await this.loadAdminMenuList(); 
+    // 当日の注文受領リストをロードしてレンダリング
+    async loadDailyReceptionList() {
+        const dateInput = document.getElementById('stats-target-date');
+        if (!dateInput) return;
+        const targetDate = dateInput.value;
+
+        try {
+            const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
+            const data = await res.json();
+            
+            const tbody = document.getElementById('daily-reception-table-body');
+            if (!tbody) return;
+
+            if (!data.success || data.list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-8 text-xs">本日の受け取り予定注文はありません。</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            data.list.forEach(order => {
+                // 注文商品の複数行テキスト構築
+                const itemsHtml = order.items.map(item => `
+                    <div class="flex justify-between max-w-md text-xs py-0.5 border-b border-gray-100 last:border-0">
+                        <span class="text-gray-700 font-medium">${item.name}</span>
+                        <span class="font-bold text-gray-900 ml-4">${item.quantity} 個</span>
+                    </div>
+                `).join('');
+
+                // 受領済みフラグの状態によってボタンを出し分け
+                const isReceived = order.received_status === 1;
+                
+                const actionButton = isReceived
+                    ? `<button onclick="app.toggleReception(${order.id}, 0, '${order.user_name}')" class="w-full text-xs bg-red-50 text-red-600 border border-red-200 py-1.5 rounded-lg font-bold hover:bg-red-100 transition shadow-sm">受領を取り消す</button>`
+                    : `<button onclick="app.toggleReception(${order.id}, 1, '${order.user_name}')" class="w-full text-xs bg-emerald-600 text-white py-1.5 rounded-lg font-bold hover:bg-emerald-700 transition shadow-sm">商品を受領する</button>`;
+
+                const statusBadge = isReceived
+                    ? `<span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-black mb-1">受領済</span>`
+                    : `<span class="inline-block bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black mb-1">未受領</span>`;
+
+                html += `
+                    <tr class="hover:bg-gray-50/50 transition ${isReceived ? 'bg-gray-50/40 text-gray-400' : ''}">
+                        <td class="p-3 px-2 font-bold text-gray-800 align-top">
+                            <div class="text-sm">${order.user_name} 様</div>
+                            <div class="text-[10px] text-gray-400 font-normal mt-0.5">注文ID: ${order.id}</div>
+                        </td>
+                        <td class="p-3 px-2 align-top">
+                            <div class="space-y-1">${itemsHtml}</div>
+                        </td>
+                        <td class="p-3 px-2 text-right font-black text-gray-800 align-top">
+                            ¥${order.total_price.toLocaleString()}
+                        </td>
+                        <td class="p-3 px-2 text-center align-top">
+                            <div class="flex flex-col items-center">
+                                ${statusBadge}
+                                <div class="w-full mt-1">${actionButton}</div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+
+        } catch (e) {
+            console.error("注文受領リストの取得に失敗しました", e);
+        }
+    },
+
+    // 受領 / 取り消しのトグル処理（確認ダイアログ付き）
+    async toggleReception(orderId, nextStatus, userName) {
+        const actionText = nextStatus === 1 ? "【受領】" : "【未受領（取り消し）】";
+        const confirmMessage = `${userName} 様の注文ID: ${orderId} を${actionText}状態に変更します。よろしいですか？`;
+        
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const res = await fetch('/api/admin/reception-list/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, status: nextStatus })
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                // リストを最新状態に再リロード
+                await this.loadDailyReceptionList();
+            } else {
+                alert(result.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました。");
         }
     }
 };
