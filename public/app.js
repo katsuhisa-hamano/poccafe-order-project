@@ -1384,6 +1384,8 @@ const app = {
                     現在、有効な注文はありません。（API未実装の場合はここへロード処理を統合してください）
                 </div>
             `;
+        } else {
+            loadDailyReceptionList();
         }
     },
 
