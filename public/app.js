@@ -93,7 +93,7 @@ const adminView = {
                                     <th class="pb-3 px-2 text-center w-36">ステータス・操作</th>
                                 </tr>
                             </thead>
-                            <tbody id="daily-reception-table-body" class="divide-y divide-gray-50">
+                            <tbody id="admin-orders-list" class="divide-y divide-gray-50">
                                 <tr><td colspan="4" class="text-center text-gray-400 py-6 text-xs">データを読み込み中...</td></tr>
                             </tbody>
                         </table>
