@@ -1379,12 +1379,6 @@ const app = {
     loadAdminOrders() {
         const listContainer = document.getElementById('admin-orders-list');
         if (listContainer) {
-            listContainer.innerHTML = `
-                <div class="text-center py-12 text-gray-400 text-sm">
-                    現在、有効な注文はありません。（API未実装の場合はここへロード処理を統合してください）
-                </div>
-            `;
-        } else {
             loadDailyReceptionList();
         }
     },
@@ -2303,13 +2297,14 @@ const app = {
         const dateInput = document.getElementById('stats-target-date');
         if (!dateInput) return;
         const targetDate = dateInput.value;
+            
+        const tbody = document.getElementById('admin-orders-list');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400">データを読み込み中...</td></tr>`;
 
         try {
             const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
             const data = await res.json();
-            
-            const tbody = document.getElementById('daily-reception-table-body');
-            if (!tbody) return;
 
             if (!data.success || data.list.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-8 text-xs">本日の受け取り予定注文はありません。</td></tr>`;
