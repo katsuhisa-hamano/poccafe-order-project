@@ -1471,7 +1471,7 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
-          INNERJOIN orders o ON oi.order_id = o.id
+          INNER JOIN orders o ON oi.order_id = o.id
           WHERE o.delivery_date = ?
         `).bind(targetDate).all();
 
