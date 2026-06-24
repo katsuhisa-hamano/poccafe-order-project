@@ -1379,7 +1379,7 @@ const app = {
     loadAdminOrders() {
         const listContainer = document.getElementById('admin-orders-list');
         if (listContainer) {
-            loadDailyReceptionList();
+            this.loadDailyReceptionList();
         }
     },
 
