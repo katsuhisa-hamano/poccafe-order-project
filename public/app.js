@@ -398,7 +398,7 @@ const router = {
                 setTimeout(() => {
                     app.loadMenus();
                     initOrderCalendar();
-                    //app.loadUpcomingReservations();
+                    app.loadUpcomingReservations();
                 }, 1);
                 break;
         }
