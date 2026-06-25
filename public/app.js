@@ -2630,7 +2630,7 @@ async function initOrderCalendar() {
         const data = await res.json();
         if (!data.success) return;
 
-        const { disabledMatrix = [], specificHolidays, cutoffTime, maxOrderMonth } = data.settings;
+        const { disabledMatrix = [], specificHolidays, specificWorkdays, cutoffTime, maxOrderMonth } = data.settings;
 
         const now = new Date();
         const formatter = new Intl.DateTimeFormat("ja-JP", {
@@ -2663,7 +2663,7 @@ async function initOrderCalendar() {
         // ★マトリックス定休日判定ロジックをdisableRulesに追加
         if (disabledMatrix && disabledMatrix.length > 0) {
             disableRules.push(function(date) {
-                return isMatrixHoliday(date);
+                return isMatrixHoliday(date) || specificWorkdays.includes(date.toISOString().split('T')[0]); // 臨時営業日を除外
             });
         }
 
