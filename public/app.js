@@ -398,7 +398,7 @@ const router = {
                 setTimeout(() => {
                     app.loadMenus();
                     initOrderCalendar();
-                    app.loadUpcomingReservations();
+                    //app.loadUpcomingReservations();
                 }, 1);
                 break;
         }
@@ -2443,7 +2443,7 @@ const app = {
         if (!currentUser || !currentUser.id) return;
 
         try {
-            //const res = await fetch(`/api/orders/upcoming?userId=${currentUser.id}`);
+            const res = await fetch(`/api/orders/upcoming?userId=${currentUser.id}`);
             const data = await res.json();
             
             const container = document.getElementById('upcoming-reservations-container');
