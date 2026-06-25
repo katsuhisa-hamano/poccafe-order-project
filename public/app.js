@@ -348,6 +348,7 @@ const router = {
                 if (adminTarget && typeof adminView !== 'undefined') {
                     adminTarget.innerHTML = adminView.render();
                     app.loadDailyStats();
+                    app.loadAdminOrders(); 
                 }
                 if (typeof app.loadAdminOrders === 'function') {
                     app.loadAdminOrders(); 
