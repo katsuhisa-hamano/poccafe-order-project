@@ -2630,7 +2630,7 @@ async function initOrderCalendar() {
         const data = await res.json();
         if (!data.success) return;
 
-        const { disabledMatrix = [], specificHolidays, specificWorkdays, cutoffTime, maxOrderMonth } = data.settings;
+        const { disabledMatrix = [], specificHolidays = [], specificWorkdays = [], cutoffTime, maxOrderMonth } = data.settings;
 
         const now = new Date();
         const formatter = new Intl.DateTimeFormat("ja-JP", {
@@ -2654,6 +2654,14 @@ async function initOrderCalendar() {
 
         // 定休日マトリックス判定用ロジックの共通化
         function isMatrixHoliday(date) {
+            // 💡 判定対象の日付を "YYYY-MM-DD" フォーマットの文字列にする
+            const checkStr = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+            
+            // 💡【追加】もしこの日が「特別営業日」に含まれているなら、定休日マトリックスに関わらず休日ではない(false)とする
+            if (specificWorkdays && specificWorkdays.includes(checkStr)) {
+                return false;
+            }
+
             const d = date.getDay(); // 曜日 (0:日 〜 6:土)
             const w = Math.ceil(date.getDate() / 7); // その月の第何週目か (1〜5)
             const currentKey = `${w}-${d}`;
@@ -2663,7 +2671,7 @@ async function initOrderCalendar() {
         // ★マトリックス定休日判定ロジックをdisableRulesに追加
         if (disabledMatrix && disabledMatrix.length > 0) {
             disableRules.push(function(date) {
-                return isMatrixHoliday(date) && !specificWorkdays.includes(date.toISOString().split('T')[0]); // 臨時営業日を除外
+                return isMatrixHoliday(date)
             });
         }
 
