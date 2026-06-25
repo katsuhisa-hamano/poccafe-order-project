@@ -180,8 +180,8 @@ export async function onRequest(context) {
             disabledMatrix,
             cutoffTime,
             maxOrderMonth,
-            specificHolidays : resultsh,
-            specificWorkdays : resultsw
+            specificHolidays : JSON.stringify(specificHolidays),
+            specificWorkdays : JSON.stringify(specificWorkdays)
           }
         }), { headers: corsHeaders });
       } catch (dbErr) {
