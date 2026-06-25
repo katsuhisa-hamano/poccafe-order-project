@@ -144,15 +144,15 @@ export async function onRequest(context) {
 
         // 4. 臨時休業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
-        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
+        const { resultsh } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
 
         // 4. 臨時営業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'workday_specific_' で始まるものをすべて取得
-        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
+        const { resultsw } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
 
         let specificHolidays = [];
-        if (results && results.length > 0) {
-          results.forEach(row => {
+        if (resultsh && resultsh.length > 0) {
+          resultsh.forEach(row => {
             const monthlyHolidays = JSON.parse(row.value);
             if (Array.isArray(monthlyHolidays)) {
               specificHolidays = specificHolidays.concat(monthlyHolidays);
@@ -163,8 +163,8 @@ export async function onRequest(context) {
         specificHolidays = [...new Set(specificHolidays)].sort();
 
         let specificWorkdays = [];
-        if (results && results.length > 0) {
-          results.forEach(row => {
+        if (resultsw && resultsw.length > 0) {
+          resultsw.forEach(row => {
             const monthlyWorkdays = JSON.parse(row.value);
             if (Array.isArray(monthlyWorkdays)) {
               specificWorkdays = specificWorkdays.concat(monthlyWorkdays);
@@ -194,7 +194,7 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/holiday-settings' && method === 'POST') {
       try {
-        const { disabledMatrix, cutoffTime, specificHolidays, maxOrderMonth } = await request.json();
+        const { disabledMatrix, cutoffTime, specificHolidays, specificWorkdays, maxOrderMonth } = await request.json();
 
         // 1. 定休日マトリックスを個別保存
         if (disabledMatrix !== undefined) {
