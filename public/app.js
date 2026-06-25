@@ -2131,15 +2131,18 @@ const app = {
             const w = Math.ceil(selectedDateObj.getDate() / 7); // 第何週目か (1〜5)
             const currentMatrixKey = `${w}-${d}`;
 
-            const { disabledMatrix = [], specificHolidays = [] } = holidayData.settings;
+            const { disabledMatrix = [], specificHolidays = [], specificWorkdays = [] } = holidayData.settings;
 
             // A. 定休日マトリックス判定
             const isMatrixHoliday = disabledMatrix.includes(currentMatrixKey);
             // B. 臨時休業日判定
             const isSpecificHoliday = specificHolidays.includes(targetDate);
 
+            // C. 臨時営業日判定
+            const isSpecificWorkday = specificWorkdays.includes(targetDate);
+
             // 💡 どちらかの休日ルールに該当した場合、テーブルの中に警告を表示して処理を抜ける
-            if (isMatrixHoliday || isSpecificHoliday) {
+            if ((isMatrixHoliday || isSpecificHoliday) && !isSpecificWorkday) {
                 const holidayReason = isSpecificHoliday ? '【臨時休業日】' : '【定休日】';
                 tbody.innerHTML = `
                     <tr>
