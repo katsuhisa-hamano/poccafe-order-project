@@ -2442,11 +2442,12 @@ const app = {
     // 今日以降の予約が存在するかチェックして描画する
     async loadUpcomingReservations() {
         // 現在ログインしているユーザーのID（app.state.user.id 等、現行のセッション保持形式に合わせてください）
-        const currentUser = this.state.user || JSON.parse(localStorage.getItem('po_cafe_user') || '{}');
-        if (!currentUser || !currentUser.id) return;
+        const currentSelect = document.getElementById('admin-customer-select')
+        const currentUserId = currentSelect ? currentSelect.value : this.state.user.id;
+        if (!currentUserId) return;
 
         try {
-            const res = await fetch(`/api/orders/upcoming?userId=${currentUser.id}`);
+            const res = await fetch(`/api/orders/upcoming?userId=${currentUserId}`);
             const data = await res.json();
             
             const container = document.getElementById('upcoming-reservations-container');
