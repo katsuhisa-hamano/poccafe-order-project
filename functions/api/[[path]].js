@@ -1284,16 +1284,18 @@ export async function onRequest(context) {
         `).bind(targetDate).all();
 
         // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
-        // ※実際の注文テーブル名やカラム名に合わせて調整してください
         const { results: reservations } = await env.DB.prepare(`
-          SELECT oi.variation_id as menu_variation_id, SUM(quantity) as reserved_count
+          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count, IFNULL(SUM(oir.quantity), 0) as pickup_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
+  				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
           WHERE o.delivery_date = ?
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
+
+        const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
 
         const squareSalesMap = new Map();
 
@@ -1361,6 +1363,7 @@ export async function onRequest(context) {
           const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.stock_group_id !== null ? item.shared_quantity : item.default_quantity;
           const reservedCount = reservationMap.get(item.variation_id) || 0;
           const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
+          const pickupCount = pickupMap.get(item.variation_id) || 0;
           let cnt = 0;
           if(item.stock_group_id !== null) {
             items
@@ -1368,13 +1371,13 @@ export async function onRequest(context) {
               .forEach(x => {
                 const reservedCount = reservationMap.get(x.variation_id) || 0;
                 const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
-                cnt += (reservedCount + squareSalesCount);
+                cnt += (reservedCount + squareSalesCount - pickupCount);
               });
           } else {
-            cnt = reservedCount + squareSalesCount;
+            cnt = reservedCount + squareSalesCount - pickupCount;
           }
           
-          // 残り数 = 製造個数 - 予約数 - レジ売上数
+          // 残り数 = 製造個数 - 予約数 - （レジ売上数 - ピックアップ済み数）
           const remainingCount = manufactureCount - cnt;
 
           return {
