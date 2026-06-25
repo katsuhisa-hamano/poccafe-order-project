@@ -146,6 +146,10 @@ export async function onRequest(context) {
         // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
         const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
 
+        // 4. 臨時営業（年月ごとに保存された全データを結合して返却する）
+        // settingsテーブルから key が 'workday_specific_' で始まるものをすべて取得
+        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
+
         let specificHolidays = [];
         if (results && results.length > 0) {
           results.forEach(row => {
@@ -158,13 +162,26 @@ export async function onRequest(context) {
         // 重複排除とソート
         specificHolidays = [...new Set(specificHolidays)].sort();
 
+        let specificWorkdays = [];
+        if (results && results.length > 0) {
+          results.forEach(row => {
+            const monthlyWorkdays = JSON.parse(row.value);
+            if (Array.isArray(monthlyWorkdays)) {
+              specificWorkdays = specificWorkdays.concat(monthlyWorkdays);
+            }
+          });
+        }
+        // 重複排除とソート
+        specificWorkdays = [...new Set(specificWorkdays)].sort();
+
         return new Response(JSON.stringify({
           success: true,
           settings: {
             disabledMatrix,
             cutoffTime,
             maxOrderMonth,
-            specificHolidays
+            specificHolidays,
+            specificWorkdays
           }
         }), { headers: corsHeaders });
       } catch (dbErr) {
@@ -222,6 +239,34 @@ export async function onRequest(context) {
           // 存在する年月のデータだけを、個別のkeyでDBにバルク保存（ループ処理）
           for (const [yearMonth, dates] of Object.entries(grouped)) {
             const keyName = `holiday_specific_${yearMonth}`;
+            await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
+              .bind(keyName, JSON.stringify(dates.sort()))
+              .run();
+          }
+        }
+
+        // 5. 臨時営業日を「年月ごと (YYYY-MM)」に key 分けして保存
+        if (specificWorkdays !== undefined) {
+          // まずは既存の workday_specific_ で始まる全レコードをいったんお掃除
+          await env.DB.prepare("DELETE FROM settings WHERE key LIKE 'workday_specific_%'").run();
+
+          // 送られてきた日付を「年-月」ごとにグルーピング
+          const grouped = {};
+          specificWorkdays.forEach(dateStr => {
+            // dateStr は "2026-05-27" のような形式を想定
+            if (dateStr && dateStr.includes('-')) {
+              const parts = dateStr.split('-');
+              const yearMonth = `${parts[0]}-${parts[1]}`; // "2026-05"
+              if (!grouped[yearMonth]) {
+                grouped[yearMonth] = [];
+              }
+              grouped[yearMonth].push(dateStr);
+            }
+          });
+
+          // 存在する年月のデータだけを、個別のkeyでDBにバルク保存（ループ処理）
+          for (const [yearMonth, dates] of Object.entries(grouped)) {
+            const keyName = `workday_specific_${yearMonth}`;
             await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
               .bind(keyName, JSON.stringify(dates.sort()))
               .run();

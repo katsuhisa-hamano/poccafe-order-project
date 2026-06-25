@@ -291,6 +291,15 @@ const holidayEditView = {
                             </div>
                     </div>
                     <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">特定の臨時営業日を追加</label>
+                        <div class="flex space-x-2 mb-3">
+                            <input type="date" id="new-workday" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
+                            <button onclick="app.addSpecificWorkday()" class="bg-gray-900 text-white px-6 rounded-2xl text-sm font-bold hover:bg-gray-800 transition">追加</button>
+                        </div>
+                        <div id="admin-workday-list" class="flex flex-wrap gap-2">
+                            </div>
+                    </div>
+                    <div>
                         <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">注文期限月</label>
                         <input type="month" id="max-order-month" class="bg-gray-50 p-4 rounded-2xl text-sm font-bold focus:outline-none">
                         <p class="text-[10px] text-gray-400 mt-1.5">※ここで指定した月より先の未来日は、一般ユーザーの注文カレンダーで選択できなくなります（空欄にすると無制限になります）。</p>
@@ -1936,6 +1945,7 @@ const app = {
 
     // 臨時保持用の特定休日配列
     adminSpecificHolidays: [],
+    adminSpecificWorkdays: [],
 
     // 【追加】管理者画面：休日設定をAPIから読み込んでUIに反映
     loadAdminHolidaySettings: async function() {
@@ -1948,6 +1958,7 @@ const app = {
                 disabledMatrix = [],
                 cutoffTime = "14:00",
                 specificHolidays = [],
+                specificWorkdays = [],
                 maxOrderMonth = ""
             } = data.settings;
             
@@ -1969,6 +1980,10 @@ const app = {
             // 臨時休業日リストの同期と描画
             app.adminSpecificHolidays = specificHolidays;
             app.renderAdminHolidayList();
+
+            // 臨時営業日リストの同期と描画
+            app.adminSpecificWorkdays = specificWorkdays;
+            app.renderAdminWorkdayList();
         } catch (e) {
             console.error("管理者設定読み込みエラー:", e);
         }
@@ -2009,6 +2024,24 @@ const app = {
         app.renderAdminHolidayList();
     },
 
+    addSpecificWorkday: function() {
+        const input = document.getElementById('new-workday');
+        if (!input || !input.value) return;
+        const val = input.value;
+        if (!app.adminSpecificWorkdays.includes(val)) {
+            app.adminSpecificWorkdays.push(val);
+            app.adminSpecificWorkdays.sort();
+            app.renderAdminWorkdayList();
+        }
+        input.value = '';
+    },
+
+    // 【追加】管理者画面：日付削除アクション
+    removeSpecificWorkday: function(dateStr) {
+        app.adminSpecificWorkdays = app.adminSpecificWorkdays.filter(d => d !== dateStr);
+        app.renderAdminWorkdayList();
+    },
+
     // 【追加】管理者画面：設定をD1へ保存
     saveHolidaySettings: async function() {
         const disabledMatrix = [];
@@ -2030,7 +2063,8 @@ const app = {
                     disabledMatrix,
                     cutoffTime,
                     maxOrderMonth, // 💡 追加した注文期限月の値も一緒に送る
-                    specificHolidays: app.adminSpecificHolidays // API側で自動的に年月分解して保存されます
+                    specificHolidays: app.adminSpecificHolidays, // API側で自動的に年月分解して保存されます
+                    specificWorkdays: app.adminSpecificWorkdays // API側で自動的に年月分解して保存されます
                 })
             });
 
