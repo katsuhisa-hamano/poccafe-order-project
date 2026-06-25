@@ -144,15 +144,15 @@ export async function onRequest(context) {
 
         // 4. 臨時休業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
-        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
+        const { results: specificHolidaysRows } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
 
         // 4. 臨時営業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'workday_specific_' で始まるものをすべて取得
-        const { resultsw } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
+        const { results: specificWorkdaysRows } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
 
         let specificHolidays = [];
-        if (results && results.length > 0) {
-          results.forEach(row => {
+        if (specificHolidaysRows && specificHolidaysRows.length > 0) {
+          specificHolidaysRows.forEach(row => {
             const monthlyHolidays = JSON.parse(row.value);
             if (Array.isArray(monthlyHolidays)) {
               specificHolidays = specificHolidays.concat(monthlyHolidays);
@@ -163,8 +163,8 @@ export async function onRequest(context) {
         specificHolidays = [...new Set(specificHolidays)].sort();
 
         let specificWorkdays = [];
-        if (resultsw && resultsw.length > 0) {
-          resultsw.forEach(row => {
+        if (specificWorkdaysRows && specificWorkdaysRows.length > 0) {
+          specificWorkdaysRows.forEach(row => {
             const monthlyWorkdays = JSON.parse(row.value);
             if (Array.isArray(monthlyWorkdays)) {
               specificWorkdays = specificWorkdays.concat(monthlyWorkdays);
