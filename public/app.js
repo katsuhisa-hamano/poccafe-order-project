@@ -2144,6 +2144,7 @@ const app = {
                                 </button>
                             </div>
                         </td>
+                        <td class="p-4 text-center font-semibold text-gray-600">${item.reservedCount}</td>
                         <td class="p-4 text-center font-semibold text-gray-600">${item.inStoreSalesCount}</td>
                         <td class="p-4 text-center text-base ${remainingClass}">${item.remainingCount}</td>
                     </tr>
