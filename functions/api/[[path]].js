@@ -1389,7 +1389,7 @@ export async function onRequest(context) {
             isOriginal: item.adjusted_quantity === (item.stock_group_id !== null ? item.shared_quantity : item.default_quantity), // 変更前に戻るフラグ
             manufactureCount,
             reservedCount,
-            squareSalesCount,
+            inStoreSalesCount:squareSalesCount - pickupCount,
             remainingCount,
             stockGroupId: item.stock_group_id
           };
