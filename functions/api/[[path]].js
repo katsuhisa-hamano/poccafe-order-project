@@ -148,7 +148,7 @@ export async function onRequest(context) {
 
         // 4. 臨時営業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'workday_specific_' で始まるものをすべて取得
-        const { resultsw } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
+        const { resultsw } //= await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
 
         let specificHolidays = [];
         if (resultsh && resultsh.length > 0) {
@@ -180,8 +180,8 @@ export async function onRequest(context) {
             disabledMatrix,
             cutoffTime,
             maxOrderMonth,
-            specificHolidays : JSON.stringify(specificHolidays),
-            specificWorkdays : JSON.stringify(specificWorkdays)
+            specificHolidays,
+            specificWorkdays
           }
         }), { headers: corsHeaders });
       } catch (dbErr) {
