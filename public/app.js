@@ -2663,7 +2663,7 @@ async function initOrderCalendar() {
         // ★マトリックス定休日判定ロジックをdisableRulesに追加
         if (disabledMatrix && disabledMatrix.length > 0) {
             disableRules.push(function(date) {
-                return isMatrixHoliday(date) || specificWorkdays.includes(date.toISOString().split('T')[0]); // 臨時営業日を除外
+                return isMatrixHoliday(date) && !specificWorkdays.includes(date.toISOString().split('T')[0]); // 臨時営業日を除外
             });
         }
 
