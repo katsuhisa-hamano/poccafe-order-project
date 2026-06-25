@@ -1534,6 +1534,140 @@ export async function onRequest(context) {
       }
     }
 
+    // =========================================================
+    // 【新設】注文画面用：ログインユーザーの今日以降の注文一覧取得 
+    // (GET /api/orders/upcoming?userId=XXX)
+    // =========================================================
+    if (path === '/api/orders/upcoming' && method === 'GET') {
+      try {
+        const userId = url.searchParams.get('userId');
+        if (!userId) {
+          return new Response(JSON.stringify({ success: false, message: "ユーザーIDが指定されていません。" }), { status: 400, headers: corsHeaders });
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // 1. 今日以降で、かつ完全にキャンセル(Canceled)されていない注文を検索
+        // 代理注文の場合も考慮し、user_idが一致するものを取得
+        const { results: orders } = await env.DB.prepare(`
+          SELECT id, user_name, delivery_date, total_price, status 
+          FROM orders 
+          WHERE user_id = ? AND delivery_date >= ? AND status != 'Canceled'
+          ORDER BY delivery_date ASC, id DESC
+        `).bind(userId, todayStr).all();
+
+        // 2. それらの注文に紐づく明細（こちらも個別にCanceledになっていないもの）を取得
+        const { results: items } = await env.DB.prepare(`
+          SELECT oi.id as order_item_id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity, oi.price, oi.variation_id
+          FROM order_items oi
+          JOIN menu_variations mv ON oi.variation_id = mv.id
+          JOIN menus m ON mv.menu_id = m.id
+          JOIN orders o ON oi.order_id = o.id
+          WHERE o.user_id = ? AND o.delivery_date >= ? AND oi.status != 'Canceled'
+        `).bind(userId, todayStr).all();
+
+        // 3. 注文ごとに明細をマージしてレスポンス用に形成
+        const list = orders.map(order => {
+          const orderItems = items.filter(item => item.order_id === order.id).map(item => ({
+            order_item_id: item.order_item_id,
+            variation_id: item.variation_id,
+            name: `${item.menu_name} (${item.variation_name})`,
+            quantity: item.quantity,
+            price: item.price
+          }));
+
+          return {
+            id: order.id,
+            user_name: order.user_name,
+            delivery_date: order.delivery_date,
+            total_price: order.total_price,
+            items: orderItems
+          };
+        }).filter(order => order.items.length > 0); // 明細がすべて個別に消された注文は除外
+
+        return new Response(JSON.stringify({ success: true, list }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】注文画面用：注文全体のキャンセル (POST /api/orders/cancel-entire)
+    // =========================================================
+    if (path === '/api/orders/cancel-entire' && method === 'POST') {
+      try {
+        const { orderId } = await request.json();
+        if (!orderId) {
+          return new Response(JSON.stringify({ success: false, message: "注文IDが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // トランザクション処理を擬似的にバッチで実行（親と明細の双方のstatusを 'Canceled' に変更）
+        await env.DB.batch([
+          env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(orderId),
+          env.DB.prepare("UPDATE order_items SET status = 'Canceled' WHERE order_id = ?").bind(orderId)
+        ]);
+
+        return new Response(JSON.stringify({ success: true, message: "注文をすべてキャンセルしました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】注文画面用：注文内容の変更・一部アイテムのキャンセル (POST /api/orders/update-items)
+    // =========================================================
+    if (path === '/api/orders/update-items' && method === 'POST') {
+      try {
+        const { orderId, items } = await request.json(); // items: [{ order_item_id, quantity }]
+        if (!orderId || !items || !Array.length) {
+          return new Response(JSON.stringify({ success: false, message: "パラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        const statements = [];
+        let newTotalPrice = 0;
+
+        // 現在の注文明細情報を最新DBから取得し、単価を元に再計算する準備
+        const { results: currentItems } = await env.DB.prepare(`
+          SELECT id, price, quantity FROM order_items WHERE order_id = ? AND status != 'Canceled'
+        `).bind(orderId).all();
+
+        for (const current of currentItems) {
+          // 送信されてきた変更データの中に一致する明細があるか探す
+          const updateInfo = items.find(i => i.order_item_id === current.id);
+          
+          if (updateInfo) {
+            const targetQty = parseInt(updateInfo.quantity, 10);
+            if (targetQty <= 0) {
+              // 💡 数量が0以下の場合は、この明細アイテムを個別にキャンセルする仕様
+              statements.push(env.DB.prepare("UPDATE order_items SET quantity = 0, status = 'Canceled' WHERE id = ?").bind(current.id));
+            } else {
+              // 数量を変更
+              statements.push(env.DB.prepare("UPDATE order_items SET quantity = ? WHERE id = ?").bind(targetQty, current.id));
+              newTotalPrice += current.price * targetQty;
+            }
+          } else {
+            // 変更指示が送られてこなかった既存明細はそのまま合算
+            newTotalPrice += current.price * current.quantity;
+          }
+        }
+
+        if (newTotalPrice === 0) {
+          // すべてのアイテムの数量が0になった場合は注文全体をキャンセル扱いにする
+          statements.push(env.DB.prepare("UPDATE orders SET total_price = 0, status = 'Canceled' WHERE id = ?").bind(orderId));
+        } else {
+          // 合計金額を上書き更新
+          statements.push(env.DB.prepare("UPDATE orders SET total_price = ? WHERE id = ?").bind(newTotalPrice, orderId));
+        }
+
+        // 全クエリを一括実行
+        await env.DB.batch(statements);
+
+        return new Response(JSON.stringify({ success: true, message: "注文内容を更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 

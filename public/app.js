@@ -2383,6 +2383,155 @@ const app = {
         } catch (e) {
             alert("通信エラーが発生しました。");
         }
+    },
+
+    // 今日以降の予約が存在するかチェックして描画する
+    async loadUpcomingReservations() {
+        // 現在ログインしているユーザーのID（app.state.user.id 等、現行のセッション保持形式に合わせてください）
+        const currentUser = this.state.user || JSON.parse(localStorage.getItem('po_cafe_user') || '{}');
+        if (!currentUser || !currentUser.id) return;
+
+        try {
+            const res = await fetch(`/api/orders/upcoming?userId=${currentUser.id}`);
+            const data = await res.json();
+            
+            const container = document.getElementById('upcoming-reservations-container');
+            const listBody = document.getElementById('upcoming-reservations-list');
+            if (!container || !listBody) return;
+
+            if (!data.success || !data.list || data.list.length === 0) {
+                container.classList.add('hidden'); // 存在しない場合はエリア自体を非表示
+                return;
+            }
+
+            container.classList.remove('hidden'); // 存在する場合は表示
+
+            listBody.innerHTML = data.list.map(order => {
+                // 複数行の注文明細および数量変更用のインプットを用意
+                const itemsHtml = order.items.map(item => `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-orange-100/50 last:border-0 text-xs text-gray-700">
+                        <span class="font-medium">${item.name}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 text-[10px]">数量:</span>
+                            <input type="number" 
+                                   id="update-qty-${order.id}-${item.order_item_id}" 
+                                   value="${item.quantity}" 
+                                   min="0" 
+                                   class="w-12 text-center font-bold p-1 rounded border border-orange-200 bg-white focus:outline-none" 
+                            />
+                            <span class="text-gray-400">個</span>
+                            <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-white rounded-2xl p-4 border border-orange-100 shadow-xs flex flex-col gap-3">
+                        <div class="flex flex-wrap justify-between items-center border-b border-gray-100 pb-2 text-xs">
+                            <div>
+                                <span class="font-black text-gray-800 text-sm mr-2">${order.delivery_date} 受け取り分</span>
+                                <span class="text-gray-400 text-[10px]">注文者: ${order.user_name}様 (ID: ${order.id})</span>
+                            </div>
+                            <div class="font-black text-orange-600 text-sm mt-1 sm:mt-0">
+                                合計: ¥${order.total_price.toLocaleString()}
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50/50 px-3 py-1 rounded-xl">
+                            ${itemsHtml}
+                        </div>
+
+                        <div class="flex justify-end gap-2 mt-1">
+                            <button onclick="app.cancelEntireOrder(${order.id}, '${order.delivery_date}')" 
+                                    class="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition">
+                                注文全体をキャンセル
+                            </button>
+                            <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}])" 
+                                    class="text-xs font-bold text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-xl shadow-xs transition">
+                                数量の変更を確定
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (e) {
+            console.error("今後の予約取得に失敗しました", e);
+        }
+    },
+
+    // 注文全体のキャンセル（確認ダイアログ付き）
+    async cancelEntireOrder(orderId, dateStr) {
+        if (!confirm(`${dateStr} 受け取り予定の注文を【すべてキャンセル】してもよろしいですか？\nこの操作は取り消せません。`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/orders/cancel-entire', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                await this.loadUpcomingReservations(); // 再読み込み
+                if (typeof this.renderMenus === "function") this.renderMenus(); // メニュー側の残数もリフレッシュ
+            } else {
+                alert(data.message);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました。");
+        }
+    },
+
+    // 数量変更および一部キャンセルの確定
+    async submitOrderChanges(orderId, itemIds) {
+        const updatePayloadItems = [];
+
+        // 画面上の各入力欄から最新の数量を収集
+        for (const itemId of itemIds) {
+            const input = document.getElementById(`update-qty-${orderId}-${itemId}`);
+            if (input) {
+                const qty = parseInt(input.value, 10);
+                if (isNaN(qty) || qty < 0) {
+                    alert("数量には0以上の正しい数値を入力してください。");
+                    return;
+                }
+                updatePayloadItems.push({ order_item_id: itemId, quantity: qty });
+            }
+        }
+
+        if (!confirm("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）")) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/orders/update-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, items: updatePayloadItems })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                await this.loadUpcomingReservations();
+                if (typeof this.renderMenus === "function") this.renderMenus();
+            } else {
+                alert(data.message);
+            }
+        } catch (e) {
+            alert("更新エラーが発生しました。");
+        }
+    },
+
+    // 特定の1品だけをその場で即座にキャンセル（数量0扱い）にするショートカット
+    async cancelSingleOrderItem(orderId, itemId, itemName) {
+        const input = document.getElementById(`update-qty-${orderId}-${itemId}`);
+        if (input) {
+            input.value = 0; // 数量を0にして、通常の変更確定を走らせる
+            await this.submitOrderChanges(orderId, [itemId]);
+        }
     }
 };
 
