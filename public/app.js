@@ -2024,6 +2024,22 @@ const app = {
         app.renderAdminHolidayList();
     },
 
+    // 【追加】管理者画面：臨時休業日バッジのレンダリング
+    renderAdminWorkdayList: function() {
+        const container = document.getElementById('admin-workday-list');
+        if (!container) return;
+        const now = new Date();
+        container.innerHTML = app.adminSpecificWorkdays.filter(dateStr => {
+            const targetDate = new Date(dateStr + "T00:00:00Z");
+            return targetDate >= new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        }).map(d => `
+            <span class="bg-blue-50 text-blue-600 px-3 py-2 rounded-xl text-xs font-bold border border-blue-100 inline-flex items-center">
+                ${d}
+                <button onclick="app.removeSpecificWorkday('${d}')" class="ml-2 text-blue-400 hover:text-blue-700 font-black text-sm">×</button>
+            </span>
+        `).join('');
+    },
+
     addSpecificWorkday: function() {
         const input = document.getElementById('new-workday');
         if (!input || !input.value) return;
