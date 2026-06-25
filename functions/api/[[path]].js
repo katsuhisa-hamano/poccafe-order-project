@@ -182,7 +182,7 @@ export async function onRequest(context) {
             maxOrderMonth,
             specificHolidays,
             specificWorkdays,
-            length : resultsh.length
+            resultsh : JSON.stringify(resultsh)
           }
         }), { headers: corsHeaders });
       } catch (dbErr) {
