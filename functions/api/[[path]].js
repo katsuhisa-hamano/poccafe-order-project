@@ -1371,6 +1371,7 @@ export async function onRequest(context) {
               .forEach(x => {
                 const reservedCount = reservationMap.get(x.variation_id) || 0;
                 const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
+                const pickupCount = pickupMap.get(x.variation_id) || 0;
                 cnt += (reservedCount + squareSalesCount - pickupCount);
               });
           } else {
