@@ -2376,7 +2376,7 @@ const app = {
             
             if (result.success) {
                 // リストを最新状態に再リロード
-                await this.loadDailyReceptionList();
+                await this.loadAdminOrders();
             } else {
                 alert(result.message);
             }
