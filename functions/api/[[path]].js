@@ -144,15 +144,15 @@ export async function onRequest(context) {
 
         // 4. 臨時休業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'holiday_specific_' で始まるものをすべて取得
-        const { resultsh } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
+        const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'holiday_specific_%'").all();
 
         // 4. 臨時営業（年月ごとに保存された全データを結合して返却する）
         // settingsテーブルから key が 'workday_specific_' で始まるものをすべて取得
         //const { resultsw } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'workday_specific_%'").all();
 
         let specificHolidays = [];
-        if (resultsh && resultsh.length > 0) {
-          resultsh.forEach(row => {
+        if (results && results.length > 0) {
+          results.forEach(row => {
             const monthlyHolidays = JSON.parse(row.value);
             if (Array.isArray(monthlyHolidays)) {
               specificHolidays = specificHolidays.concat(monthlyHolidays);
@@ -181,8 +181,7 @@ export async function onRequest(context) {
             cutoffTime,
             maxOrderMonth,
             specificHolidays,
-            specificWorkdays,
-            resultsh : JSON.stringify(resultsh)
+            specificWorkdays
           }
         }), { headers: corsHeaders });
       } catch (dbErr) {
