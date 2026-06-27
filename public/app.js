@@ -2452,6 +2452,18 @@ const app = {
             
             const container = document.getElementById('upcoming-reservations-container');
             const listBody = document.getElementById('upcoming-reservations-list');
+            container.innerHTML = `
+                <div class="bg-gradient-to-br from-cyan-50 to-indigo-50 border border-indigo-100 rounded-3xl p-5 shadow-sm">
+                    <h3 class="text-sm font-black text-orange-800 flex items-center mb-3">
+                        <span class="flex h-2 w-2 relative mr-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                        </span>
+                        あなた（または代理）の今後のご予約内容
+                    </h3>
+                    <div id="upcoming-reservations-list" class="space-y-4">
+                        </div>
+                </div>`
             if (!container || !listBody) return;
 
             if (!data.success || !data.list || data.list.length === 0) {
