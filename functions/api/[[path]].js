@@ -1616,7 +1616,7 @@ export async function onRequest(context) {
           INNER JOIN menu_variations mv ON oi.variation_id = mv.id
           INNER JOIN menus m ON mv.menu_id = m.id
           JOIN orders o ON oi.order_id = o.id
-          WHERE o.user_id = ? AND o.delivery_date >= ? AND oi.status != 'Canceled'
+          WHERE o.customer_id = ? AND o.delivery_date >= ? AND oi.status != 'Canceled'
         `).bind(userId, todayStr).all();
 
         // 3. 注文ごとに明細をマージしてレスポンス用に形成
