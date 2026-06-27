@@ -1613,10 +1613,10 @@ export async function onRequest(context) {
         const { results: items } = await env.DB.prepare(`
           SELECT oi.id as order_item_id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity, oi.unit_price, oi.variation_id
           FROM order_items oi
-          INNER JOIN menu_variations mv ON oi.variation_id = mv.id
+          INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
           JOIN orders o ON oi.order_id = o.id
-          WHERE o.customer_id = ? AND o.delivery_date >= ? AND IFNULL(oi.status, '') != 'Canceled'
+          WHERE o.customer_id = ? AND o.delivery_date >= ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
         `).bind(userId, todayStr).all();
 
         // 3. 注文ごとに明細をマージしてレスポンス用に形成
