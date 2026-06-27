@@ -1721,7 +1721,7 @@ export async function onRequest(context) {
           statements.push(env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(orderId));
         } else {
           // 合計金額を上書き更新
-          statements.push(env.DB.prepare("UPDATE orders SET total_price = ? WHERE id = ?").bind(newTotalPrice, orderId));
+          statements.push(env.DB.prepare("UPDATE orders SET total_amount = ? WHERE id = ?").bind(newTotalPrice, orderId));
         }
 
         // 全クエリを一括実行
