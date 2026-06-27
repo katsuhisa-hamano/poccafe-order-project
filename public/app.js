@@ -2451,7 +2451,7 @@ const app = {
             const data = await res.json();
             
             const container = document.getElementById('upcoming-reservations-container');
-            const listBody = document.getElementById('upcoming-reservations-list');
+            if (!container) return;
             container.innerHTML = `
                 <div class="bg-gradient-to-br from-cyan-50 to-indigo-50 border border-indigo-100 rounded-3xl p-5 shadow-sm">
                     <h3 class="text-sm font-black text-orange-800 flex items-center mb-3">
@@ -2464,7 +2464,8 @@ const app = {
                     <div id="upcoming-reservations-list" class="space-y-4">
                         </div>
                 </div>`
-            if (!container || !listBody) return;
+            const listBody = document.getElementById('upcoming-reservations-list');
+            if (!listBody) return;
 
             if (!data.success || !data.list || data.list.length === 0) {
                 container.classList.add('hidden'); // 存在しない場合はエリア自体を非表示
