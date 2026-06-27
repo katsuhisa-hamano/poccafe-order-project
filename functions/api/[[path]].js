@@ -1693,7 +1693,7 @@ export async function onRequest(context) {
 
         // 現在の注文明細情報を最新DBから取得し、単価を元に再計算する準備
         const { results: currentItems } = await env.DB.prepare(`
-          SELECT id, unit_price, quantity FROM order_items WHERE order_id = ? AND status != 'Canceled'
+          SELECT id, unit_price, quantity FROM order_items WHERE order_id = ? AND IFNULL(status, '') != 'Canceled'
         `).bind(orderId).all();
 
         for (const current of currentItems) {
