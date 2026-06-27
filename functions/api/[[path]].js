@@ -1598,7 +1598,7 @@ export async function onRequest(context) {
         day: "2-digit"
         });
         const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
-        const todayStr = `${year}/${month}/${day}`;
+        const todayStr = `${year}-${month}-${day}`;
 
         // 1. 今日以降で、かつ完全にキャンセル(Canceled)されていない注文を検索
         // 代理注文の場合も考慮し、customer_idが一致するものを取得
