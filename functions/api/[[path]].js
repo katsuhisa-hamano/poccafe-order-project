@@ -1615,19 +1615,31 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
-          JOIN orders o ON oi.order_id = o.id
+          INNER JOIN orders o ON oi.order_id = o.id
+          WHERE o.customer_id = ? AND o.delivery_date >= ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
+        `).bind(userId, todayStr).all();
+
+        const { results: modifiers } = await env.DB.prepare(`
+          SELECT oi.id, oim.modifier_name
+          FROM order_item_modifiers oim
+          INNER JOIN order_items oi ON oim.order_item_id = oi.id
+          INNER JOIN orders o ON oi.order_id = o.id
           WHERE o.customer_id = ? AND o.delivery_date >= ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
         `).bind(userId, todayStr).all();
 
         // 3. 注文ごとに明細をマージしてレスポンス用に形成
         const list = orders.map(order => {
-          const orderItems = items.filter(item => item.order_id === order.id).map(item => ({
-            order_item_id: item.order_item_id,
-            variation_id: item.variation_id,
-            name: `${item.menu_name} (${item.variation_name})`,
-            quantity: item.quantity,
-            price: item.price
-          }));
+          const orderItems = items.filter(item => item.order_id === order.id).map(item => {
+            const itemModifiers = modifiers.filter(mod => mod.id === item.id).map(mod => mod.modifier_name).join(", ");
+            return {
+              order_item_id: item.order_item_id,
+              variation_id: item.variation_id,
+              name: `${item.menu_name} (${item.variation_name})` + (itemModifiers ? ` [${itemModifiers}]` : ""),
+              quantity: item.quantity,
+              price: item.unit_price,
+              modifiers: itemModifiers
+            };
+          });
 
           return {
             id: order.id,
