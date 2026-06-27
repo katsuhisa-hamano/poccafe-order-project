@@ -1611,7 +1611,7 @@ export async function onRequest(context) {
 
         // 2. それらの注文に紐づく明細（こちらも個別にCanceledになっていないもの）を取得
         const { results: items } = await env.DB.prepare(`
-          SELECT oi.id as order_item_id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity, oi.price, oi.variation_id
+          SELECT oi.id as order_item_id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity, oi.unit_price, oi.variation_id
           FROM order_items oi
           INNER JOIN menu_variations mv ON oi.variation_id = mv.id
           INNER JOIN menus m ON mv.menu_id = m.id
