@@ -1650,7 +1650,7 @@ export async function onRequest(context) {
           };
         }).filter(order => order.items.length > 0); // 明細がすべて個別に消された注文は除外
 
-        return new Response(JSON.stringify({ success: true, orders }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ success: true, list }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
