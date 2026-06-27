@@ -1334,7 +1334,7 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
   				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
-          WHERE o.delivery_date = ?
+          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
@@ -1510,7 +1510,7 @@ export async function onRequest(context) {
         const { results: orders } = await env.DB.prepare(`
           SELECT id, customer_name, total_amount, received_status 
           FROM orders 
-          WHERE delivery_date = ?
+          WHERE delivery_date = ? AND status != 'canceled'
           ORDER BY id DESC
         `).bind(targetDate).all();
 
@@ -1521,7 +1521,7 @@ export async function onRequest(context) {
           INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ?
+          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
         `).bind(targetDate).all();
 
         const { results: modifiers } = await env.DB.prepare(`
@@ -1529,7 +1529,7 @@ export async function onRequest(context) {
           FROM order_item_modifiers oim
           INNER JOIN order_items oi ON oim.order_item_id = oi.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ?
+          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
         `).bind(targetDate).all();
 
         // 注文ごとに明細アイテムをグルーピング
@@ -1590,14 +1590,22 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "ユーザーIDが指定されていません。" }), { status: 400, headers: corsHeaders });
         }
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+        });
+        const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
+        const todayStr = `${year}/${month}/${day}`;
 
         // 1. 今日以降で、かつ完全にキャンセル(Canceled)されていない注文を検索
-        // 代理注文の場合も考慮し、user_idが一致するものを取得
+        // 代理注文の場合も考慮し、customer_idが一致するものを取得
         const { results: orders } = await env.DB.prepare(`
-          SELECT id, user_name, delivery_date, total_price, status 
+          SELECT id, customer_name, delivery_date, total_amount, status 
           FROM orders 
-          WHERE user_id = ? AND delivery_date >= ? AND status != 'Canceled'
+          WHERE customer_id = ? AND delivery_date >= ? AND status != 'Canceled'
           ORDER BY delivery_date ASC, id DESC
         `).bind(userId, todayStr).all();
 
@@ -1605,8 +1613,8 @@ export async function onRequest(context) {
         const { results: items } = await env.DB.prepare(`
           SELECT oi.id as order_item_id, oi.order_id, m.name as menu_name, mv.name as variation_name, oi.quantity, oi.price, oi.variation_id
           FROM order_items oi
-          JOIN menu_variations mv ON oi.variation_id = mv.id
-          JOIN menus m ON mv.menu_id = m.id
+          INNER JOIN menu_variations mv ON oi.variation_id = mv.id
+          INNER JOIN menus m ON mv.menu_id = m.id
           JOIN orders o ON oi.order_id = o.id
           WHERE o.user_id = ? AND o.delivery_date >= ? AND oi.status != 'Canceled'
         `).bind(userId, todayStr).all();
@@ -1623,7 +1631,7 @@ export async function onRequest(context) {
 
           return {
             id: order.id,
-            user_name: order.user_name,
+            user_name: order.customer_name,
             delivery_date: order.delivery_date,
             total_price: order.total_price,
             items: orderItems
