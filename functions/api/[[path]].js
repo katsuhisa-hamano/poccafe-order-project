@@ -1630,7 +1630,7 @@ export async function onRequest(context) {
         // 3. 注文ごとに明細をマージしてレスポンス用に形成
         const list = orders.map(order => {
           const orderItems = items.filter(item => item.order_id === order.id).map(item => {
-            const itemModifiers = modifiers.filter(mod => mod.id === item.id).map(mod => mod.modifier_name).join(", ");
+            const itemModifiers = modifiers.filter(mod => mod.id === item.order_item_id).map(mod => mod.modifier_name).join(", ");
             return {
               order_item_id: item.order_item_id,
               variation_id: item.variation_id,
