@@ -2459,7 +2459,7 @@ const app = {
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                         </span>
-                        ${isAdmin ? "あなた（または代理）の" : ""}今後のご予約内容
+                        ${this.state.user.isAdmin ? "あなた（または代理）の" : ""}今後のご予約内容
                     </h3>
                     <div id="upcoming-reservations-list" class="space-y-4">
                         </div>
