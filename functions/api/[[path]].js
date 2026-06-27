@@ -1645,7 +1645,7 @@ export async function onRequest(context) {
             id: order.id,
             user_name: order.customer_name,
             delivery_date: order.delivery_date,
-            total_price: order.total_price,
+            total_price: order.total_amount,
             items: orderItems
           };
         }).filter(order => order.items.length > 0); // 明細がすべて個別に消された注文は除外
