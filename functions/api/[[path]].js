@@ -1334,7 +1334,7 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
   				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
-          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled' AND IFNULL(oir.status, '') != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled' AND IFNULL(oir.status, '') != 'Canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
@@ -1510,7 +1510,7 @@ export async function onRequest(context) {
         const { results: orders } = await env.DB.prepare(`
           SELECT id, customer_name, total_amount, received_status 
           FROM orders 
-          WHERE delivery_date = ? AND IFNULL(status, '') != 'canceled'
+          WHERE delivery_date = ? AND IFNULL(status, '') != 'Canceled'
           ORDER BY id DESC
         `).bind(targetDate).all();
 
@@ -1521,7 +1521,7 @@ export async function onRequest(context) {
           INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
         `).bind(targetDate).all();
 
         const { results: modifiers } = await env.DB.prepare(`
@@ -1529,7 +1529,7 @@ export async function onRequest(context) {
           FROM order_item_modifiers oim
           INNER JOIN order_items oi ON oim.order_item_id = oi.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
         `).bind(targetDate).all();
 
         // 注文ごとに明細アイテムをグルーピング
@@ -1693,7 +1693,7 @@ export async function onRequest(context) {
 
         // 現在の注文明細情報を最新DBから取得し、単価を元に再計算する準備
         const { results: currentItems } = await env.DB.prepare(`
-          SELECT id, price, quantity FROM order_items WHERE order_id = ? AND status != 'Canceled'
+          SELECT id, unit_price, quantity FROM order_items WHERE order_id = ? AND status != 'Canceled'
         `).bind(orderId).all();
 
         for (const current of currentItems) {
@@ -1704,21 +1704,21 @@ export async function onRequest(context) {
             const targetQty = parseInt(updateInfo.quantity, 10);
             if (targetQty <= 0) {
               // 💡 数量が0以下の場合は、この明細アイテムを個別にキャンセルする仕様
-              statements.push(env.DB.prepare("UPDATE order_items SET quantity = 0, status = 'Canceled' WHERE id = ?").bind(current.id));
+              statements.push(env.DB.prepare("UPDATE order_items SET status = 'Canceled' WHERE id = ?").bind(current.id));
             } else {
               // 数量を変更
               statements.push(env.DB.prepare("UPDATE order_items SET quantity = ? WHERE id = ?").bind(targetQty, current.id));
-              newTotalPrice += current.price * targetQty;
+              newTotalPrice += current.unit_price * targetQty;
             }
           } else {
             // 変更指示が送られてこなかった既存明細はそのまま合算
-            newTotalPrice += current.price * current.quantity;
+            newTotalPrice += current.unit_price * current.quantity;
           }
         }
 
         if (newTotalPrice === 0) {
           // すべてのアイテムの数量が0になった場合は注文全体をキャンセル扱いにする
-          statements.push(env.DB.prepare("UPDATE orders SET total_price = 0, status = 'Canceled' WHERE id = ?").bind(orderId));
+          statements.push(env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(orderId));
         } else {
           // 合計金額を上書き更新
           statements.push(env.DB.prepare("UPDATE orders SET total_price = ? WHERE id = ?").bind(newTotalPrice, orderId));
