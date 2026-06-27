@@ -725,7 +725,7 @@ const app = {
                     <span class="bg-amber-600 text-white text-xs px-2 py-0.5 rounded font-black mr-2">管理者権限</span>
                     代理注文：対象の顧客（注文者）を選択してください
                 </label>
-                <select id="admin-customer-select" ${disabledAttr} class="w-full bg-white border border-amber-300 h-11 px-3 rounded-md text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition">
+                <select id="admin-customer-select" onchange="app.handleCustomerChange(this.value)" ${disabledAttr} class="w-full bg-white border border-amber-300 h-11 px-3 rounded-md text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition">
                     <option value="${this.state.user.id}" ${isUserSelected}>【本人として注文】 ${this.state.user.name}様</option>
                     ${(this.state.adminCustomers || []).map(cust => {
                         // 本人以外を表示
@@ -2578,6 +2578,10 @@ const app = {
         } catch (e) {
             alert("更新エラーが発生しました。");
         }
+    },
+
+    async handleCustomerChange(customerId) {
+        this.loadUpcomingReservations();
     },
 
     // 特定の1品だけをその場で即座にキャンセル（数量0扱い）にするショートカット
