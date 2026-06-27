@@ -2464,7 +2464,7 @@ const app = {
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => `
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-lightgreen-100/50 last:border-0 text-xs text-gray-700">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-orange-100/50 last:border-0 text-xs text-gray-700">
                         <span class="font-medium">${item.name}</span>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400 text-[10px]">数量:</span>
