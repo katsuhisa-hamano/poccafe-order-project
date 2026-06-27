@@ -2464,7 +2464,7 @@ const app = {
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => `
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-orange-100/50 last:border-0 text-xs text-gray-700">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-lightgreen-100/50 last:border-0 text-xs text-gray-700">
                         <span class="font-medium">${item.name}</span>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400 text-[10px]">数量:</span>
@@ -2472,7 +2472,7 @@ const app = {
                                    id="update-qty-${order.id}-${item.order_item_id}" 
                                    value="${item.quantity}" 
                                    min="0" 
-                                   class="w-12 text-center font-bold p-1 rounded border border-orange-200 bg-white focus:outline-none" 
+                                   class="w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none" 
                             />
                             <span class="text-gray-400">個</span>
                             <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
@@ -2481,13 +2481,13 @@ const app = {
                 `).join('');
 
                 return `
-                    <div class="bg-white rounded-2xl p-4 border border-orange-100 shadow-xs flex flex-col gap-3">
+                    <div class="bg-white rounded-2xl p-4 border border-lightgreen-100 shadow-xs flex flex-col gap-3">
                         <div class="flex flex-wrap justify-between items-center border-b border-gray-100 pb-2 text-xs">
                             <div>
                                 <span class="font-black text-gray-800 text-sm mr-2">${order.delivery_date} 受け取り分</span>
                                 <span class="text-gray-400 text-[10px]">注文者: ${order.user_name}様 (ID: ${order.id})</span>
                             </div>
-                            <div class="font-black text-orange-600 text-sm mt-1 sm:mt-0">
+                            <div class="font-black text-lightgreen-600 text-sm mt-1 sm:mt-0">
                                 合計: ¥${order.total_price.toLocaleString()}
                             </div>
                         </div>
