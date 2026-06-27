@@ -1334,7 +1334,7 @@ export async function onRequest(context) {
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
   				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
-          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled' AND IFNULL(oir.status, '') != 'canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
@@ -1510,7 +1510,7 @@ export async function onRequest(context) {
         const { results: orders } = await env.DB.prepare(`
           SELECT id, customer_name, total_amount, received_status 
           FROM orders 
-          WHERE delivery_date = ? AND status != 'canceled'
+          WHERE delivery_date = ? AND IFNULL(status, '') != 'canceled'
           ORDER BY id DESC
         `).bind(targetDate).all();
 
@@ -1521,7 +1521,7 @@ export async function onRequest(context) {
           INNER JOIN menu_variations mv ON oi.variation_id = mv.square_variation_id
           INNER JOIN menus m ON mv.menu_id = m.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled'
         `).bind(targetDate).all();
 
         const { results: modifiers } = await env.DB.prepare(`
@@ -1529,7 +1529,7 @@ export async function onRequest(context) {
           FROM order_item_modifiers oim
           INNER JOIN order_items oi ON oim.order_item_id = oi.id
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND o.status != 'canceled' AND oi.status != 'canceled'
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'canceled' AND IFNULL(oi.status, '') != 'canceled'
         `).bind(targetDate).all();
 
         // 注文ごとに明細アイテムをグルーピング
@@ -1605,7 +1605,7 @@ export async function onRequest(context) {
         const { results: orders } = await env.DB.prepare(`
           SELECT id, customer_name, delivery_date, total_amount, status 
           FROM orders 
-          WHERE customer_id = ? AND delivery_date >= ? AND status != 'Canceled'
+          WHERE customer_id = ? AND delivery_date >= ? AND IFNULL(status, '') != 'Canceled'
           ORDER BY delivery_date ASC, id DESC
         `).bind(userId, todayStr).all();
 
@@ -1616,7 +1616,7 @@ export async function onRequest(context) {
           INNER JOIN menu_variations mv ON oi.variation_id = mv.id
           INNER JOIN menus m ON mv.menu_id = m.id
           JOIN orders o ON oi.order_id = o.id
-          WHERE o.customer_id = ? AND o.delivery_date >= ? AND oi.status != 'Canceled'
+          WHERE o.customer_id = ? AND o.delivery_date >= ? AND IFNULL(oi.status, '') != 'Canceled'
         `).bind(userId, todayStr).all();
 
         // 3. 注文ごとに明細をマージしてレスポンス用に形成
