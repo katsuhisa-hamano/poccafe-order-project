@@ -2758,7 +2758,7 @@ async function initOrderCalendar() {
             onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
-                    await sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                    sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
