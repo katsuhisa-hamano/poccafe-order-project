@@ -1684,7 +1684,7 @@ export async function onRequest(context) {
     if (path === '/api/orders/update-items' && method === 'POST') {
       try {
         const { orderId, items } = await request.json(); // items: [{ order_item_id, quantity }]
-        if (!orderId || !items || !Array.length) {
+        if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
           return new Response(JSON.stringify({ success: false, message: "パラメータが不足しています。" }), { status: 400, headers: corsHeaders });
         }
 

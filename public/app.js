@@ -437,7 +437,7 @@ const app = {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
-        if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
+        if (!email || !password) return await sharedDialog("メールアドレスとパスワードを入力してください");
 
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
@@ -479,22 +479,23 @@ const app = {
 
                 router.go('home'); 
             } else {
-                alert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
+                await sharedDialog(result.message || "アカウントが見つからないか、パスワードが間違っています。");
             }
         } catch (e) {
-            alert("ログイン通信に失敗しました");
+            await sharedDialog("ログイン通信に失敗しました");
         }
     },
 
     // ログアウト処理
-    logout() {
-        if (!confirm("ログアウトしますか？")) return;
-        localStorage.clear();
-        this.state.user = { id: null, name: null, email: null, isAdmin: false };
-        this.state.adminCustomers = []; // クリア
-        this.state.cart = {};
-        this.updateCartBar();
-        router.go('login');
+    async logout() {
+        if (await sharedDialog("ログアウトしますか？", "#333333", true)) {
+            localStorage.clear();
+            this.state.user = { id: null, name: null, email: null, isAdmin: false };
+            this.state.adminCustomers = []; // クリア
+            this.state.cart = {};
+            this.updateCartBar();
+            router.go('login');
+        }
     },
 
     // 新規登録申請
@@ -507,7 +508,7 @@ const app = {
             password: document.getElementById('reg-password').value
         };
 
-        if(!data.name || !data.email || !data.password) return alert("必須項目（名前・メール・パスワード）を入力してください");
+        if(!data.name || !data.email || !data.password) return await sharedDialog("必須項目（名前・メール・パスワード）を入力してください");
 
         btn.innerText = "照合中...";
         btn.disabled = true;
@@ -522,16 +523,16 @@ const app = {
             const result = await res.json();
 
             if (res.status === 409) {
-                alert(`【登録不可】\n${result.message}`);
+                await sharedDialog(`【登録不可】\n${result.message}`);
                 this.closeRegister();
             } else if (res.ok) {
-                alert("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
+                await sharedDialog("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
                 this.closeRegister();
             } else {
                 throw new Error(result.message || "登録エラー");
             }
         } catch (e) {
-            alert(e.message || "登録処理中にエラーが発生しました。");
+            await sharedDialog(e.message || "登録処理中にエラーが発生しました。");
         } finally {
             btn.innerText = "認証メールを送る";
             btn.disabled = false;
@@ -543,7 +544,7 @@ const app = {
         const btn = document.getElementById('forgot-submit-btn');
         const email = document.getElementById('forgot-email').value;
 
-        if (!email) return alert("メールアドレスを入力してください");
+        if (!email) return await sharedDialog("メールアドレスを入力してください");
 
         btn.innerText = "送信中...";
         btn.disabled = true;
@@ -557,13 +558,13 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("再設定用メールを送信しました。メール内のリンクをご確認ください。");
+                await sharedDialog("再設定用メールを送信しました。メール内のリンクをご確認ください。");
                 this.closeForgotPassword();
             } else {
-                alert(result.message || "送信に失敗しました。");
+                await sharedDialog(result.message || "送信に失敗しました。");
             }
         } catch(e) {
-            alert("通信エラーが発生しました。");
+            await sharedDialog("通信エラーが発生しました。");
         } finally {
             btn.innerText = "再設定メールを送る";
             btn.disabled = false;
@@ -575,8 +576,8 @@ const app = {
         const btn = document.getElementById('reset-submit-btn');
         const newPassword = document.getElementById('reset-new-password').value;
 
-        if (!newPassword) return alert("新しいパスワードを入力してください");
-        if (!this.state.resetToken) return alert("トークンが無効です。メールのリンクから再度やり初めてください。");
+        if (!newPassword) return await sharedDialog("新しいパスワードを入力してください");
+        if (!this.state.resetToken) return await sharedDialog("トークンが無効です。メールのリンクから再度やり初めてください。");
 
         btn.innerText = "更新中...";
         btn.disabled = true;
@@ -590,14 +591,14 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("パスワードを更新しました！新しいパスワードでログインしてください。");
+                await sharedDialog("パスワードを更新しました！新しいパスワードでログインしてください。");
                 document.getElementById('reset-modal').classList.add('hidden');
                 window.location.href = window.location.pathname; 
             } else {
-                alert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
+                await sharedDialog(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
             }
         } catch(e) {
-            alert("通信エラーが発生しました。");
+            await sharedDialog("通信エラーが発生しました。");
         } finally {
             btn.innerText = "パスワードを更新する";
             btn.disabled = false;
@@ -814,7 +815,7 @@ const app = {
         const tel = telInput.value.trim();
 
         if (!name || !tel) {
-            alert("顧客名と電話番号の両方を入力してください。");
+            await sharedDialog("顧客名と電話番号の両方を入力してください。");
             return;
         }
 
@@ -827,22 +828,22 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                alert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。x:${result.x}`);
+                await sharedDialog(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。x:${result.x}`);
                 nameInput.value = "";
                 telInput.value = "";
                 // リストを再ロード
                 await this.loadAdminCustomersEdit();
             } else {
-                alert("登録に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedDialog("登録に失敗しました: " + (result.message || "未知のエラー"));
             }
         } catch (e) {
-            alert("通信エラーが発生しました: " + e.message);
+            await sharedDialog("通信エラーが発生しました: " + e.message);
         }
     },
 
     // 3. 顧客の削除処理
     async deleteCustomer(customerId, customerName) {
-        if (!confirm(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`)) {
+        if (!await sharedDialog(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`, "#333333", true)) {
             return;
         }
 
@@ -855,13 +856,13 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                alert("顧客情報を削除しました。");
+                await sharedDialog("顧客情報を削除しました。");
                 await this.loadAdminCustomersEdit();
             } else {
-                alert("削除に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedDialog("削除に失敗しました: " + (result.message || "未知のエラー"));
             }
         } catch (e) {
-            alert("通信エラーが発生しました: " + e.message);
+            await sharedDialog("通信エラーが発生しました: " + e.message);
         }
     },
     
@@ -1055,10 +1056,10 @@ const app = {
             if (saveRes.ok) {
                 this.loadAdminMenuList(); // リスト再描画
             } else {
-                alert("並び替えの保存に失敗しました");
+                await sharedDialog("並び替えの保存に失敗しました");
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
+            await sharedDialog("通信エラーが発生しました");
         }
     },
 
@@ -1093,7 +1094,7 @@ const app = {
             availableDays = Array.from(checkedBoxes).map(cb => cb.value);
             
             if (availableDays.length === 0) {
-                alert("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
+                await sharedDialog("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
                 return;
             }
         }
@@ -1107,14 +1108,14 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert("曜日の販売制限設定を保存しました。");
+                await sharedDialog("曜日の販売制限設定を保存しました。");
                 app.loadAdminMenuList(); // リスト再読み込み
             } else {
-                alert(`保存失敗: ${result.message}`);
+                await sharedDialog(`保存失敗: ${result.message}`);
             }
         } catch (error) {
             console.error("曜日設定保存エラー:", error);
-            alert("通信エラーが発生しました。");
+            await sharedDialog("通信エラーが発生しました。");
         }
     },
 
@@ -1131,7 +1132,7 @@ const app = {
         
         const newSquareItemId = selector.value;
         if (!newSquareItemId) {
-            alert("切り替えるSquare商品を選択してください。");
+            await sharedDialog("切り替えるSquare商品を選択してください。");
             return;
         }
 
@@ -1140,13 +1141,13 @@ const app = {
         const selectedSqItem = catalogItems.find(item => item && item.id === newSquareItemId);
         
         if (!selectedSqItem) {
-            alert("選択されたSquare商品のデータが見つかりません。");
+            await sharedDialog("選択されたSquare商品のデータが見つかりません。");
             return;
         }
 
         // 3. 実行前の最終確認
         const confirmMessage = `このメニュー項目を Squareの「${selectedSqItem.name}」に変更してよろしいですか？\n\n※注意: 変更を適用すると、この項目に紐づいていた古いバリエーション情報、在庫数、表示フラグはすべてリセットされ、新しい商品のバリエーション構造に書き換わります。`;
-        if (!confirm(confirmMessage)) {
+        if (!await sharedDialog(confirmMessage, "#333333", true)) {
             // キャンセルされた場合は現在のDBの状態に戻すためリストを再描画
             await this.loadAdminMenuList();
             return;
@@ -1187,7 +1188,7 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                alert(`「${selectedSqItem.name}」への変更が正常にテーブルへ反映されました。`);
+                await sharedDialog(`「${selectedSqItem.name}」への変更が正常にテーブルへ反映されました。`);
                 
                 // 6. 【重要】非同期処理の完了を待ち、画面を最新の状態に強制レンダリング
                 // 登録済みメニュー階層一覧の再取得と再描画
@@ -1197,11 +1198,11 @@ const app = {
                     await this.loadAvailableSquareItems();
                 }
             } else {
-                alert("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedDialog("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
                 await this.initMenuEditPage(); // 状態を戻す
             }
         } catch (e) {
-            alert("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
+            await sharedDialog("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
             await this.initMenuEditPage();
         }
     },
@@ -1229,13 +1230,13 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                alert("バリエーション設定を更新しました。");
+                await sharedDialog("バリエーション設定を更新しました。");
                 this.loadAdminMenuList();
             } else {
-                alert("更新に失敗しました: " + result.message);
+                await sharedDialog("更新に失敗しました: " + result.message);
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
+            await sharedDialog("通信エラーが発生しました");
         }
     },
 
@@ -1287,7 +1288,7 @@ const app = {
     // 4. 【重要】最下部から新規ITEMを追加したあとの処理
     async addNewItemFromSquare() {
         const selector = document.getElementById('new-square-item-selector');
-        if (!selector || !selector.value) return alert("追加するSquare商品を選択してください");
+        if (!selector || !selector.value) return await sharedDialog("追加するSquare商品を選択してください");
 
         const selectedSqItem = this.state.availableSquareItems.find(item => item.id === selector.value);
         if (!selectedSqItem) return;
@@ -1312,7 +1313,7 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                alert(`「${selectedSqItem.name}」をメニューに追加しました。`);
+                await sharedDialog(`「${selectedSqItem.name}」をメニューに追加しました。`);
                 
                 // ★追加が完了したら、未登録リストを再ロードしてセレクターから今追加した商品を消去する
                 await this.loadAvailableSquareItems();
@@ -1320,10 +1321,10 @@ const app = {
                 // 階層一覧リストを更新
                 await this.loadAdminMenuList();
             } else {
-                alert("追加に失敗しました: " + result.message);
+                await sharedDialog("追加に失敗しました: " + result.message);
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
+            await sharedDialog("通信エラーが発生しました");
         }
     },
 
@@ -1433,9 +1434,10 @@ const app = {
                 clearBtn.innerText = 'カートを空にする';
                 clearBtn.className = 'text-xs text-red-200 underline font-medium hover:text-red-300 ml-4 focus:outline-none transition z-50 cursor-pointer';
                 
-                clearBtn.onclick = (e) => {
+                clearBtn.onclick = async (e) => {
                     e.stopPropagation(); 
-                    if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
+                    const result = await sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
+                    if (result) {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
@@ -1449,7 +1451,7 @@ const app = {
                         }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
-                        alert("カートを空にしました。");
+                        sharedDialog("カートを空にしました。");
                     }
                 };
                 
@@ -1609,7 +1611,7 @@ const app = {
         this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
         this.state.payload.items = this.state.cart
 
-        if(!html) return alert("商品を選択してください");
+        if(!html) return sharedDialog("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
@@ -1781,7 +1783,7 @@ const app = {
         const orderDate = dateElement ? dateElement.value : '';
         
         if (!orderDate) {
-            alert("受取日を選択してください。");
+            sharedDialog("受取日を選択してください。");
             return;
         }
 
@@ -1802,7 +1804,7 @@ const app = {
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
-            alert("サイズ・種類を選択してください。");
+            sharedDialog("サイズ・種類を選択してください。");
             return;
         }
 
@@ -1846,7 +1848,7 @@ const app = {
         this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
         this.state.payload.creater_name = this.state.user.name;
 
-        alert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
+        sharedDialog(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
@@ -1859,13 +1861,13 @@ const app = {
     async submitOrder() {
         // 1. 基本バリデーションチェック
         if (!app.state.selectedDate) {
-            alert("受取日を選択してください。");
+            await sharedDialog("受取日を選択してください。");
             return;
         }
 
         const cartKeys = Object.keys(app.state.cart);
         if (cartKeys.length === 0) {
-            alert("カートに商品が入っていません。");
+            await sharedDialog("カートに商品が入っていません。");
             return;
         }
 
@@ -1878,12 +1880,13 @@ const app = {
         }
 
         if (!orderCustomerId) {
-            alert("注文ユーザーが特定できません。再度ログインしてください。");
+            await sharedDialog("注文ユーザーが特定できません。再度ログインしてください。");
             router.go('login');
             return;
         }
 
-        if (!confirm("この内容で注文を確定しますか？")) return;
+        const result = await sharedDialog("この内容で注文を確定しますか？", "#333333", true);
+        if (!result) return;
 
         // ボタンの二重押し（連打）防止制御
         const submitBtn = document.getElementById('order-submit-btn'); // HTML側の注文確定ボタンのID
@@ -1906,7 +1909,7 @@ const app = {
 
             if (response.ok && result.success) {
                 // 5. 注文成功時のクリーンアップ処理
-                alert("注文が確定しました！ありがとうございます。");
+                sharedDialog("注文が確定しました！ありがとうございます。");
                 
                 app.state.cart = {};          // カートの状態を空にする
                 app.state.payload = {
@@ -1922,18 +1925,19 @@ const app = {
                 app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
                 // 必要に応じて、注文履歴画面などへ遷移させる
-                if (app.state.user.isAdmin) {
+                router.go('home'); // 注文完了後はホーム画面に戻す（管理者・一般ユーザー共通）
+                /*if (app.state.user.isAdmin) {
                     router.go('admin');        // 管理者ならダッシュボードへ戻す
                 } else {
                     router.go('history');      // 一般ユーザーなら注文履歴（history）へ
-                }
+                }*/
             } else {
                 // サーバーエラーや在庫切れなどのエラーハンドリング
-                alert(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
+                await sharedDialog(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
             }
         } catch (error) {
             console.error("注文送信エラー:", error);
-            alert("通信エラーが発生しました。電波状況をご確認の上、再度お試しください。");
+            await sharedDialog("通信エラーが発生しました。電波状況をご確認の上、再度お試しください。");
         } finally {
             // ボタン状態の復元
             if (submitBtn) {
@@ -2086,12 +2090,12 @@ const app = {
 
             const data = await res.json();
             if (data.success) {
-                alert("休日および注文制限設定を細分化して保存しました。");
+                sharedDialog("休日および注文制限設定を細分化して保存しました。");
             } else {
-                alert("保存に失敗しました: " + data.message);
+                sharedDialog("保存に失敗しました: " + data.message);
             }
         } catch (err) {
-            alert("通信エラーが発生しました: " + err.message);
+            sharedDialog("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -2220,7 +2224,7 @@ const app = {
         const quantity = parseInt(qtyInput.value, 10);
 
         if (isNaN(quantity) || quantity < 0) {
-            alert("正しいうち数（0以上の数値）を入力してください。");
+            await sharedDialog("正しいうち数（0以上の数値）を入力してください。");
             return;
         }
 
@@ -2240,10 +2244,10 @@ const app = {
                 // 再読み込みして、残り数や「当日値に変更中」のバッジをリフレッシュ
                 app.loadAdminOrders();
             } else {
-                alert("更新に失敗しました: " + data.message);
+                await sharedDialog("更新に失敗しました: " + data.message);
             }
         } catch (err) {
-            alert("通信エラーが発生しました: " + err.message);
+            await sharedDialog("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -2297,7 +2301,7 @@ const app = {
             remaining = parseInt(document.getElementById('new-stock-group-remaining').value, 10);
         }
 
-        if (!name || isNaN(remaining)) return alert("共有在庫名とデフォルト在庫数を正しく入力してください");
+        if (!name || isNaN(remaining)) return await sharedDialog("共有在庫名とデフォルト在庫数を正しく入力してください");
 
         try {
             const res = await fetch('/api/admin/stock-groups', {
@@ -2311,14 +2315,14 @@ const app = {
                     document.getElementById('new-stock-group-name').value = '';
                     document.getElementById('new-stock-group-remaining').value = '';
                 }
-                alert(result.message);
+                await sharedDialog(result.message);
                 // データの再ロードと再描画
                 await this.initMenuEditPage();
             } else {
-                alert(result.message);
+                await sharedDialog(result.message);
             }
         } catch (e) {
-            alert("通信エラーが発生しました");
+            await sharedDialog("通信エラーが発生しました");
         }
     },
 
@@ -2337,10 +2341,10 @@ const app = {
                 // UIと数値を最新状態に同期するためにメニュー編集面全体を再ビルド
                 await this.initMenuEditPage();
             } else {
-                alert(result.message);
+                await sharedDialog(result.message);
             }
         } catch (e) {
-            alert("在庫設定の更新に失敗しました");
+            await sharedDialog("在庫設定の更新に失敗しました");
         }
     },
 
@@ -2418,7 +2422,7 @@ const app = {
         const actionText = nextStatus === 1 ? "【受領】" : "【未受領（取り消し）】";
         const confirmMessage = `${userName} 様の注文ID: ${orderId} を${actionText}状態に変更します。よろしいですか？`;
         
-        if (!confirm(confirmMessage)) return;
+        if (!await sharedDialog(confirmMessage, "#333333", true)) return;
 
         try {
             const res = await fetch('/api/admin/reception-list/toggle', {
@@ -2432,10 +2436,10 @@ const app = {
                 // リストを最新状態に再リロード
                 await this.loadAdminOrders();
             } else {
-                alert(result.message);
+                await sharedDialog(result.message);
             }
         } catch (e) {
-            alert("通信エラーが発生しました。");
+            await sharedDialog("通信エラーが発生しました。");
         }
     },
 
@@ -2533,7 +2537,7 @@ const app = {
 
     // 注文全体のキャンセル（確認ダイアログ付き）
     async cancelEntireOrder(orderId, dateStr) {
-        if (!confirm(`${dateStr} 受け取り予定の注文を【すべてキャンセル】してもよろしいですか？\nこの操作は取り消せません。`)) {
+        if (!await sharedDialog(`${dateStr} 受け取り予定の注文を【すべてキャンセル】してもよろしいですか？\nこの操作は取り消せません。`, "#333333", true)) {
             return;
         }
 
@@ -2545,14 +2549,14 @@ const app = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message);
+                await sharedDialog(data.message);
                 await this.loadUpcomingReservations(); // 再読み込み
                 if (typeof this.renderMenus === "function") this.renderMenus(); // メニュー側の残数もリフレッシュ
             } else {
-                alert(data.message);
+                await sharedDialog(data.message);
             }
         } catch (e) {
-            alert("通信エラーが発生しました。");
+            await sharedDialog("通信エラーが発生しました。");
         }
     },
 
@@ -2566,14 +2570,14 @@ const app = {
             if (input) {
                 const qty = parseInt(input.value, 10);
                 if (isNaN(qty) || qty < 0) {
-                    alert("数量には0以上の正しい数値を入力してください。");
+                    await sharedDialog("数量には0以上の正しい数値を入力してください。");
                     return;
                 }
                 updatePayloadItems.push({ order_item_id: itemId, quantity: qty });
             }
         }
 
-        if (!confirm("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）")) {
+        if (!await sharedDialog("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）", "#333333", true)) {
             return;
         }
 
@@ -2585,14 +2589,14 @@ const app = {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message);
+                await sharedDialog(data.message);
                 await this.loadUpcomingReservations();
                 if (typeof this.renderMenus === "function") this.renderMenus();
             } else {
-                alert(data.message);
+                await sharedDialog(data.message);
             }
         } catch (e) {
-            alert("更新エラーが発生しました。");
+            await sharedDialog("更新エラーが発生しました。");
         }
     },
 
@@ -2621,7 +2625,7 @@ app.init();
 (function() {
     window.history.pushState(null, null, window.location.href);
     window.addEventListener('popstate', function(e) {
-        alert("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
+        sharedDialog("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
         window.history.pushState(null, null, window.location.href);
     });
 })();
@@ -2634,7 +2638,7 @@ app.init();
             const cartCount = Object.keys(app.state.cart).length;
 
             if (cartCount > 0) {
-                alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                 // カレンダーを元の選択状態に戻すため再同期
                 initOrderCalendar(); 
             } else {
@@ -2758,7 +2762,7 @@ async function initOrderCalendar() {
             onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
-                    alert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                    sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
