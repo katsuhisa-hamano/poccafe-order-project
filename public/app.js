@@ -1435,7 +1435,8 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    if (sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true)) {
+                    const result = sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
+                    if (result) {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
@@ -1450,6 +1451,8 @@ const app = {
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
                         sharedDialog("カートを空にしました。");
+                    } else {
+                        return;
                     }
                 };
                 
@@ -1883,7 +1886,8 @@ const app = {
             return;
         }
 
-        if (!sharedDialog("この内容で注文を確定しますか？", "#333333", true)) return;
+        const result = await sharedDialog("この内容で注文を確定しますか？", "#333333", true);
+        if (!result) return;
 
         // ボタンの二重押し（連打）防止制御
         const submitBtn = document.getElementById('order-submit-btn'); // HTML側の注文確定ボタンのID
