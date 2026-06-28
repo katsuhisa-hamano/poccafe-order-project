@@ -437,7 +437,7 @@ const app = {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
-        if (!email || !password) return sharedAlert("メールアドレスとパスワードを入力してください");
+        if (!email || !password) return await sharedAlert("メールアドレスとパスワードを入力してください");
 
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
@@ -479,16 +479,16 @@ const app = {
 
                 router.go('home'); 
             } else {
-                sharedAlert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
+                await sharedAlert(result.message || "アカウントが見つからないか、パスワードが間違っています。");
             }
         } catch (e) {
-            sharedAlert("ログイン通信に失敗しました");
+            await sharedAlert("ログイン通信に失敗しました");
         }
     },
 
     // ログアウト処理
-    logout() {
-        if (!confirm("ログアウトしますか？")) return;
+    async logout() {
+        if (!await confirm("ログアウトしますか？")) return;
         localStorage.clear();
         this.state.user = { id: null, name: null, email: null, isAdmin: false };
         this.state.adminCustomers = []; // クリア
@@ -507,7 +507,7 @@ const app = {
             password: document.getElementById('reg-password').value
         };
 
-        if(!data.name || !data.email || !data.password) return sharedAlert("必須項目（名前・メール・パスワード）を入力してください");
+        if(!data.name || !data.email || !data.password) return await sharedAlert("必須項目（名前・メール・パスワード）を入力してください");
 
         btn.innerText = "照合中...";
         btn.disabled = true;
@@ -522,16 +522,16 @@ const app = {
             const result = await res.json();
 
             if (res.status === 409) {
-                sharedAlert(`【登録不可】\n${result.message}`);
+                await sharedAlert(`【登録不可】\n${result.message}`);
                 this.closeRegister();
             } else if (res.ok) {
-                sharedAlert("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
+                await sharedAlert("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
                 this.closeRegister();
             } else {
                 throw new Error(result.message || "登録エラー");
             }
         } catch (e) {
-            sharedAlert(e.message || "登録処理中にエラーが発生しました。");
+            await sharedAlert(e.message || "登録処理中にエラーが発生しました。");
         } finally {
             btn.innerText = "認証メールを送る";
             btn.disabled = false;
@@ -543,7 +543,7 @@ const app = {
         const btn = document.getElementById('forgot-submit-btn');
         const email = document.getElementById('forgot-email').value;
 
-        if (!email) return sharedAlert("メールアドレスを入力してください");
+        if (!email) return await sharedAlert("メールアドレスを入力してください");
 
         btn.innerText = "送信中...";
         btn.disabled = true;
@@ -557,13 +557,13 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                sharedAlert("再設定用メールを送信しました。メール内のリンクをご確認ください。");
+                await sharedAlert("再設定用メールを送信しました。メール内のリンクをご確認ください。");
                 this.closeForgotPassword();
             } else {
-                sharedAlert(result.message || "送信に失敗しました。");
+                await sharedAlert(result.message || "送信に失敗しました。");
             }
         } catch(e) {
-            sharedAlert("通信エラーが発生しました。");
+            await sharedAlert("通信エラーが発生しました。");
         } finally {
             btn.innerText = "再設定メールを送る";
             btn.disabled = false;
@@ -575,8 +575,8 @@ const app = {
         const btn = document.getElementById('reset-submit-btn');
         const newPassword = document.getElementById('reset-new-password').value;
 
-        if (!newPassword) return sharedAlert("新しいパスワードを入力してください");
-        if (!this.state.resetToken) return sharedAlert("トークンが無効です。メールのリンクから再度やり初めてください。");
+        if (!newPassword) return await sharedAlert("新しいパスワードを入力してください");
+        if (!this.state.resetToken) return await sharedAlert("トークンが無効です。メールのリンクから再度やり初めてください。");
 
         btn.innerText = "更新中...";
         btn.disabled = true;
@@ -590,14 +590,14 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                sharedAlert("パスワードを更新しました！新しいパスワードでログインしてください。");
+                await sharedAlert("パスワードを更新しました！新しいパスワードでログインしてください。");
                 document.getElementById('reset-modal').classList.add('hidden');
                 window.location.href = window.location.pathname; 
             } else {
-                sharedAlert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
+                await sharedAlert(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
             }
         } catch(e) {
-            sharedAlert("通信エラーが発生しました。");
+            await sharedAlert("通信エラーが発生しました。");
         } finally {
             btn.innerText = "パスワードを更新する";
             btn.disabled = false;
@@ -814,7 +814,7 @@ const app = {
         const tel = telInput.value.trim();
 
         if (!name || !tel) {
-            sharedAlert("顧客名と電話番号の両方を入力してください。");
+            await sharedAlert("顧客名と電話番号の両方を入力してください。");
             return;
         }
 
@@ -827,22 +827,22 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                sharedAlert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。x:${result.x}`);
+                await sharedAlert(`顧客「${name}」様を代理入力用として登録し、Squareに同期しました。x:${result.x}`);
                 nameInput.value = "";
                 telInput.value = "";
                 // リストを再ロード
                 await this.loadAdminCustomersEdit();
             } else {
-                sharedAlert("登録に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedAlert("登録に失敗しました: " + (result.message || "未知のエラー"));
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました: " + e.message);
+            await sharedAlert("通信エラーが発生しました: " + e.message);
         }
     },
 
     // 3. 顧客の削除処理
     async deleteCustomer(customerId, customerName) {
-        if (!confirm(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`)) {
+        if (!await confirm(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`)) {
             return;
         }
 
@@ -855,13 +855,13 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                sharedAlert("顧客情報を削除しました。");
+                await sharedAlert("顧客情報を削除しました。");
                 await this.loadAdminCustomersEdit();
             } else {
-                sharedAlert("削除に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedAlert("削除に失敗しました: " + (result.message || "未知のエラー"));
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました: " + e.message);
+            await sharedAlert("通信エラーが発生しました: " + e.message);
         }
     },
     
@@ -1055,10 +1055,10 @@ const app = {
             if (saveRes.ok) {
                 this.loadAdminMenuList(); // リスト再描画
             } else {
-                sharedAlert("並び替えの保存に失敗しました");
+                await sharedAlert("並び替えの保存に失敗しました");
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました");
+            await sharedAlert("通信エラーが発生しました");
         }
     },
 
@@ -1093,7 +1093,7 @@ const app = {
             availableDays = Array.from(checkedBoxes).map(cb => cb.value);
             
             if (availableDays.length === 0) {
-                sharedAlert("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
+                await sharedAlert("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
                 return;
             }
         }
@@ -1107,14 +1107,14 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                sharedAlert("曜日の販売制限設定を保存しました。");
+                await sharedAlert("曜日の販売制限設定を保存しました。");
                 app.loadAdminMenuList(); // リスト再読み込み
             } else {
-                sharedAlert(`保存失敗: ${result.message}`);
+                await sharedAlert(`保存失敗: ${result.message}`);
             }
         } catch (error) {
             console.error("曜日設定保存エラー:", error);
-            sharedAlert("通信エラーが発生しました。");
+            await sharedAlert("通信エラーが発生しました。");
         }
     },
 
@@ -1131,7 +1131,7 @@ const app = {
         
         const newSquareItemId = selector.value;
         if (!newSquareItemId) {
-            sharedAlert("切り替えるSquare商品を選択してください。");
+            await sharedAlert("切り替えるSquare商品を選択してください。");
             return;
         }
 
@@ -1140,13 +1140,13 @@ const app = {
         const selectedSqItem = catalogItems.find(item => item && item.id === newSquareItemId);
         
         if (!selectedSqItem) {
-            sharedAlert("選択されたSquare商品のデータが見つかりません。");
+            await sharedAlert("選択されたSquare商品のデータが見つかりません。");
             return;
         }
 
         // 3. 実行前の最終確認
         const confirmMessage = `このメニュー項目を Squareの「${selectedSqItem.name}」に変更してよろしいですか？\n\n※注意: 変更を適用すると、この項目に紐づいていた古いバリエーション情報、在庫数、表示フラグはすべてリセットされ、新しい商品のバリエーション構造に書き換わります。`;
-        if (!confirm(confirmMessage)) {
+        if (!await confirm(confirmMessage)) {
             // キャンセルされた場合は現在のDBの状態に戻すためリストを再描画
             await this.loadAdminMenuList();
             return;
@@ -1187,7 +1187,7 @@ const app = {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                sharedAlert(`「${selectedSqItem.name}」への変更が正常にテーブルへ反映されました。`);
+                await sharedAlert(`「${selectedSqItem.name}」への変更が正常にテーブルへ反映されました。`);
                 
                 // 6. 【重要】非同期処理の完了を待ち、画面を最新の状態に強制レンダリング
                 // 登録済みメニュー階層一覧の再取得と再描画
@@ -1197,11 +1197,11 @@ const app = {
                     await this.loadAvailableSquareItems();
                 }
             } else {
-                sharedAlert("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
+                await sharedAlert("データベースの更新に失敗しました: " + (result.message || "未知のエラー"));
                 await this.initMenuEditPage(); // 状態を戻す
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
+            await sharedAlert("通信エラーが発生したため、変更を適用できませんでした: " + e.message);
             await this.initMenuEditPage();
         }
     },
@@ -1229,13 +1229,13 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                sharedAlert("バリエーション設定を更新しました。");
+                await sharedAlert("バリエーション設定を更新しました。");
                 this.loadAdminMenuList();
             } else {
-                sharedAlert("更新に失敗しました: " + result.message);
+                await sharedAlert("更新に失敗しました: " + result.message);
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました");
+            await sharedAlert("通信エラーが発生しました");
         }
     },
 
@@ -1287,7 +1287,7 @@ const app = {
     // 4. 【重要】最下部から新規ITEMを追加したあとの処理
     async addNewItemFromSquare() {
         const selector = document.getElementById('new-square-item-selector');
-        if (!selector || !selector.value) return sharedAlert("追加するSquare商品を選択してください");
+        if (!selector || !selector.value) return await sharedAlert("追加するSquare商品を選択してください");
 
         const selectedSqItem = this.state.availableSquareItems.find(item => item.id === selector.value);
         if (!selectedSqItem) return;
@@ -1312,7 +1312,7 @@ const app = {
 
             const result = await res.json();
             if (res.ok && result.success) {
-                sharedAlert(`「${selectedSqItem.name}」をメニューに追加しました。`);
+                await sharedAlert(`「${selectedSqItem.name}」をメニューに追加しました。`);
                 
                 // ★追加が完了したら、未登録リストを再ロードしてセレクターから今追加した商品を消去する
                 await this.loadAvailableSquareItems();
@@ -1320,10 +1320,10 @@ const app = {
                 // 階層一覧リストを更新
                 await this.loadAdminMenuList();
             } else {
-                sharedAlert("追加に失敗しました: " + result.message);
+                await sharedAlert("追加に失敗しました: " + result.message);
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました");
+            await sharedAlert("通信エラーが発生しました");
         }
     },
 
@@ -1435,7 +1435,7 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    if (confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
+                    if (await confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
@@ -1449,7 +1449,7 @@ const app = {
                         }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
-                        sharedAlert("カートを空にしました。");
+                        await sharedAlert("カートを空にしました。");
                     }
                 };
                 
@@ -1609,7 +1609,7 @@ const app = {
         this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
         this.state.payload.items = this.state.cart
 
-        if(!html) return sharedAlert("商品を選択してください");
+        if(!html) return await sharedAlert("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
@@ -1781,7 +1781,7 @@ const app = {
         const orderDate = dateElement ? dateElement.value : '';
         
         if (!orderDate) {
-            sharedAlert("受取日を選択してください。");
+            await sharedAlert("受取日を選択してください。");
             return;
         }
 
@@ -1802,7 +1802,7 @@ const app = {
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
-            sharedAlert("サイズ・種類を選択してください。");
+            await sharedAlert("サイズ・種類を選択してください。");
             return;
         }
 
@@ -1846,7 +1846,7 @@ const app = {
         this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
         this.state.payload.creater_name = this.state.user.name;
 
-        sharedAlert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
+        await sharedAlert(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
@@ -1859,13 +1859,13 @@ const app = {
     async submitOrder() {
         // 1. 基本バリデーションチェック
         if (!app.state.selectedDate) {
-            sharedAlert("受取日を選択してください。");
+            await sharedAlert("受取日を選択してください。");
             return;
         }
 
         const cartKeys = Object.keys(app.state.cart);
         if (cartKeys.length === 0) {
-            sharedAlert("カートに商品が入っていません。");
+            await sharedAlert("カートに商品が入っていません。");
             return;
         }
 
@@ -1878,7 +1878,7 @@ const app = {
         }
 
         if (!orderCustomerId) {
-            sharedAlert("注文ユーザーが特定できません。再度ログインしてください。");
+            await sharedAlert("注文ユーザーが特定できません。再度ログインしてください。");
             router.go('login');
             return;
         }
@@ -1906,7 +1906,7 @@ const app = {
 
             if (response.ok && result.success) {
                 // 5. 注文成功時のクリーンアップ処理
-                sharedAlert("注文が確定しました！ありがとうございます。");
+                await sharedAlert("注文が確定しました！ありがとうございます。");
                 
                 app.state.cart = {};          // カートの状態を空にする
                 app.state.payload = {
@@ -1929,11 +1929,11 @@ const app = {
                 }
             } else {
                 // サーバーエラーや在庫切れなどのエラーハンドリング
-                sharedAlert(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
+                await sharedAlert(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
             }
         } catch (error) {
             console.error("注文送信エラー:", error);
-            sharedAlert("通信エラーが発生しました。電波状況をご確認の上、再度お試しください。");
+            await sharedAlert("通信エラーが発生しました。電波状況をご確認の上、再度お試しください。");
         } finally {
             // ボタン状態の復元
             if (submitBtn) {
@@ -2086,12 +2086,12 @@ const app = {
 
             const data = await res.json();
             if (data.success) {
-                sharedAlert("休日および注文制限設定を細分化して保存しました。");
+                await sharedAlert("休日および注文制限設定を細分化して保存しました。");
             } else {
-                sharedAlert("保存に失敗しました: " + data.message);
+                await sharedAlert("保存に失敗しました: " + data.message);
             }
         } catch (err) {
-            sharedAlert("通信エラーが発生しました: " + err.message);
+            await sharedAlert("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -2220,7 +2220,7 @@ const app = {
         const quantity = parseInt(qtyInput.value, 10);
 
         if (isNaN(quantity) || quantity < 0) {
-            sharedAlert("正しいうち数（0以上の数値）を入力してください。");
+            await sharedAlert("正しいうち数（0以上の数値）を入力してください。");
             return;
         }
 
@@ -2240,10 +2240,10 @@ const app = {
                 // 再読み込みして、残り数や「当日値に変更中」のバッジをリフレッシュ
                 app.loadAdminOrders();
             } else {
-                sharedAlert("更新に失敗しました: " + data.message);
+                await sharedAlert("更新に失敗しました: " + data.message);
             }
         } catch (err) {
-            sharedAlert("通信エラーが発生しました: " + err.message);
+            await sharedAlert("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -2297,7 +2297,7 @@ const app = {
             remaining = parseInt(document.getElementById('new-stock-group-remaining').value, 10);
         }
 
-        if (!name || isNaN(remaining)) return sharedAlert("共有在庫名とデフォルト在庫数を正しく入力してください");
+        if (!name || isNaN(remaining)) return await sharedAlert("共有在庫名とデフォルト在庫数を正しく入力してください");
 
         try {
             const res = await fetch('/api/admin/stock-groups', {
@@ -2311,14 +2311,14 @@ const app = {
                     document.getElementById('new-stock-group-name').value = '';
                     document.getElementById('new-stock-group-remaining').value = '';
                 }
-                sharedAlert(result.message);
+                await sharedAlert(result.message);
                 // データの再ロードと再描画
                 await this.initMenuEditPage();
             } else {
-                sharedAlert(result.message);
+                await sharedAlert(result.message);
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました");
+            await sharedAlert("通信エラーが発生しました");
         }
     },
 
@@ -2337,10 +2337,10 @@ const app = {
                 // UIと数値を最新状態に同期するためにメニュー編集面全体を再ビルド
                 await this.initMenuEditPage();
             } else {
-                sharedAlert(result.message);
+                await sharedAlert(result.message);
             }
         } catch (e) {
-            sharedAlert("在庫設定の更新に失敗しました");
+            await sharedAlert("在庫設定の更新に失敗しました");
         }
     },
 
@@ -2418,7 +2418,7 @@ const app = {
         const actionText = nextStatus === 1 ? "【受領】" : "【未受領（取り消し）】";
         const confirmMessage = `${userName} 様の注文ID: ${orderId} を${actionText}状態に変更します。よろしいですか？`;
         
-        if (!confirm(confirmMessage)) return;
+        if (!await confirm(confirmMessage)) return;
 
         try {
             const res = await fetch('/api/admin/reception-list/toggle', {
@@ -2432,10 +2432,10 @@ const app = {
                 // リストを最新状態に再リロード
                 await this.loadAdminOrders();
             } else {
-                sharedAlert(result.message);
+                await sharedAlert(result.message);
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました。");
+            await sharedAlert("通信エラーが発生しました。");
         }
     },
 
@@ -2533,7 +2533,7 @@ const app = {
 
     // 注文全体のキャンセル（確認ダイアログ付き）
     async cancelEntireOrder(orderId, dateStr) {
-        if (!confirm(`${dateStr} 受け取り予定の注文を【すべてキャンセル】してもよろしいですか？\nこの操作は取り消せません。`)) {
+        if (!await confirm(`${dateStr} 受け取り予定の注文を【すべてキャンセル】してもよろしいですか？\nこの操作は取り消せません。`)) {
             return;
         }
 
@@ -2545,14 +2545,14 @@ const app = {
             });
             const data = await res.json();
             if (data.success) {
-                sharedAlert(data.message);
+                await sharedAlert(data.message);
                 await this.loadUpcomingReservations(); // 再読み込み
                 if (typeof this.renderMenus === "function") this.renderMenus(); // メニュー側の残数もリフレッシュ
             } else {
-                sharedAlert(data.message);
+                await sharedAlert(data.message);
             }
         } catch (e) {
-            sharedAlert("通信エラーが発生しました。");
+            await sharedAlert("通信エラーが発生しました。");
         }
     },
 
@@ -2566,14 +2566,14 @@ const app = {
             if (input) {
                 const qty = parseInt(input.value, 10);
                 if (isNaN(qty) || qty < 0) {
-                    sharedAlert("数量には0以上の正しい数値を入力してください。");
+                    await sharedAlert("数量には0以上の正しい数値を入力してください。");
                     return;
                 }
                 updatePayloadItems.push({ order_item_id: itemId, quantity: qty });
             }
         }
 
-        if (!confirm("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）")) {
+        if (!await confirm("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）")) {
             return;
         }
 
@@ -2585,14 +2585,14 @@ const app = {
             });
             const data = await res.json();
             if (data.success) {
-                sharedAlert(data.message);
+                await sharedAlert(data.message);
                 await this.loadUpcomingReservations();
                 if (typeof this.renderMenus === "function") this.renderMenus();
             } else {
-                sharedAlert(data.message);
+                await sharedAlert(data.message);
             }
         } catch (e) {
-            sharedAlert("更新エラーが発生しました。");
+            await sharedAlert("更新エラーが発生しました。");
         }
     },
 
@@ -2621,7 +2621,7 @@ app.init();
 (function() {
     window.history.pushState(null, null, window.location.href);
     window.addEventListener('popstate', function(e) {
-        sharedAlert("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
+        await sharedAlert("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
         window.history.pushState(null, null, window.location.href);
     });
 })();
@@ -2634,7 +2634,7 @@ app.init();
             const cartCount = Object.keys(app.state.cart).length;
 
             if (cartCount > 0) {
-                sharedAlert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                await sharedAlert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                 // カレンダーを元の選択状態に戻すため再同期
                 initOrderCalendar(); 
             } else {
@@ -2758,7 +2758,7 @@ async function initOrderCalendar() {
             onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
-                    sharedAlert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                    await sharedAlert("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
