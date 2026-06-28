@@ -1909,7 +1909,7 @@ const app = {
 
             if (response.ok && result.success) {
                 // 5. 注文成功時のクリーンアップ処理
-                await sharedDialog("注文が確定しました！ありがとうございます。");
+                sharedDialog("注文が確定しました！ありがとうございます。");
                 
                 app.state.cart = {};          // カートの状態を空にする
                 app.state.payload = {
