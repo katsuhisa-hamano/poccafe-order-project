@@ -1925,11 +1925,12 @@ const app = {
                 app.updateCartBar();          // 下部のカートバーUIをリフレッシュ
 
                 // 必要に応じて、注文履歴画面などへ遷移させる
-                if (app.state.user.isAdmin) {
+                router.go('home'); // 注文完了後はホーム画面に戻す（管理者・一般ユーザー共通）
+                /*if (app.state.user.isAdmin) {
                     router.go('admin');        // 管理者ならダッシュボードへ戻す
                 } else {
                     router.go('history');      // 一般ユーザーなら注文履歴（history）へ
-                }
+                }*/
             } else {
                 // サーバーエラーや在庫切れなどのエラーハンドリング
                 await sharedDialog(`注文に失敗しました:\n${result.message || '未知のエラーが発生しました。'}`);
