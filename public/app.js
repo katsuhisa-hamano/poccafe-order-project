@@ -1435,7 +1435,7 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    const result = sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
+                    const result = await sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
                     if (result) {
                         app.state.cart = {}; 
                         app.state.payload = {
