@@ -1435,8 +1435,8 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    const result = sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
-                    if (result) {
+                    if(confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
+                    
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
@@ -1451,8 +1451,6 @@ const app = {
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
                         sharedDialog("カートを空にしました。");
-                    } else {
-                        return;
                     }
                 };
                 
