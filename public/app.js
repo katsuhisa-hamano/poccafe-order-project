@@ -1609,7 +1609,7 @@ const app = {
         this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
         this.state.payload.items = this.state.cart
 
-        if(!html) return await sharedDialog("商品を選択してください");
+        if(!html) return sharedDialog("商品を選択してください");
         content.innerHTML = html;
         const modal = document.getElementById('modal');
         if (modal) modal.classList.remove('hidden');
@@ -1781,7 +1781,7 @@ const app = {
         const orderDate = dateElement ? dateElement.value : '';
         
         if (!orderDate) {
-            await sharedDialog("受取日を選択してください。");
+            sharedDialog("受取日を選択してください。");
             return;
         }
 
@@ -1802,7 +1802,7 @@ const app = {
 
         const selectedVar = document.querySelector('input[name="square_variation"]:checked');
         if (!selectedVar) {
-            await sharedDialog("サイズ・種類を選択してください。");
+            sharedDialog("サイズ・種類を選択してください。");
             return;
         }
 
@@ -1846,7 +1846,7 @@ const app = {
         this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
         this.state.payload.creater_name = this.state.user.name;
 
-        await sharedDialog(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
+        sharedDialog(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
@@ -2086,12 +2086,12 @@ const app = {
 
             const data = await res.json();
             if (data.success) {
-                await sharedDialog("休日および注文制限設定を細分化して保存しました。");
+                sharedDialog("休日および注文制限設定を細分化して保存しました。");
             } else {
-                await sharedDialog("保存に失敗しました: " + data.message);
+                sharedDialog("保存に失敗しました: " + data.message);
             }
         } catch (err) {
-            await sharedDialog("通信エラーが発生しました: " + err.message);
+            sharedDialog("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -2621,7 +2621,7 @@ app.init();
 (function() {
     window.history.pushState(null, null, window.location.href);
     window.addEventListener('popstate', function(e) {
-        await sharedDialog("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
+        sharedDialog("この画面ではブラウザの「戻る」ボタンはご利用いただけません。アプリ内のボタン操作をお願いいたします。");
         window.history.pushState(null, null, window.location.href);
     });
 })();
@@ -2634,7 +2634,7 @@ app.init();
             const cartCount = Object.keys(app.state.cart).length;
 
             if (cartCount > 0) {
-                await sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
+                sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                 // カレンダーを元の選択状態に戻すため再同期
                 initOrderCalendar(); 
             } else {
