@@ -437,7 +437,7 @@ const app = {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
-        if (!email || !password) return await sharedDialog("メールアドレスとパスワードを入力してください");
+        if (!email || !password) return sharedDialog("メールアドレスとパスワードを入力してください");
 
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
