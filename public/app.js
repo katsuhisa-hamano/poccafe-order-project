@@ -488,13 +488,14 @@ const app = {
 
     // ログアウト処理
     async logout() {
-        if (!await sharedDialog("ログアウトしますか？", "#333333", true)) return;
-        localStorage.clear();
-        this.state.user = { id: null, name: null, email: null, isAdmin: false };
-        this.state.adminCustomers = []; // クリア
-        this.state.cart = {};
-        this.updateCartBar();
-        router.go('login');
+        if (await sharedDialog("ログアウトしますか？", "#333333", true)) {
+            localStorage.clear();
+            this.state.user = { id: null, name: null, email: null, isAdmin: false };
+            this.state.adminCustomers = []; // クリア
+            this.state.cart = {};
+            this.updateCartBar();
+            router.go('login');
+        }
     },
 
     // 新規登録申請
