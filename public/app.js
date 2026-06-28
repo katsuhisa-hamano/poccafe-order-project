@@ -1435,8 +1435,8 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    if(confirm("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）")) {
-                    
+                    const result = sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
+                    if (result) {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
