@@ -82,8 +82,11 @@ function sharedDialog(message, textColor = '#333333', isConfirm = false) {
         color: '#ff3b30' // iOS風の赤色
       });
       cancelButton.onclick = function() {
+        overlay.style.display = 'none';
         overlay.remove();
-        resolve(false); // ★false（キャンセル）を返す
+        setTimeout(() => {
+        resolve(false);
+        }, 50);
       };
       buttonContainer.appendChild(cancelButton);
     }
@@ -96,8 +99,11 @@ function sharedDialog(message, textColor = '#333333', isConfirm = false) {
       color: '#ffffff'
     });
     okButton.onclick = function() {
+      overlay.style.display = 'none';
       overlay.remove();
-      resolve(true); // ★true（OK）を返す
+      setTimeout(() => {
+        resolve(true); 
+      }, 50);
     };
     buttonContainer.appendChild(okButton);
 
