@@ -437,7 +437,7 @@ const app = {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
-        if (!email || !password) return alert("メールアドレスとパスワードを入力してください");
+        if (!email || !password) return await sharedDialog("メールアドレスとパスワードを入力してください");
 
         try {
             const res = await fetch(`/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
@@ -1435,7 +1435,7 @@ const app = {
                 
                 clearBtn.onclick = (e) => {
                     e.stopPropagation(); 
-                    if (await sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true)) {
+                    if (sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true)) {
                         app.state.cart = {}; 
                         app.state.payload = {
                             customer_id: null,
@@ -1449,7 +1449,7 @@ const app = {
                         }
                         app.updateCartBar(); 
                         app.renderAdminCustomerSelector(); // ★ 空にしたら注文者セレクターの状態（ロック解除）を再描画
-                        await sharedDialog("カートを空にしました。");
+                        sharedDialog("カートを空にしました。");
                     }
                 };
                 
