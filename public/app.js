@@ -1433,7 +1433,7 @@ const app = {
                 clearBtn.innerText = 'カートを空にする';
                 clearBtn.className = 'text-xs text-red-200 underline font-medium hover:text-red-300 ml-4 focus:outline-none transition z-50 cursor-pointer';
                 
-                clearBtn.onclick = (e) => {
+                clearBtn.onclick = async (e) => {
                     e.stopPropagation(); 
                     const result = await sharedDialog("カートの商品をすべて削除してもよろしいですか？\n（選択していた受取日・注文者も変更できるようになります）", "#333333", true) 
                     if (result) {
