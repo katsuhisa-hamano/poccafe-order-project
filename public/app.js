@@ -433,7 +433,7 @@ const app = {
     },
 
     // ログイン処理
-    async login() {
+    login() {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
