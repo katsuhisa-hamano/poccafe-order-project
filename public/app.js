@@ -2616,6 +2616,56 @@ const app = {
             input.value = 0; // 数量を0にして、通常の変更確定を走らせる
             await this.submitOrderChanges(orderId, [itemId]);
         }
+    },
+    
+    async printToMpop() {
+        // 1. 選択されている日付を取得
+        const targetDate = document.getElementById('stats-target-date').value;
+        if (!targetDate) return alert("日付を指定してください。");
+
+        try {
+            // 2. バックエンドAPIから当日の受領リスト（予約内容）を取得
+            const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
+            const result = await res.json();
+            
+            if (!result.success || !result.list || result.list.length === 0) {
+                return alert("印刷する予約データがありません。");
+            }
+
+            // 3. スター精密用の印字テキスト（ESC/POS もしくは StarPRNTテキスト）を構築
+            let textData = "";
+            textData += `=== 予約受領リスト ===\n`;
+            textData += `対象日: ${targetDate}\n`;
+            textData += `------------------------\n\n`;
+
+            result.list.forEach(order => {
+                const status = order.received_status === 1 ? "[受領済]" : "[未受領]";
+                textData += `${status} ${order.user_name} 様\n`;
+                
+                order.items.forEach(item => {
+                    textData += `  ・${item.name} x ${item.quantity}\n`;
+                });
+                textData += `合計金額: ￥${order.total_price.toLocaleString()}\n`;
+                textData += `------------------------\n`;
+            });
+            
+            textData += `\n\n\n\n`; // カット手前の余白
+
+            // 4. PassPRNT アプリケーションにデータを送るためのURLスキームを作成
+            // ※ mPOP (58mm幅) を想定
+            const base64Text = btoa(unescape(encodeURIComponent(textData)));
+            const passPrntUrl = `starpassprnt://v1/print/utf8?` + 
+                `size=2inch` +                  // 58mm幅 (mPOP標準)
+                `&text=${encodeURIComponent(textData)}` + 
+                `&cut=partial`;                 // 部分カット
+
+            // 5. アプリケーションをキックして印刷を実行
+            window.location.href = passPrntUrl;
+
+        } catch (err) {
+            console.error("印刷エラー:", err);
+            alert("印刷データの取得または送信に失敗しました: " + err.message);
+        }
     }
 };
 
