@@ -79,12 +79,14 @@ const adminView = {
                             <span class="w-3 h-3 bg-blue-600 rounded-full mr-2"></span>
                             当日注文受領チェックリスト
                         </h2>
-                        <button onclick="app.printToMpop()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
-                            伝票印刷
-                        </button>
-                        <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
-                            同期リフレッシュ
-                        </button>
+                        <div class="flex justify-end space-x-2">
+                            <button onclick="app.printToMpop()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                                🖨️ mPOPで当日印刷
+                            </button>
+                            <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
+                                同期リフレッシュ
+                            </button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-sm text-gray-700">
