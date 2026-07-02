@@ -80,7 +80,7 @@ const adminView = {
                             当日注文受領チェックリスト
                         </h2>
                         <div class="flex justify-end space-x-2">
-                            <button onclick="app.printAllOrdersSequentially()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                            <button onclick="app.printHelloWorldTest()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
@@ -2616,6 +2616,34 @@ const app = {
             input.value = 0; // 数量を0にして、通常の変更確定を走らせる
             await this.submitOrderChanges(orderId, [itemId]);
         }
+    },
+
+    /**
+     * 【超シンプル版】PassPRNTテスト印字関数
+     * オプションパラメータをすべて排除し、テキストデータのみを送信してクラッシュを防ぎます
+     */
+    async printHelloWorldTest() {
+        try {
+            // 1. 印字したい文字列（最後に紙送りの改行を追加）
+            const textData = "Hello World!\n\n\n\n";
+
+            // 2. 文字列（UTF-8）を安全にBase64に変換
+            const utf8Bytes = new TextEncoder().encode(textData);
+            const base64Text = btoa(String.fromCharCode(...utf8Bytes));
+
+            // 3. 【重要】エラーの原因となる「size」や「pd(cut)」などのパラメータをすべて削除
+            // パスもオプションも一切挟まず、?text= だけを渡すのが最も安全なURL形式です
+            const passPrntUrl = `starpassprnt://?text=${encodeURIComponent(base64Text)}`;
+
+            console.log("テスト印字URL:", passPrntUrl);
+
+            // 4. PassPRNTアプリを起動
+            window.location.href = passPrntUrl;
+
+        } catch (err) {
+            console.error("テスト印字エラー:", err);
+            alert("プログラムエラー: " + err.message);
+        }
     }
 };
 
@@ -2796,100 +2824,3 @@ async function initOrderCalendar() {
         console.error("カレンダー初期化エラー:", err);
     }
 }
-
-/**
- * 【印刷専用の共通関数】
- * 引数で渡された1件の注文オブジェクトをPassPRNT形式に整形して送信する
- */
-app.printSingleOrder = function(order) {
-    if (!order) return;
-
-    try {
-        // 1. 58mm幅(mPOP)に最適化したレシートテキストの構築
-        let textData = "";
-        textData += `==== 注文伝票 ====\n`;
-        textData += `注文ID: ${order.id || order.order_id || '---'}\n`;
-        textData += `お名前: ${order.user_name} 様\n`;
-        textData += `--------------------------------\n`;
-
-        // 商品明細の展開
-        if (order.items && order.items.length > 0) {
-            order.items.forEach(item => {
-                textData += `${item.name}\n`;
-                textData += `         x ${item.quantity}\n`;
-            });
-        }
-        
-        textData += `--------------------------------\n`;
-        textData += `合計金額: ￥${(order.total_price || order.total_amount || 0).toLocaleString()}\n`;
-        textData += `受領状態: ${order.received_status === 1 ? '【受領済】' : '【未受領】'}\n`;
-        textData += `--------------------------------\n`;
-        textData += `\n\n\n\n`; // カッター位置までの余白
-
-        // 2. 日本語文字列を安全にBase64に変換
-        const utf8Bytes = new TextEncoder().encode(textData);
-        const base64Text = btoa(String.fromCharCode(...utf8Bytes));
-
-        // 3. パスを挟まない安全なURLスキームを生成
-        const passPrntUrl = `starpassprnt://?` + 
-            `size=2inch` + 
-            `&pd=partial` + 
-            `&text=${encodeURIComponent(base64Text)}`;
-
-        // 4. PassPRNTアプリを起動
-        window.location.href = passPrntUrl;
-
-    } catch (err) {
-        console.error("個別印刷エラー:", err);
-        alert("印字データの生成に失敗しました: " + err.message);
-    }
-};
-
-/**
- * 当日の全注文データを取得し、人間の確認を挟みながら安全に順次印刷する
- */
-app.printAllOrdersSequentially = async function() {
-    const targetDate = document.getElementById('stats-target-date').value;
-    if (!targetDate) return alert("日付を指定してください。");
-
-    try {
-        const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
-        const result = await res.json();
-        
-        if (!result.success || !result.list || result.list.length === 0) {
-            return alert("印刷する予約データがありません。");
-        }
-
-        // 💡 注文ごとに人間が「OK」を押すことで、OSの連続アプリ起動制限を完全に回避します
-        let index = 1;
-        for (const order of result.list) {
-            
-            // 1件ごとにポップアップで確認を挟む（これで処理が一時停止し、PassPRNTのクラッシュを防ぐ）
-            const next = confirm(`[${index} / ${result.list.length} 件目]\n${order.user_name} 様の伝票を印刷しますか？\n\n※「OK」を押すとPassPRNTが開きます。印刷が終わったらブラウザに戻ってください。`);
-            
-            if (!next) {
-                const cancelAll = confirm("印刷をここで中断しますか？\n（キャンセルを押すとこの件数をスキップして次へ進みます）");
-                if (cancelAll) {
-                    alert("一括印刷を中断しました。");
-                    break;
-                }
-                index++;
-                continue;
-            }
-            
-            // 共通印刷関数を実行
-            app.printSingleOrder(order);
-
-            // 💡 アプリが切り替わって戻ってくるまでの安全なインターバルを長めに確保（3秒）
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            
-            index++;
-        }
-
-        alert("印刷処理の確認ループが終了しました。");
-
-    } catch (err) {
-        console.error("一括順次印刷エラー:", err);
-        alert("印刷処理の途中でエラーが発生しました: " + err.message);
-    }
-};
