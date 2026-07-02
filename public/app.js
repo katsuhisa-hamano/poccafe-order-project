@@ -81,7 +81,7 @@ const adminView = {
                         </h2>
                         <div class="flex justify-end space-x-2">
                             <a href="#" id="print">PRINT</a>
-                            <button onclick="app.printHelloWorldTest()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                            <button onclick="createURI()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
@@ -2618,21 +2618,6 @@ const app = {
             await this.submitOrderChanges(orderId, [itemId]);
         }
     },
-
-    /**
-     * 【超シンプル版】PassPRNTテスト印字関数
-     * オプションパラメータをすべて排除し、テキストデータのみを送信してクラッシュを防ぎます
-     */
-    async printHelloWorldTest() {
-      let passprnt_uri = "starpassprnt://v1/print/nopreview?";
-
-      passprnt_uri = passprnt_uri + "back=" + encodeURIComponent(window.location.href);
-
-      passprnt_uri = passprnt_uri + "&html=" + encodeURIComponent("<html><head>...</body></html>");
-
-      var target = document.getElementById("print");
-      target.href = passprnt_uri;
-    }
 };
 
 // =========================================================
@@ -2811,4 +2796,17 @@ async function initOrderCalendar() {
     } catch (err) {
         console.error("カレンダー初期化エラー:", err);
     }
+}
+
+var passprnt_uri;
+
+function createURI() {
+      passprnt_uri = "starpassprnt://v1/print/nopreview?";
+
+      passprnt_uri = passprnt_uri + "back=" + encodeURIComponent(window.location.href);
+
+      passprnt_uri = passprnt_uri + "&html=" + encodeURIComponent("<html><head>...</body></html>");
+
+      var target = document.getElementById("print");
+      target.href = passprnt_uri;
 }
