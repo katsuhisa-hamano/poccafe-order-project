@@ -2633,7 +2633,6 @@ const app = {
             }
 
             // 3. mPOP（58mmレジロール紙）用の印字テキストを構築
-            // ※ 58mm幅は全角16文字、半角32文字程度が目安です
             let textData = "";
             textData += `=== 当日予約受領リスト ===\n`;
             textData += `対象日: ${targetDate}\n`;
@@ -2650,23 +2649,22 @@ const app = {
                 textData += `--------------------------------\n`;
             });
             
-            textData += `\n\n\n\n`; // 印字後にカッターまで送り出すための余白
+            textData += `\n\n\n\n`; // 紙をカッターまで送り出すための余白
 
-            // 4. PassPRNTが認識できる正しいBase64エンコード処理
-            // 日本語（UTF-8）を正しくBase64化するJavascriptの定石処理です
+            // 4. 日本語文字列（UTF-8）をPassPRNT用のBase64に変換する定石処理
             const utf8Bytes = new TextEncoder().encode(textData);
             const base64Text = btoa(String.fromCharCode(...utf8Bytes));
 
-            // 5. PassPRNTの正しいURLスキーム（passthroughパス）を生成
-            // size=2inch（mPOPの58mm幅）、pdf=一文字ずつカット（partial）
-            const passPrntUrl = `starpassprnt://v1/print/passthrough?` + 
-                `size=2inch` + 
-                `&pd=partial` + 
-                `&text=${encodeURIComponent(base64Text)}`;
+            // 5. 【修正】エラーの原因となる「v1/print/...」パスを完全に削除
+            // パスを挟まず、直接「?」からパラメータを繋ぐのが現行の確実な記述法です
+            const passPrntUrl = `starpassprnt://?` + 
+                `size=2inch` +                  // mPOPの58mm幅を指定
+                `&pd=partial` +                 // 部分カット指定
+                `&text=${encodeURIComponent(base64Text)}`; // Base64化したテキスト
 
-            console.log("PassPRNTアプリを起動します:", passPrntUrl);
+            console.log("PassPRNT起動URL:", passPrntUrl);
 
-            // 6. PassPRNTアプリを呼び出して印刷を実行
+            // 6. PassPRNTアプリを呼び出し
             window.location.href = passPrntUrl;
 
         } catch (err) {
