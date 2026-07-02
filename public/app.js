@@ -47,9 +47,6 @@ const adminView = {
                                 <label class="text-xs font-bold text-gray-500">表示日:</label>
                                 <input type="date" id="stats-target-date" onchange="app.loadAdminOrders()" class="bg-gray-50 p-2.5 rounded-xl text-sm font-bold border border-gray-200 focus:outline-none" value=${todayStr}>
                             </div>
-                            <button onclick="app.printToMpop()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
-                                伝票印刷
-                            </button>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
                                 同期リフレッシュ
                             </button>
@@ -82,6 +79,9 @@ const adminView = {
                             <span class="w-3 h-3 bg-blue-600 rounded-full mr-2"></span>
                             当日注文受領チェックリスト
                         </h2>
+                        <button onclick="app.printToMpop()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                            伝票印刷
+                        </button>
                         <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
                             同期リフレッシュ
                         </button>
