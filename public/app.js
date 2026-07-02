@@ -80,6 +80,7 @@ const adminView = {
                             当日注文受領チェックリスト
                         </h2>
                         <div class="flex justify-end space-x-2">
+                            <a href="#" id="print">PRINT</a>
                             <button onclick="app.printHelloWorldTest()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
@@ -2623,27 +2624,14 @@ const app = {
      * オプションパラメータをすべて排除し、テキストデータのみを送信してクラッシュを防ぎます
      */
     async printHelloWorldTest() {
-        try {
-            // 1. 印字したい文字列（最後に紙送りの改行を追加）
-            const textData = "Hello World!\n\n\n\n";
+      let passprnt_uri = "starpassprnt://v1/print/nopreview?";
 
-            // 2. 文字列（UTF-8）を安全にBase64に変換
-            const utf8Bytes = new TextEncoder().encode(textData);
-            const base64Text = btoa(String.fromCharCode(...utf8Bytes));
+      passprnt_uri = passprnt_uri + "back=" + encodeURIComponent(window.location.href);
 
-            // 3. 【重要】エラーの原因となる「size」や「pd(cut)」などのパラメータをすべて削除
-            // パスもオプションも一切挟まず、?text= だけを渡すのが最も安全なURL形式です
-            const passPrntUrl = `starpassprnt://?text=${encodeURIComponent(base64Text)}`;
+      passprnt_uri = passprnt_uri + "&html=" + encodeURIComponent("<html><head>...</body></html>");
 
-            console.log("テスト印字URL:", passPrntUrl);
-
-            // 4. PassPRNTアプリを起動
-            window.location.href = passPrntUrl;
-
-        } catch (err) {
-            console.error("テスト印字エラー:", err);
-            alert("プログラムエラー: " + err.message);
-        }
+      var target = document.getElementById("print");
+      target.href = passprnt_uri;
     }
 };
 
