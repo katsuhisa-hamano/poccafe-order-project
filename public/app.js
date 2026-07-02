@@ -2616,61 +2616,6 @@ const app = {
             input.value = 0; // 数量を0にして、通常の変更確定を走らせる
             await this.submitOrderChanges(orderId, [itemId]);
         }
-    },
-
-    async printToMpop() {
-        // 1. 選択されている日付を取得
-        const targetDate = document.getElementById('stats-target-date').value;
-        if (!targetDate) return alert("日付を指定してください。");
-
-        try {
-            // 2. バックエンドAPIから当日の受領リスト（予約内容）を取得
-            const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
-            const result = await res.json();
-            
-            if (!result.success || !result.list || result.list.length === 0) {
-                return alert("印刷する予約データがありません。");
-            }
-
-            // 3. mPOP（58mmレジロール紙）用の印字テキストを構築
-            let textData = "";
-            textData += `=== 当日予約受領リスト ===\n`;
-            textData += `対象日: ${targetDate}\n`;
-            textData += `--------------------------------\n\n`;
-
-            result.list.forEach(order => {
-                const status = order.received_status === 1 ? "[受領]" : "[未受]";
-                textData += `${status} ${order.user_name} 様\n`;
-                
-                order.items.forEach(item => {
-                    textData += `  ・${item.name} x ${item.quantity}\n`;
-                });
-                textData += `  合計金額: ￥${order.total_price.toLocaleString()}\n`;
-                textData += `--------------------------------\n`;
-            });
-            
-            textData += `\n\n\n\n`; // 紙をカッターまで送り出すための余白
-
-            // 4. 日本語文字列（UTF-8）をPassPRNT用のBase64に変換する定石処理
-            const utf8Bytes = new TextEncoder().encode(textData);
-            const base64Text = btoa(String.fromCharCode(...utf8Bytes));
-
-            // 5. 【修正】エラーの原因となる「v1/print/...」パスを完全に削除
-            // パスを挟まず、直接「?」からパラメータを繋ぐのが現行の確実な記述法です
-            const passPrntUrl = `starpassprnt://?` + 
-                `size=2inch` +                  // mPOPの58mm幅を指定
-                `&pd=partial` +                 // 部分カット指定
-                `&text=${encodeURIComponent(base64Text)}`; // Base64化したテキスト
-
-            console.log("PassPRNT起動URL:", passPrntUrl);
-
-            // 6. PassPRNTアプリを呼び出し
-            window.location.href = passPrntUrl;
-
-        } catch (err) {
-            console.error("PassPRNT印刷エラー:", err);
-            alert("印刷データの処理に失敗しました: " + err.message);
-        }
     }
 };
 
@@ -2850,4 +2795,102 @@ async function initOrderCalendar() {
     } catch (err) {
         console.error("カレンダー初期化エラー:", err);
     }
+
+    // 💡 指定したミリ秒だけ処理を一時停止させるユーティリティ（連続起動によるPassPRNTのバグ防止用）
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    /**
+     * 【印刷専用の共通関数】
+     * 引数で渡された1件の注文オブジェクトをPassPRNT形式に整形して送信する
+     * @param {Object} order - 注文データオブジェクト
+     */
+    app.printSingleOrder = function(order) {
+        if (!order) return;
+
+        try {
+            // 1. 58mm幅(mPOP)に最適化したレシートテキストの構築
+            let textData = "";
+            textData += `==== 注文伝票 ====\n`;
+            textData += `注文ID: ${order.id || order.order_id || '---'}\n`;
+            textData += `お名前: ${order.user_name} 様\n`;
+            textData += `--------------------------------\n`;
+
+            // 商品明細の展開
+            if (order.items && order.items.length > 0) {
+                order.items.forEach(item => {
+                    textData += `${item.name}\n`;
+                    textData += `         x ${item.quantity}\n`; // 数量を右側に寄せて見やすく
+                });
+            }
+            
+            textData += `--------------------------------\n`;
+            textData += `合計金額: ￥${(order.total_price || order.total_amount || 0).toLocaleString()}\n`;
+            textData += `受領状態: ${order.received_status === 1 ? '【受領済】' : '【未受領】'}\n`;
+            textData += `--------------------------------\n`;
+            textData += `\n\n\n\n`; // カッター位置まで紙を送り出すための余白
+
+            // 2. 日本語文字列（UTF-8）をPassPRNT用のBase64に変換
+            const utf8Bytes = new TextEncoder().encode(textData);
+            const base64Text = btoa(String.fromCharCode(...utf8Bytes));
+
+            // 3. パスを挟まない安全なURLスキームを生成
+            const passPrntUrl = `starpassprnt://?` + 
+                `size=2inch` +                  // mPOP(58mm)幅
+                `&pd=partial` +                 // 部分カット
+                `&text=${encodeURIComponent(base64Text)}`;
+
+            // 4. PassPRNTアプリをキック
+            window.location.href = passPrntUrl;
+
+        } catch (err) {
+            console.error("個別印刷エラー:", err);
+        }
+    };
+
+    /**
+     * 当日の全注文データを取得し、forEach(for...of)で順次シリアル印刷する関数
+     */
+    app.printAllOrdersSequentially = async function() {
+        // 選択されている日付を取得
+        const targetDate = document.getElementById('stats-target-date').value;
+        if (!targetDate) return alert("日付を指定してください。");
+
+        try {
+            // バックエンドAPIから当日の予約受領リストを取得
+            const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
+            const result = await res.json();
+            
+            if (!result.success || !result.list || result.list.length === 0) {
+                return alert("印刷する予約データがありません。");
+            }
+
+            // ユーザーへ最終確認
+            const confirmPrint = confirm(`当日予約が合計 ${result.list.length} 件あります。\n1件ずつ個別に連続印刷を開始します。よろしいですか？`);
+            if (!confirmPrint) return;
+
+            // 💡 注文個別に印刷するために順番にループ処理を実行
+            // (※JavaScriptのforEach内では非同期のawaitが正常に待機しない特性があるため、
+            // 配列を安全に順次処理できる for...of ループで完全に再現します)
+            let index = 1;
+            for (const order of result.list) {
+                console.log(`[${index}/${result.list.length}] 印刷データを送信中...`);
+                
+                // 💡 共通関数を呼び出して1件印刷
+                app.printSingleOrder(order);
+
+                // 💡 超重要ウェイト: 連続でURLを叩くとOSやPassPRNTアプリ側で
+                // 命令が上書き・無視されてしまうため、1件ごとに2.5秒(2500ms)の待機時間を挟みます
+                if (index < result.list.length) {
+                    await sleep(2500); 
+                }
+                index++;
+            }
+
+            alert("すべての注文の印刷命令をPassPRNTへ送り終えました。");
+
+        } catch (err) {
+            console.error("一括順次印刷エラー:", err);
+            alert("印刷処理の途中でエラーが発生しました: " + err.message);
+        }
+    };
 }
