@@ -2617,7 +2617,7 @@ const app = {
             await this.submitOrderChanges(orderId, [itemId]);
         }
     },
-    
+
     async printToMpop() {
         // 1. 選択されている日付を取得
         const targetDate = document.getElementById('stats-target-date').value;
@@ -2632,39 +2632,46 @@ const app = {
                 return alert("印刷する予約データがありません。");
             }
 
-            // 3. スター精密用の印字テキスト（ESC/POS もしくは StarPRNTテキスト）を構築
+            // 3. mPOP（58mmレジロール紙）用の印字テキストを構築
+            // ※ 58mm幅は全角16文字、半角32文字程度が目安です
             let textData = "";
-            textData += `=== 予約受領リスト ===\n`;
+            textData += `=== 当日予約受領リスト ===\n`;
             textData += `対象日: ${targetDate}\n`;
-            textData += `------------------------\n\n`;
+            textData += `--------------------------------\n\n`;
 
             result.list.forEach(order => {
-                const status = order.received_status === 1 ? "[受領済]" : "[未受領]";
+                const status = order.received_status === 1 ? "[受領]" : "[未受]";
                 textData += `${status} ${order.user_name} 様\n`;
                 
                 order.items.forEach(item => {
                     textData += `  ・${item.name} x ${item.quantity}\n`;
                 });
-                textData += `合計金額: ￥${order.total_price.toLocaleString()}\n`;
-                textData += `------------------------\n`;
+                textData += `  合計金額: ￥${order.total_price.toLocaleString()}\n`;
+                textData += `--------------------------------\n`;
             });
             
-            textData += `\n\n\n\n`; // カット手前の余白
+            textData += `\n\n\n\n`; // 印字後にカッターまで送り出すための余白
 
-            // 4. PassPRNT アプリケーションにデータを送るためのURLスキームを作成
-            // ※ mPOP (58mm幅) を想定
-            const base64Text = btoa(unescape(encodeURIComponent(textData)));
-            const passPrntUrl = `starpassprnt://v1/print/utf8?` + 
-                `size=2inch` +                  // 58mm幅 (mPOP標準)
-                `&text=${encodeURIComponent(textData)}` + 
-                `&cut=partial`;                 // 部分カット
+            // 4. PassPRNTが認識できる正しいBase64エンコード処理
+            // 日本語（UTF-8）を正しくBase64化するJavascriptの定石処理です
+            const utf8Bytes = new TextEncoder().encode(textData);
+            const base64Text = btoa(String.fromCharCode(...utf8Bytes));
 
-            // 5. アプリケーションをキックして印刷を実行
+            // 5. PassPRNTの正しいURLスキーム（passthroughパス）を生成
+            // size=2inch（mPOPの58mm幅）、pdf=一文字ずつカット（partial）
+            const passPrntUrl = `starpassprnt://v1/print/passthrough?` + 
+                `size=2inch` + 
+                `&pd=partial` + 
+                `&text=${encodeURIComponent(base64Text)}`;
+
+            console.log("PassPRNTアプリを起動します:", passPrntUrl);
+
+            // 6. PassPRNTアプリを呼び出して印刷を実行
             window.location.href = passPrntUrl;
 
         } catch (err) {
-            console.error("印刷エラー:", err);
-            alert("印刷データの取得または送信に失敗しました: " + err.message);
+            console.error("PassPRNT印刷エラー:", err);
+            alert("印刷データの処理に失敗しました: " + err.message);
         }
     }
 };
