@@ -81,7 +81,7 @@ const adminView = {
                         </h2>
                         <div class="flex justify-end space-x-2">
                             <a href="#" id="print">PRINT</a>
-                            <button onclick="printAllOrdersSequentially()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                            <button onclick="app.printAllOrdersSequentially()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
