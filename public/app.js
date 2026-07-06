@@ -2625,7 +2625,7 @@ const app = {
             // 1. mPOP（58mm幅）に最適化した、シンプルで見やすいHTMLを構築
             let htmlContent = `
             <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:0; box-sizing:border-box;">
-                <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
+                <h2 style="font-size:18px; text-align:center; margin:10px 0;">ネット注文伝票</h2>
                 <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
                 <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
                 <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
@@ -2654,13 +2654,23 @@ const app = {
             </div>
             `;
 
-            // 2. Safariで成功した形式（v1/print/nopreview）のURLスキームを生成
-            // 先ほどのテストでちょうど良かった size=3 に設定しています（必要に応じて2に変更してください）
-            const currentUrl = encodeURIComponent(window.location.href);
+            // 1. 現在のブラウザURLを取得
+            const rawUrl = window.location.href;
+            let backUrl = rawUrl;
+
+            // 2. 💡 Chromeで実行されている場合、戻り先をChrome専用スキームに変換する
+            // iOS Chromeでアクセスしている場合、ユーザーエージェントに「CriOS」が含まれます
+            if (navigator.userAgent.indexOf('CriOS') !== -1) {
+                // https:// を googlechrome:// に、http:// を googlechromes:// に置換
+                backUrl = rawUrl.replace(/^https?:\/\//, 'googlechrome://');
+            }
+
+            const currentUrl = encodeURIComponent(backUrl);
             const encodedHtml = encodeURIComponent(htmlContent);
             
+            // 3. パスパラメーターを設定（size=3 は環境に合わせて2等に調整してください）
             const passPrntUrl = `starpassprnt://v1/print/nopreview?` + 
-                `size=3` + 
+                `size=432` + 
                 `&back=${currentUrl}` + 
                 `&html=${encodedHtml}`;
 
