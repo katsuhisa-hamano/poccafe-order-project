@@ -80,7 +80,6 @@ const adminView = {
                             当日注文受領チェックリスト
                         </h2>
                         <div class="flex justify-end space-x-2">
-                            <a href="#" id="print">PRINT</a>
                             <button onclick="app.printAllOrdersSequentially()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
