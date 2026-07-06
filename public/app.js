@@ -81,7 +81,7 @@ const adminView = {
                         </h2>
                         <div class="flex justify-end space-x-2">
                             <a href="#" id="print">PRINT</a>
-                            <button onclick="createURI()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
+                            <button onclick="printAllOrdersSequentially()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-indigo-700 transition">
                                 伝票印刷
                             </button>
                             <button onclick="app.loadAdminOrders()" class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-md font-medium hover:bg-gray-50 active:bg-gray-100 transition">
@@ -2618,6 +2618,110 @@ const app = {
             await this.submitOrderChanges(orderId, [itemId]);
         }
     },
+
+    async printSingleOrderHtml(order) {
+        if (!order) return;
+
+        try {
+            // 1. mPOP（58mm幅）に最適化した、シンプルで見やすいHTMLを構築
+            let htmlContent = `
+            <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:0; box-sizing:border-box;">
+                <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
+                <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
+                <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
+                <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
+            `;
+
+            // 商品明細を展開
+            if (order.items && order.items.length > 0) {
+                order.items.forEach(item => {
+                    htmlContent += `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                        <div style="width:75%; word-break:break-all;">${item.name}</div>
+                        <div style="width:25%; text-align:right;">x ${item.quantity}</div>
+                    </div>`;
+                });
+            }
+
+            htmlContent += `
+                <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
+                <div style="font-size:16px; font-weight:bold; text-align:right; margin-top:5px;">
+                    合計金額: &yen;${(order.total_price || order.total_amount || 0).toLocaleString()}
+                </div>
+                <div style="margin-top:5px; font-size:12px;">
+                    受領状態: ${order.received_status === 1 ? '【受領済】' : '【未受領】'}
+                </div>
+                <div style="height:70px;"></div>
+            </div>
+            `;
+
+            // 2. Safariで成功した形式（v1/print/nopreview）のURLスキームを生成
+            // 先ほどのテストでちょうど良かった size=3 に設定しています（必要に応じて2に変更してください）
+            const currentUrl = encodeURIComponent(window.location.href);
+            const encodedHtml = encodeURIComponent(htmlContent);
+            
+            const passPrntUrl = `starpassprnt://v1/print/nopreview?` + 
+                `size=3` + 
+                `&back=${currentUrl}` + 
+                `&html=${encodedHtml}`;
+
+            console.log("HTML個別印刷URLを発行:", passPrntUrl);
+
+            // 3. PassPRNTアプリをキックして印刷を実行
+            window.location.href = passPrntUrl;
+
+        } catch (err) {
+            console.error("個別HTML印刷エラー:", err);
+        }
+    },
+
+    /**
+     * 当日の全予約データをAPIから取得し、人間の確認ポップアップを挟みながら安全に順次印刷する
+     */
+    async printAllOrdersSequentially() {
+        const targetDate = document.getElementById('stats-target-date').value;
+        if (!targetDate) return alert("日付を指定してください。");
+
+        try {
+            const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
+            const result = await res.json();
+            
+            if (!result.success || !result.list || result.list.length === 0) {
+                return alert("印刷する予約データがありません。");
+            }
+
+            let index = 1;
+            for (const order of result.list) {
+                // 💡 1件ごとに確認を挟むことで、SafariからPassPRNTへの連続遷移によるバグや
+                // データの詰め込みすぎによるクラッシュ（1回のURLスキーム上限）を確実に防止します
+                const next = confirm(`[${index} / ${result.list.length} 件目]\n${order.user_name} 様の伝票を印刷しますか？\n\n※「OK」を押すとPassPRNTが開きます。印刷が終わったらブラウザに戻ってください。`);
+                
+                if (!next) {
+                    const cancelAll = confirm("印刷をここで中断しますか？\n（キャンセルを押すとこの件数をスキップして次へ進みます）");
+                    if (cancelAll) {
+                        alert("一括印刷を中断しました。");
+                        break;
+                    }
+                    index++;
+                    continue;
+                }
+                
+                // 💡 今回再出力した「async printSingleOrderHtml」を呼び出し
+                await this.printSingleOrderHtml(order);
+
+                // アプリが切り替わって印刷が走る時間を考慮し、次のポップアップまで2.5秒の安全な待機を挟む
+                await new Promise(resolve => setTimeout(resolve, 2500));
+                
+                index++;
+            }
+
+            alert("印刷処理のループが終了しました。");
+
+        } catch (err) {
+            console.error("一括順次印刷エラー:", err);
+            alert("印刷処理の途中でエラーが発生しました: " + err.message);
+        }
+    },
 };
 
 // =========================================================
@@ -2796,17 +2900,4 @@ async function initOrderCalendar() {
     } catch (err) {
         console.error("カレンダー初期化エラー:", err);
     }
-}
-
-var passprnt_uri;
-
-function createURI() {
-      passprnt_uri = "starpassprnt://v1/print/nopreview?";
-
-      passprnt_uri = passprnt_uri + "back=" + encodeURIComponent(window.location.href);
-
-      passprnt_uri = passprnt_uri + "&html=" + encodeURIComponent("<html><head>...</body></html>");
-
-      var target = document.getElementById("print");
-      target.href = passprnt_uri;
 }
