@@ -1431,8 +1431,9 @@ export async function onRequest(context) {
 
         const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
 
-        const squareSalesMap = new Map();
+        const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
+        /*
         // 3. Square API から当日のレジ販売数をリアルタイム取得
         // Squareのアクセストークンや環境変数が設定されている場合のみ実行
         if (env.SQUARE_ACCESS_TOKEN) {
@@ -1491,6 +1492,7 @@ export async function onRequest(context) {
             // Square APIが落ちていてもシステム全体を止めないよう、エラーはキャッチしてスルーします
           }
         }
+        */
 
         // 4. フロントエンド向けにデータを整形
         const stats = items.map(item => {
@@ -1828,4 +1830,88 @@ export async function onRequest(context) {
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
+}
+
+/**
+ * 💡【新設共通関数】
+ * 指定された日付の Square レジ販売数をリアルタイム取得し、
+ * バリエーションIDをキー、販売数量を値とした Map を返します。
+ * * @param {string} targetDate - 'YYYY-MM-DD' 形式の日付
+ * @param {object} env - Cloudflare Workers の環境変数 (env.SQUARE_ACCESS_TOKEN など)
+ * @returns {Promise<Map<string, number>>} squareSalesMap
+ */
+async function fetchSquareSalesMap(targetDate, env) {
+  const squareSalesMap = new Map();
+
+  if (!env.SQUARE_ACCESS_TOKEN) {
+    console.warn("Square Access Token が設定されていないため、レジ売上数の同期をスキップします。");
+    return squareSalesMap;
+  }
+
+  try {
+    // 1. 指定日の開始時刻と終了時刻を ISO 8601 形式（JST）で算出
+    const startAt = `${targetDate}T00:00:00+09:00`;
+    const endAt = `${targetDate}T23:59:59+09:00`;
+
+    // 2. Square SearchOrders API を呼び出して当日の注文を取得
+    const response = await fetch("https://connect.squareup.com/v2/orders/search", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+        "Square-Version": "2024-11-20" // ご利用のSquareバージョンに合わせて適宜調整
+      },
+      body: JSON.stringify({
+        location_ids: [env.SQUARE_LOCATION_ID], // 環境変数にロケーションIDがある場合
+        query: {
+          filter: {
+            date_time_filter: {
+              closed_at: {
+                start_at: startAt,
+                end_at: endAt
+              }
+            },
+            state_filter: {
+              states: ["COMPLETED"] // 完了済みの会計のみを対象とする
+            }
+          },
+          sort: {
+            sort_field: "CLOSED_AT",
+            sort_order: "DESC"
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Square API エラー: ${response.status} - ${errText}`);
+    }
+
+    const data = await response.json();
+
+    // 3. 取得した注文データから商品のバリエーションIDごとに対象数量を合算
+    if (data.orders && Array.isArray(data.orders)) {
+      for (const order of data.orders) {
+        if (!order.line_items) continue;
+        for (const item of order.line_items) {
+          // カタログバリエーションID（アプリ内の square_variation_id と一致するもの）
+          const varId = item.catalog_object_id;
+          if (!varId) continue;
+
+          const qty = parseInt(item.quantity, 10) || 0;
+          
+          // Mapに数量を累積
+          const currentQty = squareSalesMap.get(varId) || 0;
+          squareSalesMap.set(varId, currentQty + qty);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error(`[fetchSquareSalesMap] (${targetDate}) の取得に失敗しました:`, error);
+    // 障害時にシステム全体を落とさないよう、空のMapを返して処理を続行可能にします
+  }
+
+  return squareSalesMap;
 }
