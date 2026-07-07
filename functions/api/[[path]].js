@@ -74,25 +74,28 @@ export async function onRequest(context) {
         const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
         const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
-        const itemArray = Object.values(items).filter(Boolean);
-
-        for (const item of itemArray) {
+        for (const key of Object.keys(items)) {
+          const item = items[key];
+          if (!item || !item.variationId) continue;
 
           // A. 製造個数 (調整値、共有グループ、デフォルトマスタの優先順位判定)
-          const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.stock_group_id !== null ? item.shared_quantity : item.default_quantity;
-
-          const reservedCount = reservationMap.get(item.variation_id) || 0;
-          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
-          const pickupCount = pickupMap.get(item.variation_id) || 0;
+          const defaultCount = defaultQuantityMap.get(item.variationId) || null;
+          const sharedCount = sharedQuantityMap.get(item.variationId) || null;
+          const stockGroupId = stockGroupMap.get(item.variationId) || null;
+          const adjustedCount = adjustedQuantityMap.get(item.variationId) || null;
+          const manufactureCount = adjustedCount !== null ? adjustedCount : stockGroupId !== null ? sharedCount : defaultCount;
+          const reservedCount = reservationMap.get(item.variationId) || 0;
+          const squareSalesCount = squareSalesMap.get(item.variationId) || 0;
+          const pickupCount = pickupMap.get(item.variationId) || 0;
           
           let cnt = 0;
           let reqQty = 0;
 
           // 💡 在庫グループ（一括共有）に所属している場合の処理
-          if (item.stock_group_id !== null && item.stock_group_id !== undefined) {
+          if(stockGroupId !== null) {
             // 【修正】当日の全スケジュール(Schedule)から、同じグループに属するバリエーションの実績を合算
             Schedule
-              .filter(s => s.stock_group_id === item.stock_group_id)
+              .filter(s => s.stock_group_id === stockGroupId)
               .forEach(x => {
                 const rCount = reservationMap.get(x.variation_id) || 0;
                 const sSalesCount = squareSalesMap.get(x.variation_id) || 0;
@@ -102,13 +105,10 @@ export async function onRequest(context) {
                 cnt += (rCount + sSalesCount - pCount);
               });
 
-            // 今回の新規注文要求量（reqQty）は、カート内（itemArray）の同グループ商品の数量を合算
-            itemArray
-              .filter(i => i.stock_group_id === item.stock_group_id)
-              .forEach(x => {
-                reqQty += (parseInt(x.quantity, 10) || 0);
-              });
-
+            for (const x of Object.keys(items)) {
+              const item = items[x];
+              reqQty += (parseInt(item.quantity, 10) || 0);
+            }
           } else {
             // 単品在庫の場合
             cnt = reservedCount + squareSalesCount - pickupCount;
@@ -212,7 +212,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({
           success: true, 
           message: '注文が正常に登録されました。',
-          order_id: newOrderId, reservedCount:reservedCount, manufactureCount: manufactureCount
+          order_id: newOrderId
         }), { headers: corsHeaders });
 
       } catch (dbErr) {
