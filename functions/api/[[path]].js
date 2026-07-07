@@ -102,7 +102,7 @@ export async function onRequest(context) {
           const currentRemaining = manufactureCount - reservedCount - (registerSalesCount - pickupCount);
 
           // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ reservedCount に含まれていないためそのまま比較)
-          if (currentRemaining < reqQty) {
+          if (currentRemaining >= reqQty) {
             const finalAvailable = Math.max(0, currentRemaining);
             const errorMsg = finalAvailable <= 0
               ? `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」は本日分が売り切れました。`
