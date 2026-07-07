@@ -43,69 +43,65 @@ export async function onRequest(context) {
         // ---------------------------------------------------------
         // 💡【修正】daily-stats方式に基づくリアルタイム残数チェック
         // ---------------------------------------------------------
-        
-        // 1. 指定日のアプリ内予約数・ピックアップ数をバリエーションごとに一括集計
-        const reservations = await env.DB.prepare(`
+        // 1. メニューとバリエーション、および当日変更値（結合）の取得
+        const { results: Schedules } = await env.DB.prepare(`
+          SELECT
+            mv.square_variation_id as variation_id, mv.remaining as default_quantity,
+            mv.stock_group_id, msg.remaining as shared_quantity, dma.adjusted_quantity
+          FROM menu_variations mv
+          LEFT JOIN menu_stock_groups msg ON mv.stock_group_id = msg.id
+          LEFT JOIN daily_manufacture_adjustments dma 
+            ON mv.square_variation_id = dma.menu_variation_id AND dma.target_date = ?
+          WHERE mv.is_visible = 1
+        `).bind(targetDate).all();
+
+        const defaultQuantityMap = new Map(Schedules.map(s => [s.variation_id, s.default_quantity]));
+        const sharedQuantityMap = new Map(Schedules.map(s => [s.variation_id, s.shared_quantity]));
+        const adjustedQuantityMap = new Map(Schedules.map(s => [s.variation_id, s.adjusted_quantity]));
+        const stockGroupMap = new Map(Schedules.map(s => [s.variation_id, s.stock_group_id]));
+
+        // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
+        const { results: reservations } = await env.DB.prepare(`
           SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count, IFNULL(SUM(oir.quantity), 0) as pickup_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
   				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
           WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled' AND IFNULL(oir.status, '') != 'Canceled'
           GROUP BY oi.variation_id
-        `).bind(targetDate).all(); //
-
-        const reservationMap = new Map(reservations.results.map(r => [r.menu_variation_id, r.reserved_count || 0])); //
-        const pickupMap = new Map(reservations.results.map(r => [r.menu_variation_id, r.pickup_count || 0])); //
-
-        // 2. 指定日の当日製造個数（調整値）設定を一括取得
-        const adjustRows = await env.DB.prepare(`
-          SELECT id, adjusted_quantity FROM daily_manufacture_adjustments WHERE target_date = ?
         `).bind(targetDate).all();
-        const adjustMap = new Map(adjustRows.results.map(a => [a.id, a.adjusted_quantity]));
-
-        // 3. Square API から当日のレジ販売数をリアルタイム取得（daily-statsのロジックと同期）
+        
+        const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
+        const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
         const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
-        let value;
 
-        // 4. カート内の各商品について残数を検証
-        for (const key of Object.keys(items)) {
-          const item = items[key]; //
-          if (!item || !item.variationId) continue;
-
-          const reqQty = parseInt(item.quantity, 10) || 1;
-
-          // マスタ上のバリエーション情報（初期製造個数などとして使われている設定値）を取得
-          const dbVar = await env.DB.prepare(`
-            SELECT name, remaining FROM menu_variations WHERE square_variation_id = ?
-          `).bind(item.variationId).first();
-
-          if (!dbVar) {
-            return new Response(JSON.stringify({ 
-              success: false, 
-              message: `商品「${item.itemName || ''}」が見つかりませんでした。` 
-            }), { status: 400, headers: corsHeaders });
+        for (const item of items) {
+          const manufactureCount = adjustedQuantityMap.get(item.variation_id) !== null ? adjustedQuantityMap.get(item.variation_id) : stockGroupMap.get(item.variation_id) !== null ? sharedQuantityMap.get(item.variation_id) : defaultQuantityMap.get(item.variation_id);
+          const reservedCount = reservationMap.get(item.variation_id) || 0;
+          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
+          const pickupCount = pickupMap.get(item.variation_id) || 0;
+          let cnt = 0;
+          let reqQty = 0;
+          if(item.stock_group_id !== null) {
+            items
+              .filter(i => i.stock_group_id === item.stock_group_id)
+              .forEach(x => {
+                const reservedCount = reservationMap.get(x.variation_id) || 0;
+                const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
+                const pickupCount = pickupMap.get(x.variation_id) || 0;
+                cnt += (reservedCount + squareSalesCount - pickupCount);
+                reqQty += (parseInt(x.quantity, 10) || 0);
+              });
+          } else {
+            cnt = reservedCount + squareSalesCount - pickupCount;
+            reqQty = parseInt(item.quantity, 10) || 0;
           }
-
-          // A. 製造個数 (調整値があれば上書き、なければデフォルト設定値)
-          const defaultManufacture = parseInt(dbVar.remaining, 10) || 0;
-          const adjustedManufacture = adjustMap.get(item.variationId);
-          const manufactureCount = adjustedManufacture !== undefined ? adjustedManufacture : defaultManufacture;
-
-          // B. 予約数 & ピックアップ済み数
-          const reservedCount = reservationMap.get(item.variationId) || 0; //
-          const pickupCount = pickupMap.get(item.variationId) || 0; //
-
-          // C. レジ売上数
-          const registerSalesCount = squareSalesMap.get(item.variationId) || 0;
-          value = registerSalesCount;
-
-          // 🔥 残数計算式を適用
-          // 残数 = 製造個数 - 予約数 - (レジ売上数 - ピックアップ済み数)
-          const currentRemaining = manufactureCount - reservedCount - (registerSalesCount - pickupCount);
+          
+          // 残り数 = 製造個数 - 予約数 - （レジ売上数 - ピックアップ済み数）
+          const remainingCount = manufactureCount - cnt;
 
           // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ reservedCount に含まれていないためそのまま比較)
-          if (currentRemaining < reqQty) {
-            const finalAvailable = Math.max(0, currentRemaining);
+          if (remainingCount < reqQty) {
+            const finalAvailable = Math.max(0, remainingCount);
             const errorMsg = finalAvailable <= 0
               ? `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」は本日分が売り切れました。`
               : `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」の本日残り受付可能数は ${finalAvailable} 点です。`;
@@ -192,8 +188,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({
           success: true, 
           message: '注文が正常に登録されました。',
-          order_id: newOrderId,
-          value: value
+          order_id: newOrderId
         }), { headers: corsHeaders });
 
       } catch (dbErr) {
