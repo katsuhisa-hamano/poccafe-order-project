@@ -46,13 +46,11 @@ export async function onRequest(context) {
         
         // 1. 指定日のアプリ内予約数・ピックアップ数をバリエーションごとに一括集計
         const reservations = await env.DB.prepare(`
-          SELECT 
-            oi.variation_id as menu_variation_id,
-            SUM(oi.quantity) as reserved_count,
-            SUM(CASE WHEN oi.status = 'Received' THEN oi.quantity ELSE 0 END) as pickup_count
+          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count, IFNULL(SUM(oir.quantity), 0) as pickup_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND o.status != 'Canceled'
+  				LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled' AND IFNULL(oir.status, '') != 'Canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all(); //
 
