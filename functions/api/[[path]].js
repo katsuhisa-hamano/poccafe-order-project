@@ -131,7 +131,7 @@ export async function onRequest(context) {
               ? `申し訳ありません。「${displayItemName} (${displayVarName})」は本日分が売り切れました。`
               : `申し訳ありません。「${displayItemName} (${displayVarName})」の本日残り受付可能数は ${finalAvailable} 点です。`;
 
-            return new Response(JSON.stringify({ success: false, message: errorMsg }), { status: 400, headers: corsHeaders });
+            return new Response(JSON.stringify({ success: false, message: errorMsg, data:cnt, qty: reqQty }), { status: 400, headers: corsHeaders });
           }
         }
         
