@@ -66,17 +66,7 @@ export async function onRequest(context) {
         const adjustMap = new Map(adjustRows.results.map(a => [a.variation_id, a.quantity]));
 
         // 3. Square API から当日のレジ販売数をリアルタイム取得（daily-statsのロジックと同期）
-        const squareSalesMap = new Map(); //
-        if (env.SQUARE_ACCESS_TOKEN) {
-          try {
-            // ※ここでは /api/admin/daily-stats 内で実装されているものと全く同じ 
-            // Square API（SearchOrders等）の期間指定・集計ロジックを用いて squareSalesMap に
-            // { square_variation_id => 数量 } を格納します。
-            // (既存のdaily-stats内のSquare通信コードをここに複製、または共通関数化してください)
-          } catch (sqErr) {
-            console.error("Square販売数取得失敗（チェックはアプリ単独で続行）:", sqErr);
-          }
-        }
+        const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
         // 4. カート内の各商品について残数を検証
         for (const key of Object.keys(items)) {
