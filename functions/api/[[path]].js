@@ -65,6 +65,7 @@ export async function onRequest(context) {
 
         // 3. Square API から当日のレジ販売数をリアルタイム取得（daily-statsのロジックと同期）
         const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
+        let value;
 
         // 4. カート内の各商品について残数を検証
         for (const key of Object.keys(items)) {
@@ -96,6 +97,7 @@ export async function onRequest(context) {
 
           // C. レジ売上数
           const registerSalesCount = squareSalesMap.get(item.variationId) || 0;
+          value = registerSalesCount;
 
           // 🔥 残数計算式を適用
           // 残数 = 製造個数 - 予約数 - (レジ売上数 - ピックアップ済み数)
@@ -191,7 +193,7 @@ export async function onRequest(context) {
           success: true, 
           message: '注文が正常に登録されました。',
           order_id: newOrderId,
-          map: squareSalesMap
+          value: value
         }), { headers: corsHeaders });
 
       } catch (dbErr) {
