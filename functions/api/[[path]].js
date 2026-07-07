@@ -59,9 +59,9 @@ export async function onRequest(context) {
 
         // 2. 指定日の当日製造個数（調整値）設定を一括取得
         const adjustRows = await env.DB.prepare(`
-          SELECT variation_id, quantity FROM daily_manufacture_adjustments WHERE target_date = ?
+          SELECT id, adjusted_quantity FROM daily_manufacture_adjustments WHERE target_date = ?
         `).bind(targetDate).all();
-        const adjustMap = new Map(adjustRows.results.map(a => [a.variation_id, a.quantity]));
+        const adjustMap = new Map(adjustRows.results.map(a => [a.id, a.adjusted_quantity]));
 
         // 3. Square API から当日のレジ販売数をリアルタイム取得（daily-statsのロジックと同期）
         const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
