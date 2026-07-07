@@ -79,9 +79,7 @@ export async function onRequest(context) {
         for (const item of itemArray) {
 
           // A. 製造個数 (調整値、共有グループ、デフォルトマスタの優先順位判定)
-          const manufactureCount = (adjustedQuantityMap.get(item.variation_id) !== undefined && adjustedQuantityMap.get(item.variation_id) !== null) ? adjustedQuantityMap.get(item.variation_id)
-                                 : (item.stock_group_id !== null && sharedQuantityMap.get(item.variation_id) !== undefined && sharedQuantityMap.get(item.variation_id) !== null) ? sharedQuantityMap.get(item.variation_id)
-                                 : (defaultQuantityMap.get(item.variation_id) || 0);
+          const manufactureCount = item.adjusted_quantity !== null ? item.adjusted_quantity : item.stock_group_id !== null ? item.shared_quantity : item.default_quantity;
 
           const reservedCount = reservationMap.get(item.variation_id) || 0;
           const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
