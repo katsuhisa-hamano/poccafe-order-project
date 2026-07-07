@@ -74,24 +74,39 @@ export async function onRequest(context) {
         const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
         const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
-        for (const item of items) {
-          const manufactureCount = adjustedQuantityMap.get(item.variation_id) !== null ? adjustedQuantityMap.get(item.variation_id) : stockGroupMap.get(item.variation_id) !== null ? sharedQuantityMap.get(item.variation_id) : defaultQuantityMap.get(item.variation_id);
-          const reservedCount = reservationMap.get(item.variation_id) || 0;
-          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
-          const pickupCount = pickupMap.get(item.variation_id) || 0;
+        const itemArray = Object.values(items).filter(Boolean);
+
+        for (const item of itemArray) {
+
+          // A. 製造個数 (調整値、共有グループ、デフォルトマスタの優先順位判定)
+          const varId = item.variation_id || item.variationId;
+          const manufactureCount = (adjustedQuantityMap.get(varId) !== undefined && adjustedQuantityMap.get(varId) !== null) ? adjustedQuantityMap.get(varId)
+                                 : (item.stock_group_id !== null && sharedQuantityMap.get(varId) !== undefined && sharedQuantityMap.get(varId) !== null) ? sharedQuantityMap.get(varId)
+                                 : (defaultQuantityMap.get(varId) || 0);
+
+          const reservedCount = reservationMap.get(varId) || 0;
+          const squareSalesCount = squareSalesMap.get(varId) || 0;
+          const pickupCount = pickupMap.get(varId) || 0;
+          
           let cnt = 0;
           let reqQty = 0;
-          if(item.stock_group_id !== null) {
-            items
+
+          // 在庫グループ（一括共有）に所属している場合の処理
+          if (item.stock_group_id !== null && item.stock_group_id !== undefined) {
+            // items(オブジェクト) を配列化した itemArray からフィルターして集計
+            itemArray
               .filter(i => i.stock_group_id === item.stock_group_id)
               .forEach(x => {
-                const reservedCount = reservationMap.get(x.variation_id) || 0;
-                const squareSalesCount = squareSalesMap.get(x.variation_id) || 0;
-                const pickupCount = pickupMap.get(x.variation_id) || 0;
-                cnt += (reservedCount + squareSalesCount - pickupCount);
+                const xVarId = x.variation_id || x.variationId;
+                const rCount = reservationMap.get(xVarId) || 0;
+                const sSalesCount = squareSalesMap.get(xVarId) || 0;
+                const pCount = pickupMap.get(xVarId) || 0;
+                
+                cnt += (rCount + sSalesCount - pCount);
                 reqQty += (parseInt(x.quantity, 10) || 0);
               });
           } else {
+            // 単品在庫の場合
             cnt = reservedCount + squareSalesCount - pickupCount;
             reqQty = parseInt(item.quantity, 10) || 0;
           }
@@ -102,14 +117,17 @@ export async function onRequest(context) {
           // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ reservedCount に含まれていないためそのまま比較)
           if (remainingCount < reqQty) {
             const finalAvailable = Math.max(0, remainingCount);
+            
+            const displayItemName = item.itemName || item.menu_name || '';
+            const displayVarName = item.variationName || item.variation_name || '';
+
             const errorMsg = finalAvailable <= 0
-              ? `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」は本日分が売り切れました。`
-              : `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」の本日残り受付可能数は ${finalAvailable} 点です。`;
+              ? `申し訳ありません。「${displayItemName} (${displayVarName})」は本日分が売り切れました。`
+              : `申し訳ありません。「${displayItemName} (${displayVarName})」の本日残り受付可能数は ${finalAvailable} 点です。`;
 
             return new Response(JSON.stringify({ success: false, message: errorMsg }), { status: 400, headers: corsHeaders });
           }
-        }
-        const statements = [];
+        }        const statements = [];
 
         // ---------------------------------------------------------
         // 1. 親（orders）テーブルへの挿入クエリを配列の最初に追加
