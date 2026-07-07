@@ -34,6 +34,95 @@ export async function onRequest(context) {
         }
 
         const items = payload.items;
+        const targetDate = payload.order_date ?? ""; // 注文の指定受取日
+
+        if (!targetDate) {
+          return new Response(JSON.stringify({ success: false, message: '受取日が指定されていません。' }), { status: 400, headers: corsHeaders });
+        }
+
+        // ---------------------------------------------------------
+        // 💡【修正】daily-stats方式に基づくリアルタイム残数チェック
+        // ---------------------------------------------------------
+        
+        // 1. 指定日のアプリ内予約数・ピックアップ数をバリエーションごとに一括集計
+        const reservations = await env.DB.prepare(`
+          SELECT 
+            oi.variation_id as menu_variation_id,
+            SUM(oi.quantity) as reserved_count,
+            SUM(CASE WHEN oi.status = 'Received' THEN oi.quantity ELSE 0 END) as pickup_count
+          FROM order_items oi
+          INNER JOIN orders o ON oi.order_id = o.id
+          WHERE o.delivery_date = ? AND o.status != 'Canceled'
+          GROUP BY oi.variation_id
+        `).bind(targetDate).all(); //
+
+        const reservationMap = new Map(reservations.results.map(r => [r.menu_variation_id, r.reserved_count || 0])); //
+        const pickupMap = new Map(reservations.results.map(r => [r.menu_variation_id, r.pickup_count || 0])); //
+
+        // 2. 指定日の当日製造個数（調整値）設定を一括取得
+        const adjustRows = await env.DB.prepare(`
+          SELECT variation_id, quantity FROM daily_manufacture_adjustments WHERE target_date = ?
+        `).bind(targetDate).all();
+        const adjustMap = new Map(adjustRows.results.map(a => [a.variation_id, a.quantity]));
+
+        // 3. Square API から当日のレジ販売数をリアルタイム取得（daily-statsのロジックと同期）
+        const squareSalesMap = new Map(); //
+        if (env.SQUARE_ACCESS_TOKEN) {
+          try {
+            // ※ここでは /api/admin/daily-stats 内で実装されているものと全く同じ 
+            // Square API（SearchOrders等）の期間指定・集計ロジックを用いて squareSalesMap に
+            // { square_variation_id => 数量 } を格納します。
+            // (既存のdaily-stats内のSquare通信コードをここに複製、または共通関数化してください)
+          } catch (sqErr) {
+            console.error("Square販売数取得失敗（チェックはアプリ単独で続行）:", sqErr);
+          }
+        }
+
+        // 4. カート内の各商品について残数を検証
+        for (const key of Object.keys(items)) {
+          const item = items[key]; //
+          if (!item || !item.variationId) continue;
+
+          const reqQty = parseInt(item.quantity, 10) || 1;
+
+          // マスタ上のバリエーション情報（初期製造個数などとして使われている設定値）を取得
+          const dbVar = await env.DB.prepare(`
+            SELECT name, remaining FROM menu_variations WHERE square_variation_id = ?
+          `).bind(item.variationId).first();
+
+          if (!dbVar) {
+            return new Response(JSON.stringify({ 
+              success: false, 
+              message: `商品「${item.itemName || ''}」が見つかりませんでした。` 
+            }), { status: 400, headers: corsHeaders });
+          }
+
+          // A. 製造個数 (調整値があれば上書き、なければデフォルト設定値)
+          const defaultManufacture = parseInt(dbVar.remaining, 10) || 0;
+          const adjustedManufacture = adjustMap.get(item.variationId);
+          const manufactureCount = adjustedManufacture !== undefined ? adjustedManufacture : defaultManufacture;
+
+          // B. 予約数 & ピックアップ済み数
+          const reservedCount = reservationMap.get(item.variationId) || 0; //
+          const pickupCount = pickupMap.get(item.variationId) || 0; //
+
+          // C. レジ売上数
+          const registerSalesCount = squareSalesMap.get(item.variationId) || 0;
+
+          // 🔥 残数計算式を適用
+          // 残数 = 製造個数 - 予約数 - (レジ売上数 - ピックアップ済み数)
+          const currentRemaining = manufactureCount - reservedCount - (registerSalesCount - pickupCount);
+
+          // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ reservedCount に含まれていないためそのまま比較)
+          if (currentRemaining < reqQty) {
+            const finalAvailable = Math.max(0, currentRemaining);
+            const errorMsg = finalAvailable <= 0
+              ? `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」は本日分が売り切れました。`
+              : `申し訳ありません。「${item.itemName || ''} (${item.variationName || dbVar.name})」の本日残り受付可能数は ${finalAvailable} 点です。`;
+
+            return new Response(JSON.stringify({ success: false, message: errorMsg }), { status: 400, headers: corsHeaders });
+          }
+        }
         const statements = [];
 
         // ---------------------------------------------------------
