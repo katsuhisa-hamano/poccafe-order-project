@@ -77,17 +77,15 @@ export async function onRequest(context) {
         const itemArray = Object.values(items).filter(Boolean);
 
         for (const item of itemArray) {
-          const varId = item.variation_id || item.variationId;
-          if (!varId) continue;
 
           // A. 製造個数 (調整値、共有グループ、デフォルトマスタの優先順位判定)
-          const manufactureCount = (adjustedQuantityMap.get(varId) !== undefined && adjustedQuantityMap.get(varId) !== null) ? adjustedQuantityMap.get(varId)
-                                 : (item.stock_group_id !== null && sharedQuantityMap.get(varId) !== undefined && sharedQuantityMap.get(varId) !== null) ? sharedQuantityMap.get(varId)
-                                 : (defaultQuantityMap.get(varId) || 0);
+          const manufactureCount = (adjustedQuantityMap.get(item.variation_id) !== undefined && adjustedQuantityMap.get(item.variation_id) !== null) ? adjustedQuantityMap.get(item.variation_id)
+                                 : (item.stock_group_id !== null && sharedQuantityMap.get(item.variation_id) !== undefined && sharedQuantityMap.get(item.variation_id) !== null) ? sharedQuantityMap.get(item.variation_id)
+                                 : (defaultQuantityMap.get(item.variation_id) || 0);
 
-          const reservedCount = reservationMap.get(varId) || 0;
-          const squareSalesCount = squareSalesMap.get(varId) || 0;
-          const pickupCount = pickupMap.get(varId) || 0;
+          const reservedCount = reservationMap.get(item.variation_id) || 0;
+          const squareSalesCount = squareSalesMap.get(item.variation_id) || 0;
+          const pickupCount = pickupMap.get(item.variation_id) || 0;
           
           let cnt = 0;
           let reqQty = 0;
@@ -98,10 +96,9 @@ export async function onRequest(context) {
             Schedule
               .filter(s => s.stock_group_id === item.stock_group_id)
               .forEach(x => {
-                const xVarId = x.variation_id || x.id; // Schedule側のIDプロパティ名に合わせて調整してください
-                const rCount = reservationMap.get(xVarId) || 0;
-                const sSalesCount = squareSalesMap.get(xVarId) || 0;
-                const pCount = pickupMap.get(xVarId) || 0;
+                const rCount = reservationMap.get(x.variation_id) || 0;
+                const sSalesCount = squareSalesMap.get(x.variation_id) || 0;
+                const pCount = pickupMap.get(x.variation_id) || 0;
                 
                 // 同じグループに属する商品の既存実績をすべて足し合わせる
                 cnt += (rCount + sSalesCount - pCount);
