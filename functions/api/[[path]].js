@@ -93,8 +93,8 @@ export async function onRequest(context) {
 
           // 💡 在庫グループ（一括共有）に所属している場合の処理
           if(stockGroupId !== null) {
-            // 【修正】当日の全スケジュール(Schedule)から、同じグループに属するバリエーションの実績を合算
-            Schedule
+            // 【修正】当日の全スケジュール(Schedules)から、同じグループに属するバリエーションの実績を合算
+            Schedules
               .filter(s => s.stock_group_id === stockGroupId)
               .forEach(x => {
                 const rCount = reservationMap.get(x.variation_id) || 0;
