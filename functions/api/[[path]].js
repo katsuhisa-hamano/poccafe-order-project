@@ -129,7 +129,7 @@ export async function onRequest(context) {
               ? `申し訳ありません。「${displayItemName} (${displayVarName})」は本日分が売り切れました。`
               : `申し訳ありません。「${displayItemName} (${displayVarName})」の本日残り受付可能数は ${finalAvailable} 点です。`;
 
-            return new Response(JSON.stringify({ success: false, message: errorMsg, reservedCount:reservedCount, manufactureCount: manufactureCount }), { status: 400, headers: corsHeaders });
+            return new Response(JSON.stringify({ success: false, message: errorMsg }), { status: 400, headers: corsHeaders });
           }
         }
         
@@ -212,7 +212,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({
           success: true, 
           message: '注文が正常に登録されました。',
-          order_id: newOrderId
+          order_id: newOrderId, reservedCount:reservedCount, manufactureCount: manufactureCount
         }), { headers: corsHeaders });
 
       } catch (dbErr) {
