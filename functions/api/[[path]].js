@@ -77,9 +77,10 @@ export async function onRequest(context) {
         const itemArray = Object.values(items).filter(Boolean);
 
         for (const item of itemArray) {
+          const varId = item.variation_id || item.variationId;
+          if (!varId) continue;
 
           // A. 製造個数 (調整値、共有グループ、デフォルトマスタの優先順位判定)
-          const varId = item.variation_id || item.variationId;
           const manufactureCount = (adjustedQuantityMap.get(varId) !== undefined && adjustedQuantityMap.get(varId) !== null) ? adjustedQuantityMap.get(varId)
                                  : (item.stock_group_id !== null && sharedQuantityMap.get(varId) !== undefined && sharedQuantityMap.get(varId) !== null) ? sharedQuantityMap.get(varId)
                                  : (defaultQuantityMap.get(varId) || 0);
@@ -91,20 +92,28 @@ export async function onRequest(context) {
           let cnt = 0;
           let reqQty = 0;
 
-          // 在庫グループ（一括共有）に所属している場合の処理
+          // 💡 在庫グループ（一括共有）に所属している場合の処理
           if (item.stock_group_id !== null && item.stock_group_id !== undefined) {
-            // items(オブジェクト) を配列化した itemArray からフィルターして集計
-            itemArray
-              .filter(i => i.stock_group_id === item.stock_group_id)
+            // 【修正】当日の全スケジュール(Schedule)から、同じグループに属するバリエーションの実績を合算
+            Schedule
+              .filter(s => s.stock_group_id === item.stock_group_id)
               .forEach(x => {
-                const xVarId = x.variation_id || x.variationId;
+                const xVarId = x.variation_id || x.id; // Schedule側のIDプロパティ名に合わせて調整してください
                 const rCount = reservationMap.get(xVarId) || 0;
                 const sSalesCount = squareSalesMap.get(xVarId) || 0;
                 const pCount = pickupMap.get(xVarId) || 0;
                 
+                // 同じグループに属する商品の既存実績をすべて足し合わせる
                 cnt += (rCount + sSalesCount - pCount);
+              });
+
+            // 今回の新規注文要求量（reqQty）は、カート内（itemArray）の同グループ商品の数量を合算
+            itemArray
+              .filter(i => i.stock_group_id === item.stock_group_id)
+              .forEach(x => {
                 reqQty += (parseInt(x.quantity, 10) || 0);
               });
+
           } else {
             // 単品在庫の場合
             cnt = reservedCount + squareSalesCount - pickupCount;
@@ -114,7 +123,7 @@ export async function onRequest(context) {
           // 残り数 = 製造個数 - 予約数 - （レジ売上数 - ピックアップ済み数）
           const remainingCount = manufactureCount - cnt;
 
-          // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ reservedCount に含まれていないためそのまま比較)
+          // 今回の注文を追加可能か判定 (今回の注文 reqQty はまだ予約等に含まれていないためそのまま比較)
           if (remainingCount < reqQty) {
             const finalAvailable = Math.max(0, remainingCount);
             
@@ -127,7 +136,9 @@ export async function onRequest(context) {
 
             return new Response(JSON.stringify({ success: false, message: errorMsg }), { status: 400, headers: corsHeaders });
           }
-        }        const statements = [];
+        }
+        
+        const statements = [];
 
         // ---------------------------------------------------------
         // 1. 親（orders）テーブルへの挿入クエリを配列の最初に追加
