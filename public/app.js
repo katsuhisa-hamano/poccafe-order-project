@@ -2724,18 +2724,21 @@ const app = {
         const targetVId = changedInput.getAttribute('data-variation-id');
         if (!targetVId) return;
 
-        // 現在の最新在庫残数を取得
+        // 1. 今回対象となっている共有在庫の最新残数を取得
         const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(targetVId))
             ? app.state.currentStockMap.get(targetVId)
             : 0;
 
-        // 画面上にあるすべての数量入力欄を取得
-        const allInputs = document.querySelectorAll('.qty-input-monitor');
-        
-        // 1. まず、変更された入力欄「以外」の現在の合計増分を計算する
+        // 2. 画面内にある、同じ共有在庫ID（data-variation-id）を持つすべての入力要素を抽出
+        const allMonitoredInputs = document.querySelectorAll('.qty-input-monitor');
+        const siblingInputs = Array.from(allMonitoredInputs).filter(input => 
+            input.getAttribute('data-variation-id') === targetVId
+        );
+
+        // 3. 「今回操作された入力欄以外」が今どれだけ数量を増やしているか（増分の合計）を計算
         let otherIncreasedTotal = 0;
-        allInputs.forEach(input => {
-            if (input !== changedInput && input.getAttribute('data-variation-id') === targetVId) {
+        siblingInputs.forEach(input => {
+            if (input !== changedInput) {
                 const q = parseInt(input.value, 10) || 0;
                 const orig = parseInt(input.getAttribute('data-original-qty'), 10) || 0;
                 if (q > orig) {
@@ -2744,24 +2747,24 @@ const app = {
             }
         });
 
-        // 2. 変更された入力欄が利用できる「残りの許容増分」を計算
+        // 4. 操作された入力欄が利用できる「残りの許容増分」
         const availableIncreaseForThis = Math.max(0, liveRemaining - otherIncreasedTotal);
 
-        // 3. 変更された入力欄の現在の入力値と増分をチェック
+        // 5. 操作された入力欄の現在の増分をチェック
         const currentQty = parseInt(changedInput.value, 10) || 0;
         const originalQty = parseInt(changedInput.getAttribute('data-original-qty'), 10) || 0;
         const currentIncrease = currentQty - originalQty;
 
-        // もし許容された増分を超えて増やそうとした場合、強制的に上限へ引き戻す
+        // 6. 許容された増分を超えて増やそうとした場合、強制的にその時点の上限へ引き戻す
         if (currentIncrease > availableIncreaseForThis) {
             const maxAllowedQty = originalQty + availableIncreaseForThis;
             changedInput.value = maxAllowedQty;
             
-            // 視覚的なフィードバック（一瞬赤くするなどの警告スタイルをいれても良いです）
-            changedInput.classList.add('border-red-500', 'text-red-500');
+            // 視覚的な警告フィードバック
+            changedInput.classList.add('border-red-500', 'text-red-500', 'bg-red-50');
             setTimeout(() => {
-                changedInput.classList.remove('border-red-500', 'text-red-500');
-            }, 500);
+                changedInput.classList.remove('border-red-500', 'text-red-500', 'bg-red-50');
+            }, 400);
         }
     },
 
