@@ -1672,7 +1672,11 @@ const app = {
                                                    ${idx === 0 ? 'checked' : ''} 
                                                    class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
                                             <span class="text-gray-800 font-bold">${v.name}</span>
-                                            ${isSoldOut ? '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-md font-bold ml-2">売り切れ</span>' : ''}
+                                            ${isSoldOut ? 
+                                                '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-md font-bold ml-2">売り切れ</span>' : 
+                                                liveRemaining <= 3 ?
+                                                '<span class="text-xs text-gray-400 ml-2">(残り ${liveRemaining} 点)</span>' : ''
+                                            }
                                         </span>
                                         <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
