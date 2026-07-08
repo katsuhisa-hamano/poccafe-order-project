@@ -2720,7 +2720,7 @@ const app = {
     },
 
     // 💡 数量入力時のリアルタイム連動チェック
-    handleQtyInputLive(changedInput) {
+    async handleQtyInputLive(changedInput) {
         const targetVId = changedInput.getAttribute('data-variation-id');
         if (!targetVId) return;
 
@@ -2730,6 +2730,7 @@ const app = {
             : 0;
 
         // 2. 画面内にある、同じ共有在庫ID（data-variation-id）を持つすべての入力要素を抽出
+        await this.loadStockGroups();
         const allMonitoredInputs = document.querySelectorAll('.qty-input-monitor');
         const siblingInputs = Array.from(allMonitoredInputs).filter(input => 
             input.getAttribute('data-variation-id') === targetVId
@@ -2769,7 +2770,7 @@ const app = {
     },
 
     async handleCustomerChange(customerId) {
-        this.loadUpcomingReservations();
+        await this.loadUpcomingReservations();
     },
 
     // 特定の1品だけをその場で即座にキャンセル（数量0扱い）にするショートカット
