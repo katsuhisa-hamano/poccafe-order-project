@@ -1840,6 +1840,21 @@ export async function onRequest(context) {
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
+
+  // ---------------------------------------------------------
+  //バリエーション一覧取得（共有在庫計算用） (GET /api/menus/variations)
+  // ---------------------------------------------------------
+  if (path === '/api/menus/variations' && method === 'GET') {
+    try {
+      const vars = await env.DB.prepare(`
+        SELECT * FROM menu_variations ORDER BY id ASC
+      `).all();
+      return new Response(JSON.stringify({ success: true, variations: vars.results || [] }), { headers: corsHeaders });
+    } catch (dbErr) {
+      return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
+    }
+  }
+
 }
 
 /**

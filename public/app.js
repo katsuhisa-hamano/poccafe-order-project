@@ -435,7 +435,8 @@ const app = {
         squareCatalogItems: [],
         availableSquareItems: [],
         stockGroups: [], // 共有在庫グループの情報を保持する配列
-        currentStockMap: new Map(),
+        currentStockMap: [],
+        stockGroupIds: [],
     },
 
     // ログイン処理
@@ -2730,11 +2731,15 @@ const app = {
             : 0;
 
         // 2. 画面内にある、同じ共有在庫ID（data-variation-id）を持つすべての入力要素を抽出
-        await this.loadStockGroups();
+        await this.getStockGroupIds();
+        const currentStockGroupId = app.state.stockGroupIds.get(targetVId) || null;
         const allMonitoredInputs = document.querySelectorAll('.qty-input-monitor');
-        const siblingInputs = Array.from(allMonitoredInputs).filter(input => 
-            input.getAttribute('data-variation-id') === targetVId
-        );
+        const siblingInputs = currentStockGroupId ?
+            Array.from(allMonitoredInputs).filter(input => 
+                input.getAttribute('data-variation-id') === targetVId || app.state.stockGroupIds.filter((vId, groupId) => groupId === currentStockGroupId).has(input.getAttribute('data-variation-id')))
+        :
+            Array.from(allMonitoredInputs).filter(input => 
+                input.getAttribute('data-variation-id') === targetVId);
 
         // 3. 「今回操作された入力欄以外」が今どれだけ数量を増やしているか（増分の合計）を計算
         let otherIncreasedTotal = 0;
@@ -2802,6 +2807,25 @@ const app = {
             }
         } catch (err) {
             console.error("リアルタイム在庫の取得に失敗しました:", err);
+        }
+    },
+
+    async getStockGroupIds() {
+        try {
+            const res = await fetch('/api/menu/variations');
+            const data = await res.json();
+            app.state.stockGroupIds = new Map();
+            if (data.success && data.variations) {
+                data.variations.forEach(variation => {
+                    if (variation.stock_group_id) {
+                        app.state.stockGroupIds.set(variation.square_variation_id, variation.stock_group_id);
+                    } else {
+                        app.state.stockGroupIds.set(variation.square_variation_id, null);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("在庫グループの取得に失敗しました:", err);
         }
     },
 
