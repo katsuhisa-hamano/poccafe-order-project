@@ -1336,17 +1336,57 @@ const app = {
         }
     },
 
-    // 数量を1増やす（上限を10個にする場合）
+    // 数量を1増やす（最新在庫およびすでにカートに入っている数量を考慮）
     incrementModalQty() {
         const qtyDisplay = document.getElementById('modal-quantity-display');
         if (!qtyDisplay) return;
-        
+
+        // 現在選択されているバリエーションを取得
+        const selectedVar = document.querySelector('input[name="square_variation"]:checked');
+        if (!selectedVar) {
+            sharedDialog("サイズ・種類を先に選択してください。");
+            return;
+        }
+        const vId = selectedVar.value;
+
+        // 1. 最新のフリー在庫数を取得
+        const liveRemaining = (this.state.currentStockMap && this.state.currentStockMap.has(vId))
+            ? this.state.currentStockMap.get(vId)
+            : 0;
+
+        // 2. 共有の在庫グループキーを特定 (前のステップで登録した stockGroupIds Map を参照)
+        const targetGroupKey = (this.state.stockGroupIds && this.state.stockGroupIds.has(vId))
+            ? (this.state.stockGroupIds.get(vId) || vId)
+            : vId;
+
+        // 3. すでにカートに入っている「同じ在庫グループ」の商品の合計数量を計算
+        let alreadyInCartQty = 0;
+        for (let key in this.state.cart) {
+            const cartItem = this.state.cart[key];
+            const itemVId = cartItem.variationId;
+            const itemGroupKey = (this.state.stockGroupIds && this.state.stockGroupIds.has(itemVId))
+                ? (this.state.stockGroupIds.get(itemVId) || itemVId)
+                : itemVId;
+
+            if (itemGroupKey === targetGroupKey) {
+                alreadyInCartQty += parseInt(cartItem.quantity, 10) || 0;
+            }
+        }
+
+        // 4. 今回追加可能な最大上限数
+        const availableMax = Math.max(0, liveRemaining - alreadyInCartQty);
+
         let currentQty = parseInt(qtyDisplay.innerText, 10) || 1;
-        if (currentQty < 10) { // 必要に応じて最大注文数を設定可能
+        
+        if (currentQty >= availableMax) {
+            sharedDialog(`申し訳ありません。この商品の本日残り枠の上限に達しているため、これ以上増やせません。\n(カート内: ${alreadyInCartQty}個 / 本日残り追加可能枠: ${availableMax}個)`);
+            return;
+        }
+
+        // 最大でも通常のシステム上限（例: 10個）を超えないように制限する場合
+        if (currentQty < 10) { 
             currentQty++;
             qtyDisplay.innerText = currentQty;
-            
-            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
             if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
         }
     },
@@ -1360,8 +1400,6 @@ const app = {
         if (currentQty > 1) {
             currentQty--;
             qtyDisplay.innerText = currentQty;
-            
-            // オプションによる合計金額の再計算ロジックが既にある場合はここで呼び出す
             if (typeof app.calculateModalPrice === 'function') app.calculateModalPrice();
         }
     },
@@ -1827,11 +1865,54 @@ const app = {
             return;
         }
 
+        const selectedVar = document.querySelector('input[name="square_variation"]:checked');
+        if (!selectedVar) {
+            sharedDialog("サイズ・種類を選択してください。");
+            return;
+        }
+
+        const variationId = selectedVar.value;
         const qtyDisplay = document.getElementById('modal-quantity-display');
         const quantity = qtyDisplay ? (parseInt(qtyDisplay.innerText, 10) || 1) : 1;
 
+        // 💡【新設】在庫グループを考慮したカート内・最新在庫のクロスチェック
+        const liveRemaining = (this.state.currentStockMap && this.state.currentStockMap.has(variationId))
+            ? this.state.currentStockMap.get(variationId)
+            : 0;
+
+        const targetGroupKey = (this.state.stockGroupIds && this.state.stockGroupIds.has(variationId))
+            ? (this.state.stockGroupIds.get(variationId) || variationId)
+            : variationId;
+
+        // すでにカートに入っている同じ在庫グループの数量を合算
+        let alreadyInCartQty = 0;
+        for (let key in this.state.cart) {
+            const cartItem = this.state.cart[key];
+            const itemVId = cartItem.variationId;
+            const itemGroupKey = (this.state.stockGroupIds && this.state.stockGroupIds.has(itemVId))
+                ? (this.state.stockGroupIds.get(itemVId) || itemVId)
+                : itemVId;
+
+            if (itemGroupKey === targetGroupKey) {
+                alreadyInCartQty += parseInt(cartItem.quantity, 10) || 0;
+            }
+        }
+
+        // 今回追加しようとしている量とカート内の量を足した数が、実際の在庫を超えていないか
+        if ((alreadyInCartQty + quantity) > liveRemaining) {
+            const allowedMore = Math.max(0, liveRemaining - alreadyInCartQty);
+            sharedDialog(
+                `在庫上限オーバーのためカートに追加できません。\n\n` +
+                `・本日残り総在庫: ${liveRemaining}個\n` +
+                `・すでにカートにある数量: ${alreadyInCartQty}個\n` +
+                `・あと追加できる数量: ${allowedMore}個\n\n` +
+                `モーダルの数量を調整してください。`
+            );
+            return; // 追加処理を中断
+        }
+
         // ★【追加】管理者モード時の注文主（顧客のID）を判別する
-        let targetCustomerId = this.state.user.id; // デフォルトは自分
+        let targetCustomerId = this.state.user.id; 
         let targetCustomerName = this.state.user.name;
 
         if (this.state.user.isAdmin) {
@@ -1842,13 +1923,6 @@ const app = {
             }
         }
 
-        const selectedVar = document.querySelector('input[name="square_variation"]:checked');
-        if (!selectedVar) {
-            sharedDialog("サイズ・種類を選択してください。");
-            return;
-        }
-
-        const variationId = selectedVar.value;
         const variationName = selectedVar.closest('label').querySelector('.font-bold').innerText;
         let totalPrice = Number(selectedVar.getAttribute('data-price')) || 0;
         
@@ -1861,14 +1935,11 @@ const app = {
             selectedModifiers.push({ id: input.value, name: modName, price: modPrice });
         });
 
-        // カートのキー（注文主ごとに別のカートアイテムとして保持できるよう顧客IDも結合）
+        // カートのキー
         const cartKey = `${orderDate}_${targetCustomerId}_${itemId}_${variationId}_${selectedModifiers.map(m => m.id).sort().join('_')}`;
         
         if (!this.state.cart[cartKey]) {
             this.state.cart[cartKey] = {
-                //orderDate, 
-                //customerId: targetCustomerId,     // ★ カートの要素に注文対象の顧客IDを持たせる
-                //customerName: targetCustomerName, // 表示用ネーム
                 itemId,
                 itemName,
                 variationId,
@@ -1881,18 +1952,18 @@ const app = {
             this.state.cart[cartKey].quantity += quantity;
         }
 
-        this.state.payload.order_date = orderDate; // 受取日をpayloadにも保存しておく（注文確定時に参照するため）
-        this.state.payload.customer_id = targetCustomerId; // 注文確定時に誰の注文か分かるように顧客IDも保存
+        this.state.payload.order_date = orderDate; 
+        this.state.payload.customer_id = targetCustomerId; 
         this.state.payload.customer_name = this.state.user.isAdmin ? this.state.adminCustomers.find(item => item.square_customer_id === targetCustomerId).name : this.state.user.name;
         this.state.payload.customer_email = this.state.user.isAdmin ? this.state.adminCustomers.find(item => item.square_customer_id === targetCustomerId).email : this.state.user.email;
-        this.state.payload.creater_id = this.state.user.id; // 誰がこの注文を作成したか（管理者が代理で作る場合もあるので、実際の注文主とは分けて記録）
+        this.state.payload.creater_id = this.state.user.id; 
         this.state.payload.creater_name = this.state.user.name;
 
         sharedDialog(`【${orderDate} 受取分 / ${targetCustomerName}】\n${itemName} (${variationName}) を${quantity}個カートに追加しました！`);
         document.getElementById('option-modal').classList.add('hidden');
         
         this.updateCartBar();
-        this.renderAdminCustomerSelector(); // カート追加後にセレクターを再描画（Disabledロックをかけるため）
+        this.renderAdminCustomerSelector(); 
     },
 
     // =========================================================
