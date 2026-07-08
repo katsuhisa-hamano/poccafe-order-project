@@ -2516,19 +2516,30 @@ const app = {
 
             container.classList.remove('hidden'); // 存在する場合は表示
 
+            // 💡【構文エラー対策】HTML構築の前に、予約リストに含まれる全受取日の在庫状況をバックグラウンドで直列同期する
+            // 元の selectedDate を一時退避
+            const originalSelectedDate = this.state.selectedDate;
+
+            // 重複のない受取日のリストを作成 (例: ['2026-07-15', '2026-07-16'])
+            const uniqueDates = [...new Set(data.list.map(order => order.delivery_date))];
+            const stockMaps = new Map(); // 日付ごとの在庫Mapを保持するためのMap
+            
+            // 各日付ごとに順番に在庫をフェッチし、Mapを最新状態にする
+            for (const dDate of uniqueDates) {
+                this.state.selectedDate = dDate;
+                await this.fetchLiveStock(); 
+                stockMaps.set(dDate, new Map(this.state.currentStockMap)); // 日付ごとの在庫Mapを保存
+            }
+
             // 各明細の注文日に合わせた最新のリアルタイム残数を事前にまとめて取得・更新するアプローチ
             // （※厳密には delivery_date ごとに別ですが、ひとまず全体的な在庫Mapへの反映を保証するため、直近の在庫をバックグラウンド等で参照可能にします）
 
             listBody.innerHTML = data.list.map(order => {
-                this.state.selectedDate = order.delivery_date;
-                await this.fetchLiveStock();
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => {
                     // 💡【追加】APIで取得した全体の在庫Mapから、この商品の残り在庫数を引き出す
                     const vId = item.variation_id;
-                    const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(vId)) 
-                        ? app.state.currentStockMap.get(vId) 
-                        : 0;
+                    const liveRemaining = stockMaps.get(order.delivery_date)?.get(vId) ?? 0;
 
                     // 💡 追加可能な上限数 = ユーザーが今現在キープしている数量 + 本日のフリー在庫残り
                     const maxAllowed = item.quantity + Math.max(0, liveRemaining);
