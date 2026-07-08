@@ -1640,7 +1640,7 @@ const app = {
         }
 
         try {
-            await fetchLiveStock();
+            await this.fetchLiveStock();
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
             const data = await res.json();
             if (!data.success) throw new Error(data.message);
