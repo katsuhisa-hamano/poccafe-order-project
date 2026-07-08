@@ -2902,7 +2902,7 @@ async function initOrderCalendar() {
             disable: disableRules,
             dateFormat: "Y-m-d",
             defaultDate: defaultTargetDate || null, 
-            onChange: function(selectedDates, dateStr) {
+            onChange: async function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
                     sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
@@ -2915,7 +2915,7 @@ async function initOrderCalendar() {
                     }
                 }
             },
-            onReady: function(selectedDates, dateStr) {
+            onReady: async function(selectedDates, dateStr) {
                 app.state.selectedDate = dateStr;
                 await app.fetchLiveStock();
                 if (typeof app.renderMenus === "function") {
