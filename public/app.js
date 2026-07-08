@@ -1647,6 +1647,18 @@ const app = {
 
             const item = data.item;
 
+            // 💡【新設】すべてのバリエーションが売り切れかチェック
+            const allSoldOut = item.variations.every(v => {
+                const liveRemaining = this.state.currentStockMap.get(v.id);
+                return liveRemaining <= 0;
+            });
+
+            // 💡【新設】売り切れていない最初のバリエーションのインデックスを取得
+            const firstAvailableIdx = item.variations.findIndex(v => {
+                const liveRemaining = this.state.currentStockMap.get(v.id);
+                return liveRemaining > 0;
+            });
+
             modal.innerHTML = `
                 <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
                     <div class="flex-grow overflow-y-auto mb-6 pr-1">
@@ -1660,8 +1672,15 @@ const app = {
                                     const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
                                     const liveRemaining = this.state.currentStockMap.get(v.id);
                                     const isSoldOut = liveRemaining <= 0;
+
+                                    // 💡 売り切れていない最初のアイテム、またはすべて売り切れの場合は一番最初のアイテムに checked を割り振る
+                                    const isChecked = (firstAvailableIdx === idx) || (allSoldOut && idx === 0);
+
                                     return `
-                                    <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
+                                    <label for="${radioId}" 
+                                           class="flex items-center justify-between p-3 border rounded-lg select-none transition-all
+                                           ${isSoldOut ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 bg-white'}"
+                                           ${isSoldOut ? 'style="pointer-events: none;"' : ''}>
                                         <span class="flex items-center">
                                             <input type="radio" 
                                                    id="${radioId}"
@@ -1669,16 +1688,17 @@ const app = {
                                                    value="${v.id}" 
                                                    data-price="${v.price}" 
                                                    onchange="app.calculateModalPrice()"
-                                                   ${idx === 0 ? 'checked' : ''} 
-                                                   class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-                                            <span class="text-gray-800 font-bold">${v.name}</span>
+                                                   ${isChecked ? 'checked' : ''} 
+                                                   ${isSoldOut ? 'disabled' : ''}
+                                                   class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50">
+                                            <span class="${isSoldOut ? 'text-gray-400 line-through' : 'text-gray-800'} font-bold">${v.name}</span>
                                             ${isSoldOut ? 
                                                 '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-md font-bold ml-2">売り切れ</span>' : 
                                                 liveRemaining <= 3 ?
                                                 '<span class="text-sm text-red-400 ml-2">(残り ' + liveRemaining + ' 点)</span>' : ''
                                             }
                                         </span>
-                                        <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
+                                        <span class="font-bold ${isSoldOut ? 'text-gray-400' : 'text-gray-700'}">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
                                     `;
                                 }).join('')}
@@ -1715,20 +1735,20 @@ const app = {
                         `).join('')}
                     </div>
 
-                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center">
+                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center ${allSoldOut ? 'opacity-50 pointer-events: none;' : ''}">
                         <span class="font-bold text-sm text-gray-700">数量</span>
                         <div class="flex items-center space-x-3 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
-                            <button type="button" onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50">
                                 －
                             </button>
                             <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
-                            <button type="button" onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg">
+                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50">
                                 ＋
                             </button>
                         </div>
                     </div>
 
-                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900">
+                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900 ${allSoldOut ? 'hidden' : ''}">
                         <span class="font-bold text-sm">現在の選択合計</span>
                         <span id="modal-total-price" class="text-xl font-black">¥0</span>
                     </div>
@@ -1737,8 +1757,12 @@ const app = {
                         <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
                             キャンセル
                         </button>
-                        <button onclick="app.confirmAddToCart('${item.id}', '${item.name}')" class="w-1/2 bg-emerald-600 text-white py-3 rounded-full font-black hover:bg-emerald-700 transition shadow-md block text-center text-base tracking-wider z-50">
-                            カートに追加
+                        
+                        <button ${allSoldOut ? 'disabled' : ''} 
+                                onclick="app.confirmAddToCart('${item.id}', '${item.name}')" 
+                                class="w-1/2 py-3 rounded-full font-black transition shadow-md block text-center text-base tracking-wider z-50
+                                ${allSoldOut ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">
+                            ${allSoldOut ? '売り切れ' : 'カートに追加'}
                         </button>
                     </div>
                 </div>
