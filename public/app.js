@@ -2491,6 +2491,7 @@ const app = {
         try {
             const res = await fetch(`/api/orders/upcoming?userId=${currentUserId}`);
             const data = await res.json();
+            await this.fetchLiveStock();
             
             const container = document.getElementById('upcoming-reservations-container');
             if (!container) return;
@@ -2523,8 +2524,7 @@ const app = {
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => {
                     // 💡【追加】APIで取得した全体の在庫Mapから、この商品の残り在庫数を引き出す
-                    // ※プロパティ名はAPI側の定義に合わせて item.variation_id もしくは item.square_variation_id 等に適宜調整してください
-                    const vId = item.variation_id || item.square_variation_id;
+                    const vId = item.variation_id;
                     const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(vId)) 
                         ? app.state.currentStockMap.get(vId) 
                         : 0;
