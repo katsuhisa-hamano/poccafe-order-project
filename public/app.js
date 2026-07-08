@@ -1640,6 +1640,7 @@ const app = {
         }
 
         try {
+            await fetchLiveStock();
             const res = await fetch(`/api/menus?square_item_id=${squareItemId}`);
             const data = await res.json();
             if (!data.success) throw new Error(data.message);
@@ -1657,6 +1658,8 @@ const app = {
                             <div class="space-y-2">
                                 ${item.variations.map((v, idx) => {
                                     const radioId = `var_${v.id.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}`;
+                                    const liveRemaining = this.state.currentStockMap.get(v.id);
+                                    const isSoldOut = liveRemaining <= 0;
                                     return `
                                     <label for="${radioId}" class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-white select-none">
                                         <span class="flex items-center">
@@ -1669,6 +1672,7 @@ const app = {
                                                    ${idx === 0 ? 'checked' : ''} 
                                                    class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
                                             <span class="text-gray-800 font-bold">${v.name}</span>
+                                            ${isSoldOut ? '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-md font-bold ml-2">売り切れ</span>' : ''}
                                         </span>
                                         <span class="font-bold text-gray-700">¥${Number(v.price).toLocaleString()}</span>
                                     </label>
@@ -2902,22 +2906,19 @@ async function initOrderCalendar() {
             disable: disableRules,
             dateFormat: "Y-m-d",
             defaultDate: defaultTargetDate || null, 
-            onChange: async function(selectedDates, dateStr) {
+            onChange: function(selectedDates, dateStr) {
                 const cartCount = Object.keys(app.state.cart).length;
                 if (cartCount > 0) {
                     sharedDialog("すでにカートに商品が入っているため、受取日を変更できません。\n変更する場合は一度カートを空にしてください。");
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
-                    await app.fetchLiveStock();
                     if (typeof app.renderMenus === "function") {
                         app.renderMenus();
                     }
                 }
             },
-            onReady: async function(selectedDates, dateStr) {
-                app.state.selectedDate = dateStr;
-                await app.fetchLiveStock();
+            onReady: function(selectedDates, dateStr) {
                 if (typeof app.renderMenus === "function") {
                     app.renderMenus();
                 }
