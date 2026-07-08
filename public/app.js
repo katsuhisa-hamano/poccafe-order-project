@@ -682,7 +682,7 @@ const app = {
 
             router.go('login');
         }
-        getStockGroupIds();
+        app.getStockGroupIds();
     },
 
     // ★【追加】管理者用：APIから顧客（注文者）リストを取得する関数
