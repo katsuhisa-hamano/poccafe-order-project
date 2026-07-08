@@ -2553,8 +2553,7 @@ const app = {
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400 text-[10px]">単価:</span>
-                            <td class="p-4 text-center font-semibold text-gray-600">${item.price}</td>
-                            <span class="text-gray-400">円</span>
+                            <span class="font-semibold text-gray-600">${item.price}</span>
                             <span class="text-gray-400 text-[10px]">数量:</span>
                             <input type="number" 
                                    id="update-qty-${order.id}-${item.order_item_id}" 
@@ -2564,7 +2563,8 @@ const app = {
                                    data-original-qty="${item.quantity}"
                                    data-variation-id="${vId || ''}"
                                    data-item-name="${item.name}"
-                                   class="w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
+                                   oninput="app.handleQtyInputLive(this)"
+                                   class="qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
                             />
                             <span class="text-gray-400">個</span>
                             <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
@@ -2716,6 +2716,52 @@ const app = {
             }
         } catch (e) {
             await sharedDialog("更新エラーが発生しました。");
+        }
+    },
+
+    // 💡 数量入力時のリアルタイム連動チェック
+    handleQtyInputLive(changedInput) {
+        const targetVId = changedInput.getAttribute('data-variation-id');
+        if (!targetVId) return;
+
+        // 現在の最新在庫残数を取得
+        const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(targetVId))
+            ? app.state.currentStockMap.get(targetVId)
+            : 0;
+
+        // 画面上にあるすべての数量入力欄を取得
+        const allInputs = document.querySelectorAll('.qty-input-monitor');
+        
+        // 1. まず、変更された入力欄「以外」の現在の合計増分を計算する
+        let otherIncreasedTotal = 0;
+        allInputs.forEach(input => {
+            if (input !== changedInput && input.getAttribute('data-variation-id') === targetVId) {
+                const q = parseInt(input.value, 10) || 0;
+                const orig = parseInt(input.getAttribute('data-original-qty'), 10) || 0;
+                if (q > orig) {
+                    otherIncreasedTotal += (q - orig);
+                }
+            }
+        });
+
+        // 2. 変更された入力欄が利用できる「残りの許容増分」を計算
+        const availableIncreaseForThis = Math.max(0, liveRemaining - otherIncreasedTotal);
+
+        // 3. 変更された入力欄の現在の入力値と増分をチェック
+        const currentQty = parseInt(changedInput.value, 10) || 0;
+        const originalQty = parseInt(changedInput.getAttribute('data-original-qty'), 10) || 0;
+        const currentIncrease = currentQty - originalQty;
+
+        // もし許容された増分を超えて増やそうとした場合、強制的に上限へ引き戻す
+        if (currentIncrease > availableIncreaseForThis) {
+            const maxAllowedQty = originalQty + availableIncreaseForThis;
+            changedInput.value = maxAllowedQty;
+            
+            // 視覚的なフィードバック（一瞬赤くするなどの警告スタイルをいれても良いです）
+            changedInput.classList.add('border-red-500', 'text-red-500');
+            setTimeout(() => {
+                changedInput.classList.remove('border-red-500', 'text-red-500');
+            }, 500);
         }
     },
 
