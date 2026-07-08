@@ -2516,11 +2516,29 @@ const app = {
 
             container.classList.remove('hidden'); // 存在する場合は表示
 
+            // 各明細の注文日に合わせた最新のリアルタイム残数を事前にまとめて取得・更新するアプローチ
+            // （※厳密には delivery_date ごとに別ですが、ひとまず全体的な在庫Mapへの反映を保証するため、直近の在庫をバックグラウンド等で参照可能にします）
+
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
-                const itemsHtml = order.items.map(item => `
+                const itemsHtml = order.items.map(item => {
+                    // 💡【追加】APIで取得した全体の在庫Mapから、この商品の残り在庫数を引き出す
+                    // ※プロパティ名はAPI側の定義に合わせて item.variation_id もしくは item.square_variation_id 等に適宜調整してください
+                    const vId = item.variation_id || item.square_variation_id;
+                    const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(vId)) 
+                        ? app.state.currentStockMap.get(vId) 
+                        : 0;
+
+                    // 💡 追加可能な上限数 = ユーザーが今現在キープしている数量 + 本日のフリー在庫残り
+                    const maxAllowed = item.quantity + Math.max(0, liveRemaining);
+
+                    return `
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-orange-100/50 last:border-0 text-xs text-gray-700">
-                        <span class="font-medium">${item.name}</span>
+                        <div class="flex flex-col">
+                            <span class="font-medium">${item.name}</span>
+                            ${liveRemaining <= 2 && liveRemaining > 0 ? `<span class="text-[10px] text-red-500 font-bold">（本日残り僅か: あと ${liveRemaining} 点分追加可能）</span>` : ''}
+                            ${liveRemaining <= 0 ? `<span class="text-[10px] text-gray-400 font-bold">（他バリエーション含め本日分は満杯のため増量不可）</span>` : ''}
+                        </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400 text-[10px]">単価:</span>
                             <td class="p-4 text-center font-semibold text-gray-600">${item.price}</td>
@@ -2530,13 +2548,18 @@ const app = {
                                    id="update-qty-${order.id}-${item.order_item_id}" 
                                    value="${item.quantity}" 
                                    min="0" 
-                                   class="w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none" 
+                                   max="${maxAllowed}"
+                                   data-original-qty="${item.quantity}"
+                                   data-variation-id="${vId || ''}"
+                                   data-item-name="${item.name}"
+                                   class="w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
                             />
                             <span class="text-gray-400">個</span>
                             <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
                         </div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 return `
                     <div class="bg-white rounded-2xl p-4 border border-lightgreen-100 shadow-xs flex flex-col gap-3">
@@ -2559,7 +2582,7 @@ const app = {
                                     class="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition">
                                 注文全体をキャンセル
                             </button>
-                            <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}])" 
+                            <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}], '${order.delivery_date}')" 
                                     class="text-xs font-bold text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-xl shadow-xs transition">
                                 数量の変更を確定
                             </button>
@@ -2599,18 +2622,46 @@ const app = {
     },
 
     // 数量変更および一部キャンセルの確定
-    async submitOrderChanges(orderId, itemIds) {
+    async submitOrderChanges(orderId, itemIds, deliveryDate) {
         const updatePayloadItems = [];
 
-        // 画面上の各入力欄から最新の数量を収集
+        // 💡 変更を確定する前に、対象の配達日に基づく最新の在庫状況をもう一度フェッチして同期する
+        if (deliveryDate) {
+            // 現在の selectedDate を一時的に退避して該当日の在庫を読込
+            const savedDate = app.state.selectedDate;
+            app.state.selectedDate = deliveryDate;
+            await this.fetchLiveStock();
+            app.state.selectedDate = savedDate; // 元に戻す
+        }
+
+        // 画面上の各入力欄から最新の数量を収集・検証
         for (const itemId of itemIds) {
             const input = document.getElementById(`update-qty-${orderId}-${itemId}`);
             if (input) {
                 const qty = parseInt(input.value, 10);
+                const originalQty = parseInt(input.getAttribute('data-original-qty'), 10) || 0;
+                const vId = input.getAttribute('data-variation-id');
+                const itemName = input.getAttribute('data-item-name') || '商品';
+
                 if (isNaN(qty) || qty < 0) {
                     await sharedDialog("数量には0以上の正しい数値を入力してください。");
                     return;
                 }
+
+                // 💡【追加ガード】もし元の注文数量より増やそうとしている場合、在庫残数をチェック
+                if (qty > originalQty) {
+                    const increasedAmount = qty - originalQty; // 増量しようとしている差分
+                    const liveRemaining = app.state.currentStockMap.get(vId) || 0;
+
+                    if (increasedAmount > liveRemaining) {
+                        await sharedDialog(`申し訳ありません。「${itemName}」の残り枠が不足しているため、これ以上数量を増やすことはできません。\n(現在の残り枠: あと ${liveRemaining} 点分)`);
+                        
+                        // 入力値を許可されていた最大値に強制引き戻し
+                        input.value = originalQty + Math.max(0, liveRemaining);
+                        return;
+                    }
+                }
+
                 updatePayloadItems.push({ order_item_id: itemId, quantity: qty });
             }
         }
