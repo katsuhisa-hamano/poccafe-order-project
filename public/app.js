@@ -435,6 +435,7 @@ const app = {
         squareCatalogItems: [],
         availableSquareItems: [],
         stockGroups: [], // 共有在庫グループの情報を保持する配列
+        currentStockMap: new Map(),
     },
 
     // ログイン処理
@@ -2618,6 +2619,29 @@ const app = {
         }
     },
 
+    async fetchLiveStock() {
+        const targetDate = app.state.selectedDate; // 選択中の受取日（例: '2026-07-15'）
+        if (!targetDate) return;
+
+        try {
+            // daily-stats APIから当日の計算済みデータを取得
+            const res = await fetch(`/api/admin/daily-stats?date=${targetDate}`);
+            const data = await res.json();
+            
+            // 残数を管理するMapを初期化
+            app.state.currentStockMap = new Map();
+            
+            if (data.success && data.stats) {
+                data.stats.forEach(stat => {
+                    // variation_id をキーに、計算された remaining (残数) をセット
+                    app.state.currentStockMap.set(stat.variation_id, stat.remaining);
+                });
+            }
+        } catch (err) {
+            console.error("リアルタイム在庫の取得に失敗しました:", err);
+        }
+    },
+
     async printSingleOrderHtml(order) {
         if (!order) return;
 
@@ -2885,12 +2909,15 @@ async function initOrderCalendar() {
                     initOrderCalendar();
                 } else {
                     app.state.selectedDate = dateStr;
+                    await app.fetchLiveStock();
                     if (typeof app.renderMenus === "function") {
                         app.renderMenus();
                     }
                 }
             },
             onReady: function(selectedDates, dateStr) {
+                app.state.selectedDate = dateStr;
+                await app.fetchLiveStock();
                 if (typeof app.renderMenus === "function") {
                     app.renderMenus();
                 }
