@@ -2639,14 +2639,18 @@ const app = {
 
         // 💡 変更を確定する前に、対象の配達日に基づく最新の在庫状況をもう一度フェッチして同期する
         if (deliveryDate) {
-            // 現在の selectedDate を一時的に退避して該当日の在庫を読込
             const savedDate = app.state.selectedDate;
             app.state.selectedDate = deliveryDate;
             await this.fetchLiveStock();
             app.state.selectedDate = savedDate; // 元に戻す
         }
 
-        // 画面上の各入力欄から最新の数量を収集・検証
+        // 💡【新設】同じバリエーションごとの「ユーザーが今回増やそうとしている総量」を追跡するMap
+        const totalIncreasedMap = new Map();
+        // エラーメッセージ用に対象の商品名を保持するMap
+        const nameMap = new Map();
+
+        // 1周目のループ: 画面上の全入力をスキャンし、バリエーションごとの「増分の合計」を算出
         for (const itemId of itemIds) {
             const input = document.getElementById(`update-qty-${orderId}-${itemId}`);
             if (input) {
@@ -2660,17 +2664,15 @@ const app = {
                     return;
                 }
 
-                // 💡【追加ガード】もし元の注文数量より増やそうとしている場合、在庫残数をチェック
-                if (qty > originalQty) {
-                    const increasedAmount = qty - originalQty; // 増量しようとしている差分
-                    const liveRemaining = app.state.currentStockMap.get(vId) || 0;
-
-                    if (increasedAmount > liveRemaining) {
-                        await sharedDialog(`申し訳ありません。「${itemName}」の残り枠が不足しているため、これ以上数量を増やすことはできません。\n(現在の残り枠: あと ${liveRemaining} 点分)`);
-                        
-                        // 入力値を許可されていた最大値に強制引き戻し
-                        input.value = originalQty + Math.max(0, liveRemaining);
-                        return;
+                if (vId) {
+                    nameMap.set(vId, itemName);
+                    // ユーザーがこの行で増やそうとしている数（減らす or 変わらない場合は 0）
+                    const diff = qty - originalQty;
+                    const currentIncreased = totalIncreasedMap.get(vId) || 0;
+                    
+                    // 同じバリエーションIDの増分を合算していく
+                    if (diff > 0) {
+                        totalIncreasedMap.set(vId, currentIncreased + diff);
                     }
                 }
 
@@ -2678,6 +2680,22 @@ const app = {
             }
         }
 
+        // 2周目のループ: バリエーションごとの総増分が、実際の最新在庫残数を超えていないか一括チェック
+        for (const [vId, totalIncreased] of totalIncreasedMap.entries()) {
+            const liveRemaining = app.state.currentStockMap.get(vId) || 0;
+
+            if (totalIncreased > liveRemaining) {
+                const itemName = nameMap.get(vId) || '対象商品';
+                await sharedDialog(
+                    `申し訳ありません。「${itemName}」の残り枠が不足しています。\n` +
+                    `同一商品の増分合計が、本日の残り上限数を超えています。\n` +
+                    `（本日全体の残り枠: あと ${liveRemaining} 点分）`
+                );
+                return; // 1つでも在庫オーバーがあれば処理を中断
+            }
+        }
+
+        // 最終確認ダイアログ
         if (!await sharedDialog("入力された内容で予約数量を変更します。よろしいですか？\n（0個に設定したアイテムは自動的にキャンセルされます）", "#333333", true)) {
             return;
         }
