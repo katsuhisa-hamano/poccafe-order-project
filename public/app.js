@@ -2634,7 +2634,7 @@ const app = {
             if (data.success && data.stats) {
                 data.stats.forEach(stat => {
                     // variation_id をキーに、計算された remaining (残数) をセット
-                    app.state.currentStockMap.set(stat.variation_id, stat.remaining);
+                    app.state.currentStockMap.set(stat.variationId, stat.remainingCount);
                 });
             }
         } catch (err) {
