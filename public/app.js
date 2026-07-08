@@ -682,6 +682,7 @@ const app = {
 
             router.go('login');
         }
+        getStockGroupIds();
     },
 
     // ★【追加】管理者用：APIから顧客（注文者）リストを取得する関数
@@ -2538,11 +2539,18 @@ const app = {
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => {
-                    // 💡【追加】APIで取得した全体の在庫Mapから、この商品の残り在庫数を引き出す
-                    const vId = item.variation_id;
-                    const liveRemaining = stockMaps.get(order.delivery_date)?.get(vId) ?? 0;
+                    const vId = item.variation_id || item.square_variation_id;
+                    
+                    // 💡 事前に取得してあるMapから、このバリエーションが属する在庫グループID(stock_group_id)を取得する
+                    // なければバリエーションID(vId)自体をグループキーとして扱う
+                    const groupKey = (app.state.stockGroupIds && app.state.stockGroupIds.has(vId))
+                        ? (app.state.stockGroupIds.get(vId) || vId)
+                        : vId;
 
-                    // 💡 追加可能な上限数 = ユーザーが今現在キープしている数量 + 本日のフリー在庫残り
+                    const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(vId)) 
+                        ? app.state.currentStockMap.get(vId) 
+                        : 0;
+
                     const maxAllowed = item.quantity + Math.max(0, liveRemaining);
 
                     return `
@@ -2550,22 +2558,25 @@ const app = {
                         <div class="flex flex-col">
                             <span class="font-medium">${item.name}</span>
                             ${liveRemaining <= 2 && liveRemaining > 0 ? `<span class="text-[10px] text-red-500 font-bold">（本日残り僅か: あと ${liveRemaining} 点分追加可能）</span>` : ''}
-                            ${liveRemaining <= 0 ? `<span class="text-[10px] text-gray-400 font-bold">（他バリエーション含め本日分は満杯のため増量不可）</span>` : ''}
+                            ${liveRemaining <= 0 ? `<span class="text-[10px] text-gray-400 font-bold">（この在庫グループは満杯のため増量不可）</span>` : ''}
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400 text-[10px]">単価:</span>
                             <span class="font-semibold text-gray-600">${item.price}</span>
+                            <span class="text-gray-400">円</span>
                             <span class="text-gray-400 text-[10px]">数量:</span>
+                            
                             <input type="number" 
-                                   id="update-qty-${order.id}-${item.order_item_id}" 
-                                   value="${item.quantity}" 
-                                   min="0" 
-                                   max="${maxAllowed}"
-                                   data-original-qty="${item.quantity}"
-                                   data-variation-id="${vId || ''}"
-                                   data-item-name="${item.name}"
-                                   oninput="app.handleQtyInputLive(this)"
-                                   class="qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
+                                id="update-qty-${order.id}-${item.order_item_id}" 
+                                value="${item.quantity}" 
+                                min="0" 
+                                max="${maxAllowed}"
+                                data-original-qty="${item.quantity}"
+                                data-variation-id="${vId || ''}"
+                                data-group-key="${groupKey || ''}"
+                                data-item-name="${item.name}"
+                                oninput="app.handleQtyInputLive(this)"
+                                class="qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
                             />
                             <span class="text-gray-400">個</span>
                             <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
@@ -2720,28 +2731,24 @@ const app = {
         }
     },
 
-    // 💡 数量入力時のリアルタイム連動チェック
-    async handleQtyInputLive(changedInput) {
+    // 💡 数量入力時のリアルタイム連動チェック（共通の在庫グループを横断して監視）
+    handleQtyInputLive(changedInput) {
+        const targetGroupKey = changedInput.getAttribute('data-group-key');
         const targetVId = changedInput.getAttribute('data-variation-id');
-        if (!targetVId) return;
+        if (!targetGroupKey) return;
 
-        // 1. 今回対象となっている共有在庫の最新残数を取得
+        // 1. 今回操作された商品のバリエーションIDを基準に、現在の最新の残数を取得
         const liveRemaining = (app.state.currentStockMap && app.state.currentStockMap.has(targetVId))
             ? app.state.currentStockMap.get(targetVId)
             : 0;
 
-        // 2. 画面内にある、同じ共有在庫ID（data-variation-id）を持つすべての入力要素を抽出
-        await this.getStockGroupIds();
-        const currentStockGroupId = app.state.stockGroupIds.get(targetVId) || null;
+        // 2. 画面内にある、同じ在庫グループキー（data-group-key）を持つすべての入力を抽出（別商品含む）
         const allMonitoredInputs = document.querySelectorAll('.qty-input-monitor');
-        const siblingInputs = currentStockGroupId ?
-            Array.from(allMonitoredInputs).filter(input => 
-                input.getAttribute('data-variation-id') === targetVId || app.state.stockGroupIds.filter((vId, groupId) => groupId === currentStockGroupId).has(input.getAttribute('data-variation-id')))
-        :
-            Array.from(allMonitoredInputs).filter(input => 
-                input.getAttribute('data-variation-id') === targetVId);
+        const siblingInputs = Array.from(allMonitoredInputs).filter(input => 
+            input.getAttribute('data-group-key') === targetGroupKey
+        );
 
-        // 3. 「今回操作された入力欄以外」が今どれだけ数量を増やしているか（増分の合計）を計算
+        // 3. 「今回操作された入力欄以外」の、共通在庫グループに属する商品の増分合計を計算
         let otherIncreasedTotal = 0;
         siblingInputs.forEach(input => {
             if (input !== changedInput) {
@@ -2761,7 +2768,7 @@ const app = {
         const originalQty = parseInt(changedInput.getAttribute('data-original-qty'), 10) || 0;
         const currentIncrease = currentQty - originalQty;
 
-        // 6. 許容された増分を超えて増やそうとした場合、強制的にその時点の上限へ引き戻す
+        // 6. 在庫グループ全体の許容量を超えて増やそうとした場合、強制的に引き戻す
         if (currentIncrease > availableIncreaseForThis) {
             const maxAllowedQty = originalQty + availableIncreaseForThis;
             changedInput.value = maxAllowedQty;
