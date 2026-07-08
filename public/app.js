@@ -2491,7 +2491,6 @@ const app = {
         try {
             const res = await fetch(`/api/orders/upcoming?userId=${currentUserId}`);
             const data = await res.json();
-            await this.fetchLiveStock();
             
             const container = document.getElementById('upcoming-reservations-container');
             if (!container) return;
@@ -2521,6 +2520,8 @@ const app = {
             // （※厳密には delivery_date ごとに別ですが、ひとまず全体的な在庫Mapへの反映を保証するため、直近の在庫をバックグラウンド等で参照可能にします）
 
             listBody.innerHTML = data.list.map(order => {
+                this.state.selectedDate = order.delivery_date;
+                await this.fetchLiveStock();
                 // 複数行の注文明細および数量変更用のインプットを用意
                 const itemsHtml = order.items.map(item => {
                     // 💡【追加】APIで取得した全体の在庫Mapから、この商品の残り在庫数を引き出す
