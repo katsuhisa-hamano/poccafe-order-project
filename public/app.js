@@ -2812,7 +2812,7 @@ const app = {
 
     async getStockGroupIds() {
         try {
-            const res = await fetch('/api/menu/variations');
+            const res = await fetch('/api/menus/variations');
             const data = await res.json();
             app.state.stockGroupIds = new Map();
             if (data.success && data.variations) {
