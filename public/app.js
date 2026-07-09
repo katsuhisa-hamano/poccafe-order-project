@@ -2914,7 +2914,7 @@ const app = {
             // 1. mPOP（58mm幅）に最適化した、シンプルで見やすいHTMLを構築
             let htmlContent = `
             <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:0; box-sizing:border-box;">
-                <h2 style="font-size:18px; text-align:center; margin:10px 0;">ネット注文伝票</h2>
+                <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
                 <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
                 <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
                 <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
@@ -2943,29 +2943,36 @@ const app = {
             </div>
             `;
 
-            // 1. 現在のブラウザURLを取得
-            const rawUrl = window.location.href;
-            let backUrl = rawUrl;
+            // 2. 💡 戻り先URLを「確実に管理者画面になるURL」として新しく安全に組み立てる
+            // ルーターの仕様に合わせて、ドメインの末尾に正しいパス（またはハッシュ）を結合します
+            const originUrl = window.location.origin; // 例: "https://xxxx.pages.dev"
+            
+            // 💡 お使いのルーターがハッシュ形式（#admin等）か、パス形式（/admin等）に合わせて書き換えてください
+            // 現在のapp.jsのルーティング仕様に強制的に合わせるための固定文字列です
+            let backUrl = originUrl; 
+            if (window.location.hash) {
+                backUrl = originUrl + "/" + window.location.hash; // ハッシュ（#）がある場合はそれを結合
+            } else if (window.location.pathname !== "/") {
+                backUrl = originUrl + window.location.pathname; // パスがある場合はそれを結合
+            }
 
-            // 2. 💡 Chromeで実行されている場合、戻り先をChrome専用スキームに変換する
-            // iOS Chromeでアクセスしている場合、ユーザーエージェントに「CriOS」が含まれます
+            // 3. iOSのChromeから実行されている場合のスキーム置換（引き戻し処理）
             if (navigator.userAgent.indexOf('CriOS') !== -1) {
-                // https:// を googlechrome:// に、http:// を googlechromes:// に置換
-                backUrl = rawUrl.replace(/^https?:\/\//, 'googlechrome://');
+                backUrl = backUrl.replace(/^https?:\/\//, 'googlechrome://');
             }
 
             const currentUrl = encodeURIComponent(backUrl);
             const encodedHtml = encodeURIComponent(htmlContent);
             
-            // 3. パスパラメーターを設定（size=3 は環境に合わせて2等に調整してください）
+            // 4. PassPRNT用のURLスキームを生成
             const passPrntUrl = `starpassprnt://v1/print/nopreview?` + 
-                `size=432` + 
+                `size=3` + 
                 `&back=${currentUrl}` + 
                 `&html=${encodedHtml}`;
 
-            console.log("HTML個別印刷URLを発行:", passPrntUrl);
+            console.log("管理者画面ピンポイント指定URL:", passPrntUrl);
 
-            // 3. PassPRNTアプリをキックして印刷を実行
+            // 5. PassPRNTアプリをキック
             window.location.href = passPrntUrl;
 
         } catch (err) {
