@@ -2907,83 +2907,33 @@ const app = {
         }
     },
 
+    // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
+    currentlyPrintingIds = [],
+
+    /**
+     * 【1件印刷 / 個別再印刷用】
+     * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
+     */
     async printSingleOrderHtml(order) {
         if (!order) return;
-
         try {
-            // 1. mPOP（58mm幅）に最適化した、シンプルで見やすいHTMLを構築
-            let htmlContent = `
-            <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:0; box-sizing:border-box;">
-                <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
-                <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
-                <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
-                <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
-            `;
-
-            // 商品明細を展開
-            if (order.items && order.items.length > 0) {
-                order.items.forEach(item => {
-                    htmlContent += `
-                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <div style="width:75%; word-break:break-all;">${item.name}</div>
-                        <div style="width:25%; text-align:right;">x ${item.quantity}</div>
-                    </div>`;
-                });
-            }
-
-            htmlContent += `
-                <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
-                <div style="font-size:16px; font-weight:bold; text-align:right; margin-top:5px;">
-                    合計金額: &yen;${(order.total_price || order.total_amount || 0).toLocaleString()}
-                </div>
-                <div style="margin-top:5px; font-size:12px;">
-                    受領状態: ${order.received_status === 1 ? '【受領済】' : '【未受領】'}
-                </div>
-                <div style="height:70px;"></div>
-            </div>
-            `;
-
-            // 2. 💡 戻り先URLを「確実に管理者画面になるURL」として新しく安全に組み立てる
-            // ルーターの仕様に合わせて、ドメインの末尾に正しいパス（またはハッシュ）を結合します
-            const originUrl = window.location.origin; // 例: "https://xxxx.pages.dev"
-            
-            // 💡 お使いのルーターがハッシュ形式（#admin等）か、パス形式（/admin等）に合わせて書き換えてください
-            // 現在のapp.jsのルーティング仕様に強制的に合わせるための固定文字列です
-            let backUrl = originUrl; 
-            if (window.location.hash) {
-                backUrl = originUrl + "/" + window.location.hash; // ハッシュ（#）がある場合はそれを結合
-            } else if (window.location.pathname !== "/") {
-                backUrl = originUrl + window.location.pathname; // パスがある場合はそれを結合
-            }
-
-            // 3. iOSのChromeから実行されている場合のスキーム置換（引き戻し処理）
-            if (navigator.userAgent.indexOf('CriOS') !== -1) {
-                backUrl = backUrl.replace(/^https?:\/\//, 'googlechrome://');
-            }
-
-            const currentUrl = encodeURIComponent(backUrl);
+            // 単発印刷用のHTML（改ページなし）
+            const htmlContent = this.generateOrderHtmlTemplate(order);
             const encodedHtml = encodeURIComponent(htmlContent);
             
-            // 4. PassPRNT用のURLスキームを生成
-            const passPrntUrl = `starpassprnt://v1/print/nopreview?` + 
-                `size=3` + 
-                `&back=${currentUrl}` + 
-                `&html=${encodedHtml}`;
-
-            console.log("管理者画面ピンポイント指定URL:", passPrntUrl);
-
-            // 5. PassPRNTアプリをキック
+            // タブ増殖を防ぐため、&back パラメータは設定しない
+            const passPrntUrl = `starpassprnt://v1/print/nopreview?size=3&html=${encodedHtml}`;
             window.location.href = passPrntUrl;
-
         } catch (err) {
-            console.error("個別HTML印刷エラー:", err);
+            console.error("個別印刷エラー:", err);
         }
     },
 
     /**
-     * 当日の全予約データをAPIから取得し、人間の確認ポップアップを挟みながら安全に順次印刷する
+     * 【一括伝票印刷ボタン用】
+     * 未印刷の項目をすべて1つのHTMLに結合してPassPRNTへ送り、帰還待ち状態にする
      */
-    async printAllOrdersSequentially() {
+    async printUnprintedOrdersAll() {
         const targetDate = document.getElementById('stats-target-date').value;
         if (!targetDate) return alert("日付を指定してください。");
 
@@ -2991,42 +2941,115 @@ const app = {
             const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
             const result = await res.json();
             
-            if (!result.success || !result.list || result.list.length === 0) {
-                return alert("印刷する予約データがありません。");
+            if (!result.success || !result.list) return alert("データの取得に失敗しました。");
+
+            // 1. 「未印刷 (printed_status !== 1)」の注文だけを抽出
+            const unprintedOrders = result.list.filter(order => order.printed_status !== 1);
+
+            if (unprintedOrders.length === 0) {
+                return alert("未印刷の注文はありません。すべて印刷済みです。");
             }
 
-            let index = 1;
-            for (const order of result.list) {
-                // 💡 1件ごとに確認を挟むことで、SafariからPassPRNTへの連続遷移によるバグや
-                // データの詰め込みすぎによるクラッシュ（1回のURLスキーム上限）を確実に防止します
-                const next = confirm(`[${index} / ${result.list.length} 件目]\n${order.user_name} 様の伝票を印刷しますか？\n\n※「OK」を押すとPassPRNTが開きます。印刷が終わったらブラウザに戻ってください。`);
+            if (!confirm(`未印刷の注文が ${unprintedOrders.length} 件あります。\n一括印刷を開始します。`)) return;
+
+            // 2. 印刷対象のIDを記憶しておく（戻ってきたときのフラグ更新用）
+            app.currentlyPrintingIds = unprintedOrders.map(order => order.id);
+
+            // 3. 全注文のHTMLを「改ページ指定」で1本に結合する
+            let combinedHtml = `<div style="margin:0; padding:0;">`;
+            unprintedOrders.forEach((order, index) => {
+                combinedHtml += this.generateOrderHtmlTemplate(order);
                 
-                if (!next) {
-                    const cancelAll = confirm("印刷をここで中断しますか？\n（キャンセルを押すとこの件数をスキップして次へ進みます）");
-                    if (cancelAll) {
-                        alert("一括印刷を中断しました。");
-                        break;
-                    }
-                    index++;
-                    continue;
+                // 最後の1件以外は、注文ごとにプリンターがカット（またはミシン目送り）できるように改ページを入れる
+                if (index < unprintedOrders.length - 1) {
+                    combinedHtml += `<div style="page-break-after: always;"></div>`;
                 }
-                
-                // 💡 今回再出力した「async printSingleOrderHtml」を呼び出し
-                await this.printSingleOrderHtml(order);
+            });
+            combinedHtml += `</div>`;
 
-                // アプリが切り替わって印刷が走る時間を考慮し、次のポップアップまで2.5秒の安全な待機を挟む
-                await new Promise(resolve => setTimeout(resolve, 2500));
-                
-                index++;
-            }
-
-            alert("印刷処理のループが終了しました。");
+            const encodedHtml = encodeURIComponent(combinedHtml);
+            
+            // 4. PassPRNTへ送信（backを付けないことでタブ増殖を完全ガード）
+            const passPrntUrl = `starpassprnt://v1/print/nopreview?size=3&html=${encodedHtml}`;
+            
+            console.log(`${unprintedOrders.length}件の注文を一括送信します。`);
+            window.location.href = passPrntUrl;
 
         } catch (err) {
-            console.error("一括順次印刷エラー:", err);
-            alert("印刷処理の途中でエラーが発生しました: " + err.message);
+            console.error("一括印刷エラー:", err);
         }
     },
+
+    /**
+     * 【HTMLテンプレート生成共通ロジック】
+     */
+    generateOrderHtmlTemplate(order) {
+        let html = `
+        <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:10px 0; box-sizing:border-box;">
+            <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
+            <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
+            <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
+            <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
+        `;
+
+        if (order.items && order.items.length > 0) {
+            order.items.forEach(item => {
+                html += `
+                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                    <div style="width:75%; word-break:break-all;">${item.name}</div>
+                    <div style="width:25%; text-align:right;">x ${item.quantity}</div>
+                </div>`;
+            });
+        }
+
+        html += `
+            <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
+            <div style="font-size:16px; font-weight:bold; text-align:right; margin-top:5px;">
+                合計金額: &yen;${(order.total_price || order.total_amount || 0).toLocaleString()}
+            </div>
+            <div style="margin-top:5px; font-size:12px; color:#666;">
+                ${order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】'}
+            </div>
+            <div style="height:60px;"></div>
+        </div>
+        `;
+        return html;
+    },
+
+    /**
+     * 【帰還検知システム】
+     * スタッフがすべての印刷を終えてブラウザに戻ってきた瞬間に、フラグを一括更新する
+     */
+    initFocusHandler() {
+        window.onfocus = async () => {
+            // 一括印刷タスクの対象IDが残っている場合のみ実行
+            if (app.currentlyPrintingIds && app.currentlyPrintingIds.length > 0) {
+                try {
+                    console.log("ブラウザへの復帰を検知しました。対象注文の一括フラグ更新を開始します...", app.currentlyPrintingIds);
+                    
+                    // 💡 印刷された全IDをバックグラウンドAPIに送り、まとめて「印刷済み(1)」に更新
+                    const response = await fetch(`/api/admin/update-print-status-bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: app.currentlyPrintingIds, printed_status: 1 })
+                    });
+                    
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
+                        app.currentlyPrintingIds = [];
+                        alert("印刷済みの項目を更新しました。");
+                        app.loadAdminOrders(); // 管理画面のリスト表示を再描画
+                    }
+
+                } catch (err) {
+                    console.error("一括フラグ更新通信エラー:", err);
+                    alert("通信エラーが発生したため、印刷フラグの更新に失敗しました。画面をリフレッシュして確認してください。");
+                }
+            }
+        };
+    }
 };
 
 // =========================================================
