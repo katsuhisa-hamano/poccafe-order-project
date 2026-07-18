@@ -2505,8 +2505,8 @@ const app = {
                             🔄 再印刷
                         </button>`
                     :  `<button onclick='app.printSingleOrderHtml(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
-                                class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold">
-                            ⏳ 未印刷 (単発)
+                                class="bg-blue-50 text-red-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold">
+                            ⏳ 未印刷
                         </button>`;
 
                 html += `
