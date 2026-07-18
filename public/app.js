@@ -2908,7 +2908,7 @@ const app = {
     },
 
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
-    currentlyPrintingIds = [],
+    currentlyPrintingIds : [],
 
     /**
      * 【1件印刷 / 個別再印刷用】
