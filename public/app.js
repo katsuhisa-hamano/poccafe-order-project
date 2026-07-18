@@ -2500,18 +2500,14 @@ const app = {
                     : `<span class="inline-block bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black mb-1">未受領</span>`;
                 
                 const printButtonHtml = (order.printed_status === 1)
-                    ? `
-                        <button onclick='app.triggerReprint(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
+                    ?  `<button onclick='app.triggerReprint(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
                                 class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded text-xs font-medium">
                             🔄 再印刷
-                        </button>
-                    `
-                : `
-                        <button onclick='app.printSingleOrderHtml(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
+                        </button>`
+                    :  `<button onclick='app.printSingleOrderHtml(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
                                 class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold">
                             ⏳ 未印刷 (単発)
-                        </button>
-                    `;
+                        </button>`;
 
                 html += `
                     <tr class="hover:bg-gray-50/50 transition ${isReceived ? 'bg-gray-50/40 text-gray-400' : ''}">

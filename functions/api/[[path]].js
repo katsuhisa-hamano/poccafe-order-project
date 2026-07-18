@@ -1609,7 +1609,7 @@ export async function onRequest(context) {
 
         // 指定日の注文基本情報（注文者名など）を全件取得
         const { results: orders } = await env.DB.prepare(`
-          SELECT id, customer_name, total_amount, received_status 
+          SELECT id, customer_name, total_amount, received_status, printed_status
           FROM orders 
           WHERE delivery_date = ? AND IFNULL(status, '') != 'Canceled'
           ORDER BY id DESC
@@ -1649,6 +1649,7 @@ export async function onRequest(context) {
             user_name: order.customer_name || "不明な顧客",
             total_price: order.total_amount,
             received_status: order.received_status || 0,
+            printed_status: order.printed_status || 0,
             items: orderItems
           };
         });
