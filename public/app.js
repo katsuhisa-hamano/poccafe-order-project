@@ -2920,6 +2920,8 @@ const app = {
 
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
     currentlyPrintingIds : [],
+    printerIp : '192.168.12.100', // 事前に設定した固定IP
+    printerUrl: `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`,
 
     /**
      * 【1件印刷 / 個別再印刷用】
@@ -2929,12 +2931,42 @@ const app = {
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
-            const htmlContent = this.generateOrderHtmlTemplate(order);
-            const encodedHtml = encodeURIComponent(htmlContent);
+            const xmlContent = this.generateOrderXmlTemplate(order);
             
-            // タブ増殖を防ぐため、&back パラメータは設定しない
-            const passPrntUrl = `starpassprnt://v1/print/nopreview?size=3&html=${encodedHtml}`;
-            window.location.href = passPrntUrl;
+            const printerIp = '192.168.12.100'; // 事前に設定した固定IP
+            const printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
+            
+            const printResult = await fetch(printerUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/xml; charset=utf-8',
+                    'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
+                },
+                body: xmlContent
+            });
+
+            app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
+
+            if (printResult.ok) {
+                // 💡 印刷された全IDをバックグラウンドAPIに送り、まとめて「印刷済み(1)」に更新
+                const response = await fetch(`/api/admin/update-print-status-bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: app.currentlyPrintingIds, printed_status: 1 })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
+                    app.currentlyPrintingIds = [];
+                    alert(`${unprintedOrders.length}件の伝票を一括印刷しました。`);
+                    app.loadAdminOrders(); // 管理画面のリスト表示を再描画
+                }
+            } else {
+            console.error(await printResult.text());
+            alert('プリンターへの送信に失敗しました。');
+            }
+
         } catch (err) {
             console.error("個別印刷エラー:", err);
         }
@@ -2976,26 +3008,40 @@ const app = {
             // 2. 印刷対象のIDを記憶しておく（戻ってきたときのフラグ更新用）
             app.currentlyPrintingIds = unprintedOrders.map(order => order.id);
 
-            // 3. 全注文のHTMLを「改ページ指定」で1本に結合する
-            let combinedHtml = `<div style="margin:0; padding:0;">`;
-            unprintedOrders.forEach((order, index) => {
-                combinedHtml += this.generateOrderHtmlTemplate(order);
-                
-                // 最後の1件以外は、注文ごとにプリンターがカット（またはミシン目送り）できるように改ページを入れる
-                if (index < unprintedOrders.length - 1) {
-                    combinedHtml += `<div style="page-break-after: always;"></div>`;
-                }
+            // 2. 一括印刷用のXMLを生成
+            const bulkXml = this.generateBulkOrderXmlTemplate(unprintedOrders);
+            
+            const printResult = await fetch(printerUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/xml; charset=utf-8',
+                'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
+            },
+            body: bulkXml
             });
-            combinedHtml += `</div>`;
+            
+            if (printResult.ok) {
+                
+                // 💡 印刷された全IDをバックグラウンドAPIに送り、まとめて「印刷済み(1)」に更新
+                const response = await fetch(`/api/admin/update-print-status-bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: app.currentlyPrintingIds, printed_status: 1 })
+                });
+                
+                const result = await response.json();
 
-            const encodedHtml = encodeURIComponent(combinedHtml);
-            
-            // 4. PassPRNTへ送信（backを付けないことでタブ増殖を完全ガード）
-            const passPrntUrl = `starpassprnt://v1/print/nopreview?size=3&html=${encodedHtml}`;
-            
+                if (result.success) {
+                    // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
+                    app.currentlyPrintingIds = [];
+                    alert(`${unprintedOrders.length}件の伝票を一括印刷しました。`);
+                    app.loadAdminOrders(); // 管理画面のリスト表示を再描画
+                }
+            } else {
+                console.error(await printResult.text());
+                alert('プリンターへの一括送信に失敗しました。');
+            }            
             console.log(`${unprintedOrders.length}件の注文を一括送信します。`);
-            window.location.href = passPrntUrl;
-
         } catch (err) {
             console.error("一括印刷エラー:", err);
         }
@@ -3004,37 +3050,158 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
-    generateOrderHtmlTemplate(order) {
-        let html = `
-        <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:10px 0; box-sizing:border-box;">
-            <h2 style="font-size:18px; text-align:center; margin:10px 0;">予約注文伝票</h2>
-            <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
-            <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
-            <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
+    generateOrderXmlTemplate(order) {
+        // 1. XMLのヘッダーと初期設定（日本語指定）
+        let xml = `<?xml version="1.0" encoding="utf-8"?>
+            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+            <text lang="ja"/>
+            <text smooth="true"/>
         `;
 
+        // 2. タイトル：「予約注文伝票」（中央揃え、縦横2倍拡大）
+        xml += `  <text align="center" width="2" height="2">予約注文伝票&#10;</text>\n`;
+        
+        // 文字サイズと位置を標準（左寄せ）に戻す
+        xml += `  <text align="left" width="1" height="1"/>\n`;
+        xml += `  <feed line="1"/>\n`;
+
+        // 3. 注文IDとお名前
+        const orderId = order.id || order.order_id || '---';
+        xml += `  <text>注文ID: ${orderId}&#10;</text>\n`;
+        
+        // お名前は少し太字（または2倍幅）にするとHTMLの雰囲気に近づきます（ここでは太字指定）
+        xml += `  <text dw="false" dh="false" b="true">お名前: ${order.user_name} 様&#10;</text>\n`;
+        xml += `  <text b="false"/>\n`; // 太字を解除
+
+        // 4. 区切り線（1つめのhr風：点線）
+        // TM-m30IIIの標準的な58mm幅用紙の場合は全角16文字（半角32文字）、80mm幅の場合は全角24文字（半角48文字）です。
+        // ここでは標準的な58mm幅（半角32文字分）として「-」を並べています。
+        xml += `  <text>--------------------------------&#10;</text>\n`;
+
+        // 5. 注文商品（HTMLの flex: space-between の再現）
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
-                html += `
-                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                    <div style="width:75%; word-break:break-all;">${item.name}</div>
-                    <div style="width:25%; text-align:right;">x ${item.quantity}</div>
-                </div>`;
+                const qtyText = `x ${item.quantity}`;
+                
+                // 全角を2文字、半角を1文字として計算し、商品名と数量の間に適切なスペースを挟む（58mm幅=32個分）
+                const targetLength = 32; 
+                const itemName = item.name;
+                
+                // 文字列のバイト数（表示幅）を簡易計算する関数
+                let nameLength = 0;
+                for (let i = 0; i < itemName.length; i++) {
+                    const code = itemName.charCodeAt(i);
+                    // 半角カタカナや一部記号を除き、基本全角文字は2バイト幅として計算
+                    if ((code >= 0x0000 && code <= 0x007F) || (code >= 0xFF61 && code <= 0xFF9F)) {
+                        nameLength += 1;
+                    } else {
+                        nameLength += 2;
+                    }
+                }
+                const qtyLength = qtyText.length;
+                
+                // 挟むべきスペースの数を計算
+                const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
+                const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
+                
+                xml += `  <text>${itemName}${spaces}${qtyText}&#10;</text>\n`;
             });
         }
 
-        html += `
-            <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
-            <div style="font-size:16px; font-weight:bold; text-align:right; margin-top:5px;">
-                合計金額: &yen;${(order.total_price || order.total_amount || 0).toLocaleString()}
-            </div>
-            <div style="margin-top:5px; font-size:12px; color:#666;">
-                ${order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】'}
-            </div>
-            <div style="height:60px;"></div>
-        </div>
+        // 6. 区切り線（2つめのhr風）
+        xml += `  <text>--------------------------------&#10;</text>\n`;
+
+        // 7. 合計金額（右寄せ、太字）
+        const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
+        xml += `  <text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>\n`;
+        xml += `  <text align="left" b="false"/>\n`; // 元に戻す
+
+        // 8. 印刷ステータス（グレー文字の代わりに、通常サイズで下部に配置）
+        const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
+        xml += `  <text>${statusText}&#10;</text>\n`;
+
+        // 9. 紙送り（HTMLの height:60px 分の余白）とカッター指示
+        xml += `  <feed line="3"/>\n`;
+        xml += `  <cut type="feed"/>\n`;
+        xml += `</epos-print>`;
+
+        return xml;
+    },
+
+    generateBulkOrderXmlTemplate(orders) {
+        if (!orders || orders.length === 0) return '';
+
+        // 1. 全体共通のヘッダー（一括リクエストの開始）
+        let bulkXml = `<?xml version="1.0" encoding="utf-8"?>
+            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+            <text lang="ja"/>
+            <text smooth="true"/>
         `;
-        return html;
+
+        // 2. 各受注データをループして中身のコマンドを結合
+        orders.forEach((order, index) => {
+            // --- 伝票ごとの開始設定 ---
+            bulkXml += `  <!-- Order ${index + 1} Start -->\n`;
+            bulkXml += `  <text align="center" width="2" height="2">予約注文伝票&#10;</text>\n`;
+            bulkXml += `  <text align="left" width="1" height="1"/>\n`;
+            bulkXml += `  <feed line="1"/>\n`;
+
+            // 注文IDとお名前
+            const orderId = order.id || order.order_id || '---';
+            bulkXml += `  <text>注文ID: ${orderId}&#10;</text>\n`;
+            bulkXml += `  <text dw="false" dh="false" b="true">お名前: ${order.user_name} 様&#10;</text>\n`;
+            bulkXml += `  <text b="false"/>\n`;
+
+            // 区切り線
+            bulkXml += `  <text>--------------------------------&#10;</text>\n`;
+
+            // 注文商品 (58mm幅=半角32文字想定。80mm幅なら 48 に変更)
+            if (order.items && order.items.length > 0) {
+                order.items.forEach(item => {
+                    const qtyText = `x ${item.quantity}`;
+                    const targetLength = 32; 
+                    const itemName = item.name;
+                    
+                    let nameLength = 0;
+                    for (let i = 0; i < itemName.length; i++) {
+                        const code = itemName.charCodeAt(i);
+                        if ((code >= 0x0000 && code <= 0x007F) || (code >= 0xFF61 && code <= 0xFF9F)) {
+                            nameLength += 1;
+                        } else {
+                            nameLength += 2;
+                        }
+                    }
+                    const qtyLength = qtyText.length;
+                    const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
+                    const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
+                    
+                    bulkXml += `  <text>${itemName}${spaces}${qtyText}&#10;</text>\n`;
+                });
+            }
+
+            // 区切り線
+            bulkXml += `  <text>--------------------------------&#10;</text>\n`;
+
+            // 合計金額
+            const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
+            bulkXml += `  <text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>\n`;
+            bulkXml += `  <text align="left" b="false"/>\n`;
+
+            // 印刷ステータス
+            const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
+            bulkXml += `  <text>${statusText}&#10;</text>\n`;
+
+            // --- 伝票ごとの締めくくり処理 ---
+            // 1枚ごとに少し余白を作って自動カット（次の受注データがあってもここで一度切れます）
+            bulkXml += `  <feed line="3"/>\n`;
+            bulkXml += `  <cut type="feed"/>\n`;
+            bulkXml += `  <!-- Order ${index + 1} End -->\n\n`;
+        });
+
+        // 3. 全体の閉じタグ
+        bulkXml += `</epos-print>`;
+
+        return bulkXml;
     },
 
     /**
