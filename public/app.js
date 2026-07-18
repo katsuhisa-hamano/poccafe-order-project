@@ -2941,6 +2941,16 @@ const app = {
     },
 
     /**
+     * 【単発・個別再印刷ボタン用】
+     * 印刷済みアイテムの「再印刷」ボタンを押したときに実行される
+     */
+    async triggerReprint(order) {
+        if (!confirm(`${order.user_name} 様の伝票を再印刷しますか？`)) return;
+        await this.printSingleOrderHtml(order);
+        // 再印刷時は一括処理ではないため、フラグ更新などは行わずブラウザに戻るだけで完結
+    },
+
+    /**
      * 【一括伝票印刷ボタン用】
      * 未印刷の項目をすべて1つのHTMLに結合してPassPRNTへ送り、帰還待ち状態にする
      */
@@ -2997,7 +3007,7 @@ const app = {
     generateOrderHtmlTemplate(order) {
         let html = `
         <div style="font-family:sans-serif; font-size:14px; width:100%; margin:0; padding:10px 0; box-sizing:border-box;">
-            <h2 style="font-size:18px; text-align:center; margin:10px 0;">注文伝票</h2>
+            <h2 style="font-size:18px; text-align:center; margin:10px 0;">予約注文伝票</h2>
             <div style="margin-bottom:5px;">注文ID: ${order.id || order.order_id || '---'}</div>
             <div style="font-size:16px; font-weight:bold; margin-bottom:10px;">お名前: ${order.user_name} 様</div>
             <hr style="border:none; border-top:1px dashed #000; margin:5px 0;">
