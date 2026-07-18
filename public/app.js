@@ -2523,9 +2523,8 @@ const app = {
                         </td>
                         <td class="p-3 px-2 text-center align-top">
                             <div class="flex flex-col items-center">
-                                ${statusBadge}
+                                ${statusBadge}${printButtonHtml}
                                 <div class="w-full mt-1">${actionButton}</div>
-                                ${printButtonHtml}
                             </div>
                         </td>
                     </tr>
