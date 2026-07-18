@@ -2520,10 +2520,11 @@ const app = {
                         </td>
                         <td class="p-3 px-2 text-right font-black text-gray-800 align-top">
                             ¥${order.total_price.toLocaleString()}
+                            ${printButtonHtml}
                         </td>
                         <td class="p-3 px-2 text-center align-top">
                             <div class="flex flex-col items-center">
-                                ${statusBadge}${printButtonHtml}
+                                ${statusBadge}
                                 <div class="w-full mt-1">${actionButton}</div>
                             </div>
                         </td>
