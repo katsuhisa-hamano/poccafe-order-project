@@ -2520,7 +2520,7 @@ const app = {
                         </td>
                         <td class="p-3 px-2 text-right font-black text-gray-800 align-top">
                             ¥${order.total_price.toLocaleString()}
-                            ${printButtonHtml}
+                            <div>${printButtonHtml}</div>
                         </td>
                         <td class="p-3 px-2 text-center align-top">
                             <div class="flex flex-col items-center">
