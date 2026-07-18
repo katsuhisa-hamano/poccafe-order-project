@@ -1848,41 +1848,6 @@ export async function onRequest(context) {
       }
     }
 
-    // 💡 印刷フラグを一括更新するエンドポイント
-    if (path === '/api/admin/update-print-status-bulk' && method === 'POST') {
-      try {
-        // フロントから送られてきたJSONデータを解析
-        const { ids, printed_status } = await request.json();
-
-        // バリデーション（IDが空、または配列じゃない場合は弾く）
-        if (!ids || !Array.isArray(ids) || ids.length === 0) {
-          return new Response(JSON.stringify({ success: false, message: "Invalid or empty IDs" }), { status: 400, headers: corsHeaders });
-        }
-
-        // 1. D1 Database用にプレースホルダー（?, ?, ?）を動的に生成
-        // 例: idsが [5, 12, 19] なら、"?, ?, ?" になります
-        const placeholders = ids.map(() => '?').join(', ');
-
-        // 2. SQL文を組み立て
-        // 例: UPDATE orders SET printed_status = ? WHERE id IN (?, ?, ?)
-        const sql = `UPDATE orders SET printed_status = ? WHERE id IN (${placeholders})`;
-
-        // 3. バインドする引数の配列を作成
-        // 第一引数が設定する値(1)、第二引数以降が対象のIDリスト
-        const queryArgs = [printed_status, ...ids];
-
-        // 4. D1にクエリを投げて実行
-        await env.DB.prepare(sql).bind(...queryArgs).run();
-
-        // 成功レスポンスを返す
-        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
-
-      } catch (dbErr) {
-        // エラーハンドリング
-        return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
-      }
-    }
-
     // どのルートにも引っかからなかった場合 (404)
     return new Response(JSON.stringify({ error: "Not Found", path: path }), { status: 404, headers: corsHeaders });
 
