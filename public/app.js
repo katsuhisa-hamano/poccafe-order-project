@@ -2921,7 +2921,7 @@ const app = {
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
     currentlyPrintingIds : [],
     printerIp : '192.168.12.100', // 事前に設定した固定IP
-    printerUrl: `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`,
+    printerUrl: `http://${app.printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`,
 
     /**
      * 【1件印刷 / 個別再印刷用】
@@ -2932,9 +2932,6 @@ const app = {
         try {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
-            
-            const printerIp = '192.168.12.100'; // 事前に設定した固定IP
-            const printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
             
             const printResult = await fetch(printerUrl, {
                 method: 'POST',
