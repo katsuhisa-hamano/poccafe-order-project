@@ -2920,8 +2920,6 @@ const app = {
 
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
     currentlyPrintingIds : [],
-    printerIp : '192.168.12.100', // 事前に設定した固定IP
-    printerUrl: `http://${app.printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`,
 
     /**
      * 【1件印刷 / 個別再印刷用】
@@ -3241,6 +3239,9 @@ const app = {
 // 3. アプリケーションのエントリーポイント（自動起動）
 // =========================================================
 app.init();
+
+const printerIp = '192.168.12.100', // 事前に設定した固定IP
+const printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
 
 // =========================================================
 // 4. 特殊ブラウザイベント制御 (IIFE)
