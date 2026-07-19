@@ -3241,7 +3241,7 @@ const app = {
 app.init();
 
 const printerIp = '192.168.12.100', // 事前に設定した固定IP
-const printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
+printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
 
 // =========================================================
 // 4. 特殊ブラウザイベント制御 (IIFE)
