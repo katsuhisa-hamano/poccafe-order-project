@@ -2992,7 +2992,7 @@ const app = {
             if (!result.success || !result.list) return alert("データの取得に失敗しました。");
 
             // 1. 「未印刷 (printed_status !== 1)」の注文だけを抽出
-            const unprintedOrders = result.list.filter(order => order.printed_status !== 1);
+            unprintedOrders = result.list.filter(order => order.printed_status !== 1);
 
             if (unprintedOrders.length === 0) {
                 return alert("未印刷の注文はありません。すべて印刷済みです。");
@@ -3240,8 +3240,9 @@ const app = {
 // =========================================================
 app.init();
 
-const printerIp = '192.168.12.100', // 事前に設定した固定IP
+const printerIp = '192.168.12.100'; // 事前に設定した固定IP
 printerUrl = `http://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
+const unprintedOrders = [];
 
 // =========================================================
 // 4. 特殊ブラウザイベント制御 (IIFE)
