@@ -3240,7 +3240,7 @@ const app = {
 // =========================================================
 app.init();
 
-const printerIp = '192.168.12.100:8043'; // 事前に設定した固定IP
+const printerIp = 'printer.pokkapoka.net'; // 事前に設定した固定IP
 printerUrl = `https://${printerIp}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000`;
 const unprintedOrders = [];
 
