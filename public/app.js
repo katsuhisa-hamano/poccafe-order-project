@@ -2931,7 +2931,7 @@ const app = {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
             
-            const printResult = await fetch(printerUrl, {
+            const printResult = await fetch(`/api/print`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
@@ -3006,7 +3006,7 @@ const app = {
             // 2. 一括印刷用のXMLを生成
             const bulkXml = this.generateBulkOrderXmlTemplate(unprintedOrders);
             
-            const printResult = await fetch(printerUrl, {
+            const printResult = await fetch(`/api/print`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/xml; charset=utf-8',
