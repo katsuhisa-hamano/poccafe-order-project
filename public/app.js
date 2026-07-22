@@ -2932,13 +2932,12 @@ const app = {
             const xmlContent = this.generateOrderXmlTemplate(order);
             
             const printResult = await fetch(`/api/print`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/xml; charset=utf-8',
-                    'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
-                },
-                body: xmlContent
-            });
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ xml: xmlContent })
+    });
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
