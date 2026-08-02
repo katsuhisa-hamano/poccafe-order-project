@@ -2931,7 +2931,7 @@ const app = {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
             
-            const printResult = await fetch(`/api/print`, {
+            const printResult = await fetch('/api/print', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
