@@ -2930,13 +2930,19 @@ const app = {
         try {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
+
+            const minimalXml = `<?xml version="1.0" encoding="utf-8"?>
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+  <text>テスト印刷&#10;</text>
+  <cut type="feed"/>
+</epos-print>`;
             
             const printResult = await fetch('/api/print', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ xml: xmlContent })
+                body: JSON.stringify({ xml: minimalXml })
             });
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
@@ -3011,7 +3017,7 @@ const app = {
                 'Content-Type': 'text/xml; charset=utf-8',
                 'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
             },
-            body: minimalXml //bulkXml
+            body: bulkXml
             });
             
             if (printResult.ok) {
@@ -3040,12 +3046,6 @@ const app = {
             console.error("一括印刷エラー:", err);
         }
     },
-
-    minimalXml = `<?xml version="1.0" encoding="utf-8"?>
-<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-  <text>テスト印刷&#10;</text>
-  <cut type="feed"/>
-</epos-print>`,
 
     /**
      * 【HTMLテンプレート生成共通ロジック】
