@@ -1898,27 +1898,28 @@ export async function onRequest(context) {
         // (サーバー同士の通信なので CORS の概念が存在しません)
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
+        // 動作確認用テストXML (ePOS-Print 正確なスキーマ構造)
+        const testXml = `<?xml version="1.0" encoding="utf-8"?>
+        <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+          <text lang="ja"/>
+          <text align="center">通信接続成功！&#10;</text>
+          <text align="center">EPSON TM-m30III-H&#10;</text>
+          <feed line="2"/>
+          <cut type="feed"/>
+        </epos-print>`;
+
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
-          body: xml
+          body: testXml
         });
 
         const responseText = await printerResponse.text();
 
-    // フロントエンドにそのまま送り返す
-        return new Response(JSON.stringify({
-          status: printerResponse.status,
-          responseText: responseText
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json; charset=utf-8" }
-        });
-        /*
-            // 3. プリンターからのレスポンスをそのままフロントエンドに返す
+        // 3. プリンターからのレスポンスをそのままフロントエンドに返す
         if (printerResponse.ok) {
           return new Response(JSON.stringify({ success: true, result: responseText }), {
             status: 200,
@@ -1930,7 +1931,6 @@ export async function onRequest(context) {
             headers: { "Content-Type": "application/json" }
           });
         }
-      */
 
       } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
