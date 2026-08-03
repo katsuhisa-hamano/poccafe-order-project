@@ -2930,19 +2930,13 @@ const app = {
         try {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
-
-            const minimalXml = `<?xml version="1.0" encoding="utf-8"?>
-<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text lang="ja"/>
-  <text>テスト印刷&#10;</text>
-  <cut type="feed"/>
-</epos-print>`;
             
             const printResult = await fetch('/api/print', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ xml: minimalXml })
+                body: JSON.stringify({ xml: xmlContent })
             });
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
@@ -3068,28 +3062,30 @@ const app = {
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
         let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        
+        // 1. 日本語モード（lang="ja"）の設定
         xml += '<text lang="ja"/>';
 
-        // 1. タイトル（位置・拡大・テキストを分離）
+        // 2. タイトル（中央揃え・2倍拡大）
         xml += '<text align="center"/>';
         xml += '<text width="2" height="2"/>';
         xml += '<text>予約注文伝票&#10;</text>';
 
-        // 2. 設定リセット（位置・サイズを元に戻す）
+        // 3. 標準設定へリセット
         xml += '<text width="1" height="1"/>';
         xml += '<text align="left"/>';
         xml += '<feed line="1"/>';
 
-        // 3. 注文IDとお名前
+        // 4. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
         xml += '<text b="true"/>';
         xml += `<text>お名前: ${userName} 様&#10;</text>`;
         xml += '<text b="false"/>';
 
-        // 4. 区切り線
+        // 5. 区切り線
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 5. 注文商品
+        // 6. 注文商品
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
@@ -3114,7 +3110,7 @@ const app = {
             });
         }
 
-        // 6. 区切り線・合計金額
+        // 7. 合計金額・ステータス
         xml += '<text>--------------------------------&#10;</text>';
         xml += '<text align="right"/>';
         xml += '<text b="true"/>';
@@ -3122,84 +3118,12 @@ const app = {
         xml += '<text b="false"/>';
         xml += '<text align="left"/>';
 
-        // 7. ステータス・紙送り・カット
         xml += `<text>${statusText}&#10;</text>`;
         xml += '<feed line="3"/>';
         xml += '<cut type="feed"/>';
         xml += '</epos-print>';
 
         return xml;
-    },
-
-    generateBulkOrderXmlTemplate(orders) {
-        if (!orders || orders.length === 0) return '';
-
-        let bulkXml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
-        bulkXml += '<text lang="ja"/>';
-
-        orders.forEach((order) => {
-            const orderId = this.escapeXml(order.id || order.order_id || '---');
-            const userName = this.escapeXml(order.user_name || 'お客様');
-            const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
-            const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
-
-            // タイトル
-            bulkXml += '<text align="center"/>';
-            bulkXml += '<text width="2" height="2"/>';
-            bulkXml += '<text>予約注文伝票&#10;</text>';
-
-            // リセット
-            bulkXml += '<text width="1" height="1"/>';
-            bulkXml += '<text align="left"/>';
-            bulkXml += '<feed line="1"/>';
-
-            // 注文情報
-            bulkXml += `<text>注文ID: ${orderId}&#10;</text>`;
-            bulkXml += '<text b="true"/>';
-            bulkXml += `<text>お名前: ${userName} 様&#10;</text>`;
-            bulkXml += '<text b="false"/>';
-
-            bulkXml += '<text>--------------------------------&#10;</text>';
-
-            if (order.items && order.items.length > 0) {
-                order.items.forEach(item => {
-                    const qtyText = `x ${item.quantity}`;
-                    const targetLength = 32; 
-                    const itemName = item.name || '';
-                    
-                    let nameLength = 0;
-                    for (let i = 0; i < itemName.length; i++) {
-                        const code = itemName.charCodeAt(i);
-                        if ((code >= 0x0000 && code <= 0x007F) || (code >= 0xFF61 && code <= 0xFF9F)) {
-                            nameLength += 1;
-                        } else {
-                            nameLength += 2;
-                        }
-                    }
-                    const qtyLength = qtyText.length;
-                    const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
-                    const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
-                    
-                    const safeItemName = this.escapeXml(itemName);
-                    bulkXml += `<text>${safeItemName}${spaces}${qtyText}&#10;</text>`;
-                });
-            }
-
-            bulkXml += '<text>--------------------------------&#10;</text>';
-            bulkXml += '<text align="right"/>';
-            bulkXml += '<text b="true"/>';
-            bulkXml += `<text>合計金額: ￥${totalPrice}&#10;</text>`;
-            bulkXml += '<text b="false"/>';
-            bulkXml += '<text align="left"/>';
-
-            bulkXml += `<text>${statusText}&#10;</text>`;
-            bulkXml += '<feed line="3"/>';
-            bulkXml += '<cut type="feed"/>';
-        });
-
-        bulkXml += '</epos-print>';
-
-        return bulkXml;
     },
 
     /**
