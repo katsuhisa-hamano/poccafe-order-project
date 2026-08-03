@@ -1898,25 +1898,13 @@ export async function onRequest(context) {
         // (サーバー同士の通信なので CORS の概念が存在しません)
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
-        // 動作確認用テストXML (ePOS-Print 正確なスキーマ構造)
-        const testXml = `<?xml version="1.0" encoding="utf-8"?>
-<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-  <text lang="ja"/>
-  <text align="center">ポッカポカテスト印刷&#10;</text>
-  <text align="left">--------------------------------&#10;</text>
-  <text align="left">商品名                数量  金額&#10;</text>
-  <text align="left">--------------------------------&#10;</text>
-  <feed line="2"/>
-  <cut type="feed"/>
-</epos-print>`;
-
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
-          body: testXml
+          body: xml
         });
 
         const responseText = await printerResponse.text();
