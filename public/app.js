@@ -3238,9 +3238,6 @@ const app = {
 // 3. アプリケーションのエントリーポイント（自動起動）
 // =========================================================
 app.init();
-
-const printerIp = 'printer.pokkapoka.net'; // 事前に設定した固定IP
-printerUrl = `https://${printerIp}/cgi-bin/epos/service.cgi`;
 const unprintedOrders = [];
 
 // =========================================================

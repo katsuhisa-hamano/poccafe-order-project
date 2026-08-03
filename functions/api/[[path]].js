@@ -1896,7 +1896,7 @@ export async function onRequest(context) {
 
         // 2. Cloudflare のサーバーから Tunnel 経由でプリンターへ POST
         // (サーバー同士の通信なので CORS の概念が存在しません)
-        const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
+        const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=EPSONB58860&timeout=60000';
 
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
