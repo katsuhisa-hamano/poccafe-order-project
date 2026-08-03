@@ -3062,30 +3062,27 @@ const app = {
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
         let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
-        
-        // 1. 日本語モード（lang="ja"）の設定
-        xml += '<text lang="ja"/>';
 
-        // 2. タイトル（中央揃え・2倍拡大）
+        // 1. タイトル（中央揃え・2倍拡大）
         xml += '<text align="center"/>';
         xml += '<text width="2" height="2"/>';
         xml += '<text>予約注文伝票&#10;</text>';
 
-        // 3. 標準設定へリセット
+        // 2. 標準設定へリセット
         xml += '<text width="1" height="1"/>';
         xml += '<text align="left"/>';
         xml += '<feed line="1"/>';
 
-        // 4. 注文情報
+        // 3. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
         xml += '<text b="true"/>';
         xml += `<text>お名前: ${userName} 様&#10;</text>`;
         xml += '<text b="false"/>';
 
-        // 5. 区切り線
+        // 4. 区切り線
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 6. 注文商品
+        // 5. 注文商品
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
@@ -3110,14 +3107,15 @@ const app = {
             });
         }
 
-        // 7. 合計金額・ステータス
+        // 6. 合計金額（全角￥ではなく円または半角¥を使用）
         xml += '<text>--------------------------------&#10;</text>';
         xml += '<text align="right"/>';
         xml += '<text b="true"/>';
-        xml += `<text>合計金額: ￥${totalPrice}&#10;</text>`;
+        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
         xml += '<text b="false"/>';
         xml += '<text align="left"/>';
 
+        // 7. ステータス・紙送り・カット
         xml += `<text>${statusText}&#10;</text>`;
         xml += '<feed line="3"/>';
         xml += '<cut type="feed"/>';
