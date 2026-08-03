@@ -3044,48 +3044,53 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
+// XML特殊文字（&, <, >, ", '）を安全に変換するヘルパー関数
+    escapeXml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    },
+
     generateOrderXmlTemplate(order) {
         // 1. XMLのヘッダーと初期設定（日本語指定）
         let xml = `<?xml version="1.0" encoding="utf-8"?>
-            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-            <text lang="ja"/>
-            <text smooth="true"/>
-        `;
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+  <text lang="ja"/>
+`;
 
-        // 2. タイトル：「予約注文伝票」（中央揃え、縦横2倍拡大）
-        xml += `  <text align="center" width="2" height="2">予約注文伝票&#10;</text>\n`;
+        // 2. タイトル：「予約注文伝票」（中央揃え、縦横2倍拡大、スムージングON）
+        xml += `  <text align="center" width="2" height="2" smooth="true">予約注文伝票&#10;</text>\n`;
         
-        // 文字サイズと位置を標準（左寄せ）に戻す
+        // 文字サイズと位置を標準（左寄せ・拡大なし）に戻す
         xml += `  <text align="left" width="1" height="1"/>\n`;
         xml += `  <feed line="1"/>\n`;
 
         // 3. 注文IDとお名前
-        const orderId = order.id || order.order_id || '---';
+        const orderId = this.escapeXml(order.id || order.order_id || '---');
+        const userName = this.escapeXml(order.user_name || 'お客様');
         xml += `  <text>注文ID: ${orderId}&#10;</text>\n`;
         
-        // お名前は少し太字（または2倍幅）にするとHTMLの雰囲気に近づきます（ここでは太字指定）
-        xml += `  <text dw="false" dh="false" b="true">お名前: ${order.user_name} 様&#10;</text>\n`;
+        // お名前（太字指定: b="true"）
+        xml += `  <text b="true">お名前: ${userName} 様&#10;</text>\n`;
         xml += `  <text b="false"/>\n`; // 太字を解除
 
-        // 4. 区切り線（1つめのhr風：点線）
-        // TM-m30IIIの標準的な58mm幅用紙の場合は全角16文字（半角32文字）、80mm幅の場合は全角24文字（半角48文字）です。
-        // ここでは標準的な58mm幅（半角32文字分）として「-」を並べています。
+        // 4. 区切り線（58mm幅想定）
         xml += `  <text>--------------------------------&#10;</text>\n`;
 
-        // 5. 注文商品（HTMLの flex: space-between の再現）
+        // 5. 注文商品（レイアウト計算）
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
-                
-                // 全角を2文字、半角を1文字として計算し、商品名と数量の間に適切なスペースを挟む（58mm幅=32個分）
                 const targetLength = 32; 
-                const itemName = item.name;
+                const itemName = item.name || '';
                 
-                // 文字列のバイト数（表示幅）を簡易計算する関数
                 let nameLength = 0;
                 for (let i = 0; i < itemName.length; i++) {
                     const code = itemName.charCodeAt(i);
-                    // 半角カタカナや一部記号を除き、基本全角文字は2バイト幅として計算
                     if ((code >= 0x0000 && code <= 0x007F) || (code >= 0xFF61 && code <= 0xFF9F)) {
                         nameLength += 1;
                     } else {
@@ -3093,16 +3098,15 @@ const app = {
                     }
                 }
                 const qtyLength = qtyText.length;
-                
-                // 挟むべきスペースの数を計算
                 const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
                 const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
                 
-                xml += `  <text>${itemName}${spaces}${qtyText}&#10;</text>\n`;
+                const safeItemName = this.escapeXml(itemName);
+                xml += `  <text>${safeItemName}${spaces}${qtyText}&#10;</text>\n`;
             });
         }
 
-        // 6. 区切り線（2つめのhr風）
+        // 6. 区切り線
         xml += `  <text>--------------------------------&#10;</text>\n`;
 
         // 7. 合計金額（右寄せ、太字）
@@ -3110,11 +3114,11 @@ const app = {
         xml += `  <text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>\n`;
         xml += `  <text align="left" b="false"/>\n`; // 元に戻す
 
-        // 8. 印刷ステータス（グレー文字の代わりに、通常サイズで下部に配置）
+        // 8. 印刷ステータス
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
         xml += `  <text>${statusText}&#10;</text>\n`;
 
-        // 9. 紙送り（HTMLの height:60px 分の余白）とカッター指示
+        // 9. 紙送りとカッター指示
         xml += `  <feed line="3"/>\n`;
         xml += `  <cut type="feed"/>\n`;
         xml += `</epos-print>`;
@@ -3125,36 +3129,32 @@ const app = {
     generateBulkOrderXmlTemplate(orders) {
         if (!orders || orders.length === 0) return '';
 
-        // 1. 全体共通のヘッダー（一括リクエストの開始）
+        // 1. 全体共通のヘッダー
         let bulkXml = `<?xml version="1.0" encoding="utf-8"?>
-            <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-            <text lang="ja"/>
-            <text smooth="true"/>
-        `;
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+  <text lang="ja"/>
+`;
 
         // 2. 各受注データをループして中身のコマンドを結合
         orders.forEach((order, index) => {
-            // --- 伝票ごとの開始設定 ---
             bulkXml += `  <!-- Order ${index + 1} Start -->\n`;
-            bulkXml += `  <text align="center" width="2" height="2">予約注文伝票&#10;</text>\n`;
+            bulkXml += `  <text align="center" width="2" height="2" smooth="true">予約注文伝票&#10;</text>\n`;
             bulkXml += `  <text align="left" width="1" height="1"/>\n`;
             bulkXml += `  <feed line="1"/>\n`;
 
-            // 注文IDとお名前
-            const orderId = order.id || order.order_id || '---';
+            const orderId = this.escapeXml(order.id || order.order_id || '---');
+            const userName = this.escapeXml(order.user_name || 'お客様');
             bulkXml += `  <text>注文ID: ${orderId}&#10;</text>\n`;
-            bulkXml += `  <text dw="false" dh="false" b="true">お名前: ${order.user_name} 様&#10;</text>\n`;
+            bulkXml += `  <text b="true">お名前: ${userName} 様&#10;</text>\n`;
             bulkXml += `  <text b="false"/>\n`;
 
-            // 区切り線
             bulkXml += `  <text>--------------------------------&#10;</text>\n`;
 
-            // 注文商品 (58mm幅=半角32文字想定。80mm幅なら 48 に変更)
             if (order.items && order.items.length > 0) {
                 order.items.forEach(item => {
                     const qtyText = `x ${item.quantity}`;
                     const targetLength = 32; 
-                    const itemName = item.name;
+                    const itemName = item.name || '';
                     
                     let nameLength = 0;
                     for (let i = 0; i < itemName.length; i++) {
@@ -3169,24 +3169,20 @@ const app = {
                     const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
                     const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
                     
-                    bulkXml += `  <text>${itemName}${spaces}${qtyText}&#10;</text>\n`;
+                    const safeItemName = this.escapeXml(itemName);
+                    bulkXml += `  <text>${safeItemName}${spaces}${qtyText}&#10;</text>\n`;
                 });
             }
 
-            // 区切り線
             bulkXml += `  <text>--------------------------------&#10;</text>\n`;
 
-            // 合計金額
             const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
             bulkXml += `  <text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>\n`;
             bulkXml += `  <text align="left" b="false"/>\n`;
 
-            // 印刷ステータス
             const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
             bulkXml += `  <text>${statusText}&#10;</text>\n`;
 
-            // --- 伝票ごとの締めくくり処理 ---
-            // 1枚ごとに少し余白を作って自動カット（次の受注データがあってもここで一度切れます）
             bulkXml += `  <feed line="3"/>\n`;
             bulkXml += `  <cut type="feed"/>\n`;
             bulkXml += `  <!-- Order ${index + 1} End -->\n\n`;
@@ -3196,7 +3192,7 @@ const app = {
         bulkXml += `</epos-print>`;
 
         return bulkXml;
-    },
+    }
 
     /**
      * 【帰還検知システム】
