@@ -1886,17 +1886,20 @@ export async function onRequest(context) {
 
     if (path === '/api/print' && method === 'POST') {
       try {
-        const { xml } = await request.json();
+        const { xml } = await context.request.json();
+
         if (!xml) {
-            return new Response(JSON.stringify({ error: "XML data is required" }), {
+          return new Response(JSON.stringify({ success: false, error: "XMLデータが空です" }), {
             status: 400,
-            headers: { "Content-Type": "application/json" }
+            headers: { "Content-Type": "application/json; charset=utf-8" }
           });
         }
 
-        // 2. Cloudflare のサーバーから Tunnel 経由でプリンターへ POST
-        // (サーバー同士の通信なので CORS の概念が存在しません)
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
+
+        // UTF-8エンコーダーを使用して、バイナリ(Uint8Array)に変換して確実に送信する
+        const encoder = new TextEncoder();
+        const bodyBuffer = encoder.encode(xml.trim());
 
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
@@ -1904,28 +1907,23 @@ export async function onRequest(context) {
             'Content-Type': 'text/xml; charset=utf-8',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
-          body: xml
+          body: bodyBuffer // 文字列ではなくバイナリバッファとして渡すことで文字化けやフォーマットずれを防ぐ
         });
 
         const responseText = await printerResponse.text();
 
-        // 3. プリンターからのレスポンスをそのままフロントエンドに返す
-        if (printerResponse.ok) {
-          return new Response(JSON.stringify({ success: true, result: responseText }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          });
-        } else {
-          return new Response(JSON.stringify({ success: false, error: responseText }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
+        return new Response(JSON.stringify({
+          success: true,
+          result: responseText
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=utf-8" }
+        });
 
       } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
           status: 500,
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json; charset=utf-8" }
         });
       }
     }
