@@ -1895,19 +1895,30 @@ export async function onRequest(context) {
           });
         }
 
+        // 1. 受信したXMLから <?xml ... ?> 宣言を一時的に除去（SOAP内部に置くため）
+        const cleanXml = xml.replace(/<\?xml[^>]*\?>/i, '').trim();
+
+        // 2. SOAPエンベロープで正しく構築する
+        const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+      <soapenv:Body>
+        ${cleanXml}
+      </soapenv:Body>
+    </soapenv:Envelope>`.trim();
+
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
-        // UTF-8エンコーダーを使用して、バイナリ(Uint8Array)に変換して確実に送信する
         const encoder = new TextEncoder();
-        const bodyBuffer = encoder.encode(xml.trim());
+        const bodyBuffer = encoder.encode(soapBody);
 
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': '""', // SOAPリクエストに必要なヘッダー
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
-          body: bodyBuffer // 文字列ではなくバイナリバッファとして渡すことで文字化けやフォーマットずれを防ぐ
+          body: bodyBuffer
         });
 
         const responseText = await printerResponse.text();
