@@ -3061,16 +3061,29 @@ const app = {
         const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
-        let xml = `<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">`;
-        xml += `<text lang="ja"/>`;
-        xml += `<text align="center" width="2" height="2" smooth="true">予約注文伝票&#10;</text>`;
-        xml += `<text align="left" width="1" height="1"/>`;
-        xml += `<feed line="1"/>`;
-        xml += `<text>注文ID: ${orderId}&#10;</text>`;
-        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
-        xml += `<text b="false"/>`;
-        xml += `<text>--------------------------------&#10;</text>`;
+        let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        xml += '<text lang="ja"/>';
 
+        // 1. タイトル（位置・拡大・テキストを分離）
+        xml += '<text align="center"/>';
+        xml += '<text width="2" height="2"/>';
+        xml += '<text>予約注文伝票&#10;</text>';
+
+        // 2. 設定リセット（位置・サイズを元に戻す）
+        xml += '<text width="1" height="1"/>';
+        xml += '<text align="left"/>';
+        xml += '<feed line="1"/>';
+
+        // 3. 注文IDとお名前
+        xml += `<text>注文ID: ${orderId}&#10;</text>`;
+        xml += '<text b="true"/>';
+        xml += `<text>お名前: ${userName} 様&#10;</text>`;
+        xml += '<text b="false"/>';
+
+        // 4. 区切り線
+        xml += '<text>--------------------------------&#10;</text>';
+
+        // 5. 注文商品
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
@@ -3095,13 +3108,19 @@ const app = {
             });
         }
 
-        xml += `<text>--------------------------------&#10;</text>`;
-        xml += `<text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>`;
-        xml += `<text align="left" b="false"/>`;
+        // 6. 区切り線・合計金額
+        xml += '<text>--------------------------------&#10;</text>';
+        xml += '<text align="right"/>';
+        xml += '<text b="true"/>';
+        xml += `<text>合計金額: ￥${totalPrice}&#10;</text>`;
+        xml += '<text b="false"/>';
+        xml += '<text align="left"/>';
+
+        // 7. ステータス・紙送り・カット
         xml += `<text>${statusText}&#10;</text>`;
-        xml += `<feed line="3"/>`;
-        xml += `<cut type="feed"/>`;
-        xml += `</epos-print>`;
+        xml += '<feed line="3"/>';
+        xml += '<cut type="feed"/>';
+        xml += '</epos-print>';
 
         return xml;
     },
@@ -3109,8 +3128,8 @@ const app = {
     generateBulkOrderXmlTemplate(orders) {
         if (!orders || orders.length === 0) return '';
 
-        let bulkXml = `<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">`;
-        bulkXml += `<text lang="ja"/>`;
+        let bulkXml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        bulkXml += '<text lang="ja"/>';
 
         orders.forEach((order) => {
             const orderId = this.escapeXml(order.id || order.order_id || '---');
@@ -3118,13 +3137,23 @@ const app = {
             const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
             const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
-            bulkXml += `<text align="center" width="2" height="2" smooth="true">予約注文伝票&#10;</text>`;
-            bulkXml += `<text align="left" width="1" height="1"/>`;
-            bulkXml += `<feed line="1"/>`;
+            // タイトル
+            bulkXml += '<text align="center"/>';
+            bulkXml += '<text width="2" height="2"/>';
+            bulkXml += '<text>予約注文伝票&#10;</text>';
+
+            // リセット
+            bulkXml += '<text width="1" height="1"/>';
+            bulkXml += '<text align="left"/>';
+            bulkXml += '<feed line="1"/>';
+
+            // 注文情報
             bulkXml += `<text>注文ID: ${orderId}&#10;</text>`;
-            bulkXml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
-            bulkXml += `<text b="false"/>`;
-            bulkXml += `<text>--------------------------------&#10;</text>`;
+            bulkXml += '<text b="true"/>';
+            bulkXml += `<text>お名前: ${userName} 様&#10;</text>`;
+            bulkXml += '<text b="false"/>';
+
+            bulkXml += '<text>--------------------------------&#10;</text>';
 
             if (order.items && order.items.length > 0) {
                 order.items.forEach(item => {
@@ -3150,15 +3179,19 @@ const app = {
                 });
             }
 
-            bulkXml += `<text>--------------------------------&#10;</text>`;
-            bulkXml += `<text align="right" b="true">合計金額: ￥${totalPrice}&#10;</text>`;
-            bulkXml += `<text align="left" b="false"/>`;
+            bulkXml += '<text>--------------------------------&#10;</text>';
+            bulkXml += '<text align="right"/>';
+            bulkXml += '<text b="true"/>';
+            bulkXml += `<text>合計金額: ￥${totalPrice}&#10;</text>`;
+            bulkXml += '<text b="false"/>';
+            bulkXml += '<text align="left"/>';
+
             bulkXml += `<text>${statusText}&#10;</text>`;
-            bulkXml += `<feed line="3"/>`;
-            bulkXml += `<cut type="feed"/>`;
+            bulkXml += '<feed line="3"/>';
+            bulkXml += '<cut type="feed"/>';
         });
 
-        bulkXml += `</epos-print>`;
+        bulkXml += '</epos-print>';
 
         return bulkXml;
     },
