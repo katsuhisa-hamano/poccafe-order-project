@@ -2932,12 +2932,21 @@ const app = {
             const xmlContent = this.generateOrderXmlTemplate(order);
             
             const printResult = await fetch('/api/print', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ xml: xmlContent })
-    });
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ xml: xmlContent })
+            });
+
+            const data = await printResult.json();
+
+                // ★ ブラウザの F12 コンソールに「293バイトの中身」を出力！
+                console.log("==========================================");
+                console.log("HTTPステータス:", data.status);
+                console.log("プリンターからのレスポンス本文:");
+                console.log(data.responseText);
+                console.log("==========================================");
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
