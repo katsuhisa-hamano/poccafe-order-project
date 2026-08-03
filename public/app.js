@@ -3011,7 +3011,7 @@ const app = {
                 'Content-Type': 'text/xml; charset=utf-8',
                 'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
             },
-            body: bulkXml
+            body: minimalXml //bulkXml
             });
             
             if (printResult.ok) {
@@ -3040,6 +3040,12 @@ const app = {
             console.error("一括印刷エラー:", err);
         }
     },
+
+    minimalXml = `<?xml version="1.0" encoding="utf-8"?>
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+  <text>テスト印刷&#10;</text>
+  <cut type="feed"/>
+</epos-print>`,
 
     /**
      * 【HTMLテンプレート生成共通ロジック】
