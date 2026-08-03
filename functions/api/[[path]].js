@@ -1900,13 +1900,15 @@ export async function onRequest(context) {
 
         // 動作確認用テストXML (ePOS-Print 正確なスキーマ構造)
         const testXml = `<?xml version="1.0" encoding="utf-8"?>
-        <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-          <text lang="ja"/>
-          <text align="center">通信接続成功！&#10;</text>
-          <text align="center">EPSON TM-m30III-H&#10;</text>
-          <feed line="2"/>
-          <cut type="feed"/>
-        </epos-print>`;
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+  <text lang="ja"/>
+  <text align="center">ポッカポカテスト印刷&#10;</text>
+  <text align="left">--------------------------------&#10;</text>
+  <text align="left">商品名                数量  金額&#10;</text>
+  <text align="left">--------------------------------&#10;</text>
+  <feed line="2"/>
+  <cut type="feed"/>
+</epos-print>`;
 
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
