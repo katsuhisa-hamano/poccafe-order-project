@@ -1909,12 +1909,16 @@ export async function onRequest(context) {
 
         const responseText = await printerResponse.text();
 
-        // ★ Cloudflare Pages のログ（Dashboard > Pages > Real-time Logs）に出力させる
-        console.log("=== プリンターからの生のレスポンス (293bytes) ===");
-        console.log(responseText);
-        console.log("==================================================");
-
-        // 3. プリンターからのレスポンスをそのままフロントエンドに返す
+    // フロントエンドにそのまま送り返す
+        return new Response(JSON.stringify({
+          status: printerResponse.status,
+          responseText: responseText
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=utf-8" }
+        });
+        /*
+            // 3. プリンターからのレスポンスをそのままフロントエンドに返す
         if (printerResponse.ok) {
           return new Response(JSON.stringify({ success: true, result: responseText }), {
             status: 200,
@@ -1926,6 +1930,7 @@ export async function onRequest(context) {
             headers: { "Content-Type": "application/json" }
           });
         }
+      */
 
       } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
