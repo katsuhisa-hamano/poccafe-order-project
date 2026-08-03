@@ -3192,7 +3192,7 @@ const app = {
         bulkXml += `</epos-print>`;
 
         return bulkXml;
-    }
+    },
 
     /**
      * 【帰還検知システム】
