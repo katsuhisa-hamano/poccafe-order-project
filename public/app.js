@@ -2932,7 +2932,7 @@ const app = {
             const xmlContent = this.generateOrderXmlTemplate(order);
 
             const minimalXml = `<?xml version="1.0" encoding="utf-8"?>
-<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
+<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text lang="ja"/>
   <text>テスト印刷&#10;</text>
   <cut type="feed"/>
 </epos-print>`;
