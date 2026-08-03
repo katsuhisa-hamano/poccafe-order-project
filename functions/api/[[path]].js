@@ -1895,19 +1895,15 @@ export async function onRequest(context) {
           });
         }
 
-        // 1. 受信したXMLから <?xml ... ?> 宣言を一時的に除去（SOAP内部に置くため）
+        // 1. <?xml ... ?> 宣言を除去して綺麗なXML要素だけを取り出す
         const cleanXml = xml.replace(/<\?xml[^>]*\?>/i, '').trim();
 
-        // 2. SOAPエンベロープで正しく構築する
-        const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
-      <soapenv:Body>
-        ${cleanXml}
-      </soapenv:Body>
-    </soapenv:Envelope>`.trim();
+        // 2. SOAPエンベロープで包む（UTF-8ヘッダーを明記）
+        const soapBody = `<?xml version="1.0" encoding="utf-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body>${cleanXml}</soapenv:Body></soapenv:Envelope>`;
 
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
+        // 3. UTF-8でバイナリ化して確実に送信
         const encoder = new TextEncoder();
         const bodyBuffer = encoder.encode(soapBody);
 
@@ -1915,7 +1911,7 @@ export async function onRequest(context) {
           method: 'POST',
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
-            'SOAPAction': '""', // SOAPリクエストに必要なヘッダー
+            'SOAPAction': '""',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
           body: bodyBuffer
