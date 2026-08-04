@@ -3056,11 +3056,7 @@ const app = {
     },
 
     generateOrderXmlTemplate(order) {
-        let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
-        xml += '<text>テスト印刷&#10;</text>';
-        xml += '<cut type="feed"/>';
-        xml += '</epos-print>';
-        return xml;
+        return '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text>テスト印刷&#10;</text><cut type="feed"/></epos-print>';
     },
 
     /**
