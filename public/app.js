@@ -3065,47 +3065,36 @@ const app = {
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル
-        xml += '<text align="center"/>';
-        xml += '<text width="2"/>';
-        xml += '<text height="2"/>';
-        xml += '<text>予約注文伝票&#10;</text>';
+        // 1. タイトル（属性はテキストを含むタグにまとめる）
+        xml += '<text align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 設定リセット
-        xml += '<text width="1"/>';
-        xml += '<text height="1"/>';
-        xml += '<text align="left"/>';
+        // 2. 設定リセット＆改行
+        xml += '<text align="left" width="1" height="1"/>';
         xml += '<feed line="1"/>';
 
         // 3. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
-        xml += '<text b="true"/>';
-        xml += `<text>お名前: ${userName} 様&#10;</text>`;
-        xml += '<text b="false"/>';
-        xml += '<text>--------------------------------&#10;</text>';
+        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
+        xml += '<text b="false">--------------------------------&#10;</text>';
 
-        // 4. 商品明細（安全な文字列整形）
+        // 4. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
                 const rawName = String(item.name || '');
                 const qty = item.quantity || 1;
                 const qtyText = `x ${qty}`;
-                
-                // 簡易かつ安全な桁揃え処理
                 const safeItemName = this.escapeXml(rawName);
+
                 xml += `<text>${safeItemName}  ${qtyText}&#10;</text>`;
             });
         }
 
         // 5. 合計金額・ステータス
         xml += '<text>--------------------------------&#10;</text>';
-        xml += '<text align="right"/>';
-        xml += '<text b="true"/>';
-        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
-        xml += '<text b="false"/>';
-        xml += '<text align="left"/>';
+        xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text align="left" b="false">${statusText}&#10;</text>`;
 
-        xml += `<text>${statusText}&#10;</text>`;
+        // 6. 紙送り・カット
         xml += '<feed line="3"/>';
         xml += '<cut type="feed"/>';
         xml += '</epos-print>';

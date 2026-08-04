@@ -1895,7 +1895,7 @@ export async function onRequest(context) {
           });
         }
 
-        // <?xml ... ?> 宣言を消去して完全トリム
+        // <?xml ... ?> 宣言を消去してトリム
         const cleanXml = xml.replace(/<\?xml[^>]*\?>/gi, '').trim();
 
         // 正しい SOAP 形式で包む
