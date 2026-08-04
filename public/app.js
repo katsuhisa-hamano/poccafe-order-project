@@ -3048,7 +3048,7 @@ const app = {
     escapeXml(str) {
         if (str === null || str === undefined) return '';
         return String(str)
-            .replace(/[\r\n\t]/g, ' ') // 制御文字（改行・タブ）を半角スペースに置き換え
+            .replace(/[\r\n\t]/g, ' ')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -3069,12 +3069,12 @@ const app = {
         // 1. タイトル
         xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 注文情報
+        // 2. 注文情報（b="1" に修正）
         xml += `<text align="left">注文ID: ${orderId}&#10;</text>`;
-        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
+        xml += `<text b="1">お名前: ${userName} 様&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 3. 商品明細（改行・制御文字を徹底除去）
+        // 3. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
                 if (!item) return;
@@ -3087,9 +3087,9 @@ const app = {
             xml += '<text>商品情報なし&#10;</text>';
         }
 
-        // 4. 合計金額・ステータス
+        // 4. 合計金額・ステータス（b="1" に修正）
         xml += '<text>--------------------------------&#10;</text>';
-        xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text align="right" b="1">合計金額: ${totalPrice}円&#10;</text>`;
         xml += `<text align="left">${statusText}&#10;</text>`;
 
         // 5. 紙送り・カット
