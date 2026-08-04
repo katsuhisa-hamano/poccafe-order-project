@@ -3044,42 +3044,49 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
-    // XML特殊文字および制御文字（改行など）を除去するエスケープ関数
-    escapeXml(str) {
+    // 不正な制御文字やUnicodeを完全に削り落とす安全なエスケープ関数
+    cleanAndEscapeXml(str) {
         if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/[\r\n\t]/g, ' ')
+        
+        let cleaned = String(str)
+            // 印刷不可能な特殊制御文字・ゼロ幅スペースなどを徹底除去
+            .replace(/[^\x20-\x7E\u3000-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF\n]/g, '')
+            // XML予約文字のエスケープ
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
+
+        return cleaned;
     },
 
     generateOrderXmlTemplate(order) {
         if (!order) return '';
 
-        const orderId = this.escapeXml(order.id || order.order_id || '---');
-        const userName = this.escapeXml(order.user_name || 'お客様');
-        const totalPrice = (Number(order.total_price || order.total_amount) || 0).toLocaleString();
+        // 各項目を厳密に無害化
+        const orderId = this.cleanAndEscapeXml(order.id || order.order_id || '---');
+        const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
+        const rawPrice = Number(order.total_price || order.total_amount) || 0;
+        const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（成功実績と全く同じ属性指定）
+        // 1. タイトル
         xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 注文情報（属性なしの純粋なtextタグ）
+        // 2. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
         xml += `<text>お名前: ${userName} 様&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 3. 商品明細（属性なしの純粋なtextタグ）
+        // 3. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
                 if (!item) return;
-                const name = this.escapeXml(item.name || '商品名なし');
-                const qty = item.quantity || 1;
+                const name = this.cleanAndEscapeXml(item.name || '商品名なし');
+                const qty = Number(item.quantity) || 1;
 
                 xml += `<text>${name} x${qty}&#10;</text>`;
             });
