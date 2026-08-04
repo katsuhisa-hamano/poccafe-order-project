@@ -3061,13 +3061,13 @@ const app = {
         const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
-        let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル
+        // 1. タイトル（中央揃え・2倍拡大）
         xml += `<text align="center" width="2" height="2">予約注文伝票&#10;</text>`;
         xml += `<feed line="1"/>`;
 
-        // 2. 注文情報（標準サイズ・標準配置）
+        // 2. 注文情報
         xml += `<text align="left" width="1" height="1">注文ID: ${orderId}&#10;</text>`;
         xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
         xml += `<text b="false">--------------------------------&#10;</text>`;
@@ -3097,7 +3097,7 @@ const app = {
             });
         }
 
-        // 4. 合計・カット
+        // 4. 合計金額・紙送り・カット
         xml += `<text>--------------------------------&#10;</text>`;
         xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
         xml += `<text align="left" b="false">${statusText}&#10;</text>`;

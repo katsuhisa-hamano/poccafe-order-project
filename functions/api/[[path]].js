@@ -1895,22 +1895,19 @@ export async function onRequest(context) {
           });
         }
 
-        // 1. 受信したXMLから <?xml ... ?> 宣言を完全に除去
-        const cleanXml = xml.replace(/<\?xml[^>]*\?>/gi, '').trim();
-
-        // 2. EPSON標準の SOAP-ENV 構造でラップ（改行や不要なスペースを入れない）
-        const soapBody = `<?xml version="1.0" encoding="utf-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body>${cleanXml}</SOAP-ENV:Body></SOAP-ENV:Envelope>`;
+        // SOAPラッパーは一切追加せず、受領したXMLをそのままトリムする
+        const rawXml = xml.trim();
 
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
+        // UTF-8バイナリに変換
         const encoder = new TextEncoder();
-        const bodyBuffer = encoder.encode(soapBody);
+        const bodyBuffer = encoder.encode(rawXml);
 
         const printerResponse = await fetch(printerUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/xml; charset=utf-8',
-            'SOAPAction': '""',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
           body: bodyBuffer
