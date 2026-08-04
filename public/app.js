@@ -3044,10 +3044,11 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
-    // XML特殊文字のエスケープ関数
+    // XML特殊文字および制御文字（改行など）を除去するエスケープ関数
     escapeXml(str) {
         if (str === null || str === undefined) return '';
         return String(str)
+            .replace(/[\r\n\t]/g, ' ') // 制御文字（改行・タブ）を半角スペースに置き換え
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -3065,24 +3066,25 @@ const app = {
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（成功パターンと完全に同じ属性構成）
+        // 1. タイトル
         xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 注文情報（標準サイズ・左寄せ）
+        // 2. 注文情報
         xml += `<text align="left">注文ID: ${orderId}&#10;</text>`;
         xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 3. 商品明細
+        // 3. 商品明細（改行・制御文字を徹底除去）
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
-                const rawName = String(item.name || '');
+                if (!item) return;
+                const name = this.escapeXml(item.name || '商品名なし');
                 const qty = item.quantity || 1;
-                const qtyText = `x ${qty}`;
-                const safeItemName = this.escapeXml(rawName);
 
-                xml += `<text>${safeItemName}  ${qtyText}&#10;</text>`;
+                xml += `<text>${name} x${qty}&#10;</text>`;
             });
+        } else {
+            xml += '<text>商品情報なし&#10;</text>';
         }
 
         // 4. 合計金額・ステータス
