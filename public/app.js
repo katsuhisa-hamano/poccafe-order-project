@@ -3065,13 +3065,13 @@ const app = {
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（成功パターンと同一の属性指定）
+        // 1. タイトル（成功パターンと完全に同じ属性構成）
         xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 注文情報（標準サイズに戻すため width="1" height="1" align="left" を本文タグに直接指定）
-        xml += `<text width="1" height="1" align="left">注文ID: ${orderId}&#10;</text>`;
+        // 2. 注文情報（標準サイズ・左寄せ）
+        xml += `<text align="left">注文ID: ${orderId}&#10;</text>`;
         xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
-        xml += '<text b="false">--------------------------------&#10;</text>';
+        xml += '<text>--------------------------------&#10;</text>';
 
         // 3. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
@@ -3088,7 +3088,7 @@ const app = {
         // 4. 合計金額・ステータス
         xml += '<text>--------------------------------&#10;</text>';
         xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
-        xml += `<text align="left" b="false">${statusText}&#10;</text>`;
+        xml += `<text align="left">${statusText}&#10;</text>`;
 
         // 5. 紙送り・カット
         xml += '<feed line="3"/>';
