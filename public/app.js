@@ -3044,7 +3044,7 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
-    // XML特殊文字（&, <, >, ", '）を安全に変換するヘルパー関数
+    // XML特殊文字のエスケープ関数
     escapeXml(str) {
         if (!str) return '';
         return String(str)
@@ -3061,20 +3061,18 @@ const app = {
         const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
-        let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（2倍拡大・中央揃え）
+        // 1. タイトル
         xml += `<text align="center" width="2" height="2">予約注文伝票&#10;</text>`;
         xml += `<feed line="1"/>`;
 
-        // 2. 注文情報（通常サイズ・左寄せ）
+        // 2. 注文情報（標準サイズ・標準配置）
         xml += `<text align="left" width="1" height="1">注文ID: ${orderId}&#10;</text>`;
         xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
-
-        // 3. 区切り線
         xml += `<text b="false">--------------------------------&#10;</text>`;
 
-        // 4. 注文商品
+        // 3. 商品明細
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
@@ -3099,12 +3097,10 @@ const app = {
             });
         }
 
-        // 5. 合計金額・ステータス
+        // 4. 合計・カット
         xml += `<text>--------------------------------&#10;</text>`;
         xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
         xml += `<text align="left" b="false">${statusText}&#10;</text>`;
-
-        // 6. 紙送り・カット
         xml += `<feed line="3"/>`;
         xml += `<cut type="feed"/>`;
         xml += '</epos-print>';
