@@ -1895,10 +1895,10 @@ export async function onRequest(context) {
           });
         }
 
-        // <?xml ... ?> 宣言を除去
+        // <?xml ... ?> 宣言を消去して完全トリム
         const cleanXml = xml.replace(/<\?xml[^>]*\?>/gi, '').trim();
 
-        // プリンターが要求する正しい SOAP-ENV 構造でラップ
+        // 正しい SOAP 形式で包む
         const soapBody = `<?xml version="1.0" encoding="utf-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body>${cleanXml}</soapenv:Body></soapenv:Envelope>`;
 
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';

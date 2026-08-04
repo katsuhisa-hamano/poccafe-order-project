@@ -3046,7 +3046,7 @@ const app = {
      */
     // XML特殊文字のエスケープ関数
     escapeXml(str) {
-        if (!str) return '';
+        if (str === null || str === undefined) return '';
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -3056,14 +3056,16 @@ const app = {
     },
 
     generateOrderXmlTemplate(order) {
+        if (!order) return '';
+
         const orderId = this.escapeXml(order.id || order.order_id || '---');
         const userName = this.escapeXml(order.user_name || 'お客様');
-        const totalPrice = (order.total_price || order.total_amount || 0).toLocaleString();
+        const totalPrice = (Number(order.total_price || order.total_amount) || 0).toLocaleString();
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（属性指定と本文を独立したタグに分離）
+        // 1. タイトル
         xml += '<text align="center"/>';
         xml += '<text width="2"/>';
         xml += '<text height="2"/>';
@@ -3082,28 +3084,16 @@ const app = {
         xml += '<text b="false"/>';
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 4. 商品明細
-        if (order.items && order.items.length > 0) {
+        // 4. 商品明細（安全な文字列整形）
+        if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
-                const qtyText = `x ${item.quantity}`;
-                const targetLength = 32; 
-                const itemName = item.name || '';
+                const rawName = String(item.name || '');
+                const qty = item.quantity || 1;
+                const qtyText = `x ${qty}`;
                 
-                let nameLength = 0;
-                for (let i = 0; i < itemName.length; i++) {
-                    const code = itemName.charCodeAt(i);
-                    if ((code >= 0x0000 && code <= 0x007F) || (code >= 0xFF61 && code <= 0xFF9F)) {
-                        nameLength += 1;
-                    } else {
-                        nameLength += 2;
-                    }
-                }
-                const qtyLength = qtyText.length;
-                const spaceCount = targetLength - (nameLength % targetLength) - qtyLength;
-                const spaces = spaceCount > 0 ? ' '.repeat(spaceCount) : ' ';
-                
-                const safeItemName = this.escapeXml(itemName);
-                xml += `<text>${safeItemName}${spaces}${qtyText}&#10;</text>`;
+                // 簡易かつ安全な桁揃え処理
+                const safeItemName = this.escapeXml(rawName);
+                xml += `<text>${safeItemName}  ${qtyText}&#10;</text>`;
             });
         }
 
