@@ -3044,6 +3044,17 @@ const app = {
     /**
      * 【HTMLテンプレート生成共通ロジック】
      */
+
+    /* 
+        Xmlテンプレート生成の際の注意点
+    １．文字列データの無害化を徹底する
+    　　DBや外部入力（お名前・商品名）からの値には、今回作成した cleanAndEscapeXml() を通して不可視の制御文字や特殊記号を除去する。
+    ２．太字指定は b="1" を使う
+    　　b="true" や b="false" ではなく、b="1"（有効）/ b="0"（無効）を使用する。
+    ３．不要な自閉タグ（<text align="left"/> など）を置かない
+    　　属性変更のみの空タグは作らず、文字列を出力する <text> タグ自体に属性を付与するか、属性なしのシンプル構成をベースにする。
+    */
+
     // 不正な制御文字やUnicodeを完全に削り落とす安全なエスケープ関数
     cleanAndEscapeXml(str) {
         if (str === null || str === undefined) return '';
@@ -3074,7 +3085,7 @@ const app = {
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
         // 1. タイトル
-        xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
+        xml += '<text lang="ja" align="center" width="1" height="1">予約注文伝票&#10;</text>';
 
         // 2. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
