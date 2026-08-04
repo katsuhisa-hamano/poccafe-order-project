@@ -3063,26 +3063,18 @@ const app = {
 
         let xml = '<?xml version="1.0" encoding="utf-8"?><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（中央揃え・2倍拡大）
-        xml += '<text align="center"/>';
-        xml += '<text width="2" height="2"/>';
-        xml += '<text>予約注文伝票&#10;</text>';
+        // 1. タイトル（2倍拡大・中央揃え）
+        xml += `<text align="center" width="2" height="2">予約注文伝票&#10;</text>`;
+        xml += `<feed line="1"/>`;
 
-        // 2. 標準設定へリセット
-        xml += '<text width="1" height="1"/>';
-        xml += '<text align="left"/>';
-        xml += '<feed line="1"/>';
+        // 2. 注文情報（通常サイズ・左寄せ）
+        xml += `<text align="left" width="1" height="1">注文ID: ${orderId}&#10;</text>`;
+        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
 
-        // 3. 注文情報
-        xml += `<text>注文ID: ${orderId}&#10;</text>`;
-        xml += '<text b="true"/>';
-        xml += `<text>お名前: ${userName} 様&#10;</text>`;
-        xml += '<text b="false"/>';
+        // 3. 区切り線
+        xml += `<text b="false">--------------------------------&#10;</text>`;
 
-        // 4. 区切り線
-        xml += '<text>--------------------------------&#10;</text>';
-
-        // 5. 注文商品
+        // 4. 注文商品
         if (order.items && order.items.length > 0) {
             order.items.forEach(item => {
                 const qtyText = `x ${item.quantity}`;
@@ -3107,18 +3099,14 @@ const app = {
             });
         }
 
-        // 6. 合計金額（全角￥ではなく円または半角¥を使用）
-        xml += '<text>--------------------------------&#10;</text>';
-        xml += '<text align="right"/>';
-        xml += '<text b="true"/>';
-        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
-        xml += '<text b="false"/>';
-        xml += '<text align="left"/>';
+        // 5. 合計金額・ステータス
+        xml += `<text>--------------------------------&#10;</text>`;
+        xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text align="left" b="false">${statusText}&#10;</text>`;
 
-        // 7. ステータス・紙送り・カット
-        xml += `<text>${statusText}&#10;</text>`;
-        xml += '<feed line="3"/>';
-        xml += '<cut type="feed"/>';
+        // 6. 紙送り・カット
+        xml += `<feed line="3"/>`;
+        xml += `<cut type="feed"/>`;
         xml += '</epos-print>';
 
         return xml;

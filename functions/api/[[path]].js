@@ -1896,7 +1896,7 @@ export async function onRequest(context) {
         }
 
         // 1. <?xml ... ?> 宣言を除去して綺麗なXML要素だけを取り出す
-        const cleanXml = xml.replace(/<\?xml[^>]*\?>/i, '').trim();
+        const cleanXml = xml.replace(/<\?xml[^>]*\?>/gi, '').trim();
 
         // 2. SOAPエンベロープで包む（UTF-8ヘッダーを明記）
         const soapBody = `<?xml version="1.0" encoding="utf-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body>${cleanXml}</soapenv:Body></soapenv:Envelope>`;
