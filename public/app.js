@@ -3065,22 +3065,15 @@ const app = {
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル（中央揃え・2倍拡大・日本語モード）
-        xml += '<text align="center" width="2" height="2"/>';
-        xml += '<text lang="ja">予約注文伝票&#10;</text>';
+        // 1. タイトル（成功パターンと同一の属性指定）
+        xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 標準サイズ・左寄せに戻す
-        xml += '<text align="left" width="1" height="1"/>';
-        xml += '<feed line="1"/>';
+        // 2. 注文情報（標準サイズに戻すため width="1" height="1" align="left" を本文タグに直接指定）
+        xml += `<text width="1" height="1" align="left">注文ID: ${orderId}&#10;</text>`;
+        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
+        xml += '<text b="false">--------------------------------&#10;</text>';
 
-        // 3. 注文情報
-        xml += `<text>注文ID: ${orderId}&#10;</text>`;
-        xml += '<text b="true"/>'; // 太字ON
-        xml += `<text>お名前: ${userName} 様&#10;</text>`;
-        xml += '<text b="false"/>'; // 太字OFF
-        xml += '<text>--------------------------------&#10;</text>';
-
-        // 4. 商品明細
+        // 3. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
                 const rawName = String(item.name || '');
@@ -3092,17 +3085,12 @@ const app = {
             });
         }
 
-        // 5. 合計金額・ステータス
+        // 4. 合計金額・ステータス
         xml += '<text>--------------------------------&#10;</text>';
-        xml += '<text align="right"/>'; // 右寄せ
-        xml += '<text b="true"/>'; // 太字ON
-        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
-        xml += '<text b="false"/>'; // 太字OFF
-        xml += '<text align="left"/>'; // 左寄せに戻す
+        xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text align="left" b="false">${statusText}&#10;</text>`;
 
-        xml += `<text>${statusText}&#10;</text>`;
-
-        // 6. 紙送り・カット
+        // 5. 紙送り・カット
         xml += '<feed line="3"/>';
         xml += '<cut type="feed"/>';
         xml += '</epos-print>';
