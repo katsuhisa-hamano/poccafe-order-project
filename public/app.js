@@ -3056,7 +3056,50 @@ const app = {
     },
 
     generateOrderXmlTemplate(order) {
-        return '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text lang="ja" align="center" width="2" height="2">テスト印刷&#10;</text><cut type="feed"/></epos-print>';
+        if (!order) return '';
+
+        const orderId = this.escapeXml(order.id || order.order_id || '---');
+        const userName = this.escapeXml(order.user_name || 'お客様');
+        const totalPrice = (Number(order.total_price || order.total_amount) || 0).toLocaleString();
+        const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
+
+        let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+
+        // ★最初の text タグに lang="ja" を付与することでプリンターを日本語モードに固定
+        xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
+
+        // 2. 設定リセット
+        xml += '<text align="left" width="1" height="1"/>';
+        xml += '<feed line="1"/>';
+
+        // 3. 注文情報
+        xml += `<text>注文ID: ${orderId}&#10;</text>`;
+        xml += `<text b="true">お名前: ${userName} 様&#10;</text>`;
+        xml += '<text b="false">--------------------------------&#10;</text>';
+
+        // 4. 商品明細
+        if (Array.isArray(order.items) && order.items.length > 0) {
+            order.items.forEach(item => {
+                const rawName = String(item.name || '');
+                const qty = item.quantity || 1;
+                const qtyText = `x ${qty}`;
+                const safeItemName = this.escapeXml(rawName);
+
+                xml += `<text>${safeItemName}  ${qtyText}&#10;</text>`;
+            });
+        }
+
+        // 5. 合計金額・ステータス
+        xml += '<text>--------------------------------&#10;</text>';
+        xml += `<text align="right" b="true">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text align="left" b="false">${statusText}&#10;</text>`;
+
+        // 6. 紙送り・カット
+        xml += '<feed line="3"/>';
+        xml += '<cut type="feed"/>';
+        xml += '</epos-print>';
+
+        return xml;
     },
 
     /**

@@ -1895,17 +1895,9 @@ export async function onRequest(context) {
           });
         }
 
-        // 1. <?xml ... ?> 宣言および <epos-print> 外の余計な空白を完全除去
         let cleanXml = xml.replace(/<\?xml[^>]*\?>/gi, '').trim();
 
-        // 2. epos-print タグに namespace が含まれていない場合、または二重にならないよう調整
-        // EPSON 端末が確実に認識する標準 SOAP 構造
-        const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-    <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-      <s:Body>
-        ${cleanXml}
-      </s:Body>
-    </s:Envelope>`.replace(/\r?\n|\r/g, ''); // 改行を除去して1行にする
+        const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${cleanXml}</s:Body></s:Envelope>`;
 
         const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
