@@ -3066,15 +3066,15 @@ const app = {
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
 
-        // 1. タイトル
+        // 1. タイトル（成功実績と全く同じ属性指定）
         xml += '<text lang="ja" align="center" width="2" height="2">予約注文伝票&#10;</text>';
 
-        // 2. 注文情報（b="1" に修正）
-        xml += `<text align="left">注文ID: ${orderId}&#10;</text>`;
-        xml += `<text b="1">お名前: ${userName} 様&#10;</text>`;
+        // 2. 注文情報（属性なしの純粋なtextタグ）
+        xml += `<text>注文ID: ${orderId}&#10;</text>`;
+        xml += `<text>お名前: ${userName} 様&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
 
-        // 3. 商品明細
+        // 3. 商品明細（属性なしの純粋なtextタグ）
         if (Array.isArray(order.items) && order.items.length > 0) {
             order.items.forEach(item => {
                 if (!item) return;
@@ -3087,10 +3087,10 @@ const app = {
             xml += '<text>商品情報なし&#10;</text>';
         }
 
-        // 4. 合計金額・ステータス（b="1" に修正）
+        // 4. 合計金額・ステータス
         xml += '<text>--------------------------------&#10;</text>';
-        xml += `<text align="right" b="1">合計金額: ${totalPrice}円&#10;</text>`;
-        xml += `<text align="left">${statusText}&#10;</text>`;
+        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text>${statusText}&#10;</text>`;
 
         // 5. 紙送り・カット
         xml += '<feed line="3"/>';
