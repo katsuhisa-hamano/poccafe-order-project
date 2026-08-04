@@ -3056,6 +3056,10 @@ const app = {
     },
 
     generateOrderXmlTemplate(order) {
+        return '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text lang="ja" align="center" width="2" height="2">テスト印刷&#10;</text><cut type="feed"/></epos-print>';
+    },
+
+    generateOrderXmlTemplate2(order) {
         if (!order) return '';
 
         const orderId = this.escapeXml(order.id || order.order_id || '---');
