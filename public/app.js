@@ -2921,6 +2921,43 @@ const app = {
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
     currentlyPrintingIds : [],
 
+    async printAPI(order) {
+        var canvas = document.getElementById('canvas');
+        var context = canvas.getContext('2d');
+        var address = 'http://192.168.12.100/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
+
+        var builder = new epson.ePOSBuilder();
+        builder.addTextLang('ja');
+        builder.addTextFont(builder.FONT_A);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_B);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_C);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_D);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_E);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_SPECIAL_A);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addTextFont(builder.FONT_SPECIAL_B);
+        builder.addText('Hello\n');
+        builder.addText('濱野　克久\n');
+        builder.addCut(builder.CUT_FEED);
+
+        var epos = new epson.ePOSPrint(address);
+        epos.onreceive = function (res) { alert(res.success); };
+        epos.onerror = function (err) { alert(err.status); };
+        epos.oncoveropen = function () { alert('coveropen'); };
+        epos.send(builder.toString());
+    },
+
     /**
      * 【1件印刷 / 個別再印刷用】
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
@@ -2928,6 +2965,8 @@ const app = {
     async printSingleOrderHtml(order) {
         if (!order) return;
         try {
+            const printResult = await this.printAPI(order);
+            /*
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
             
@@ -2938,6 +2977,7 @@ const app = {
                 },
                 body: JSON.stringify({ xml: xmlContent })
             });
+            */
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
@@ -3053,6 +3093,9 @@ const app = {
     　　b="true" や b="false" ではなく、b="1"（有効）/ b="0"（無効）を使用する。
     ３．不要な自閉タグ（<text align="left"/> など）を置かない
     　　属性変更のみの空タグは作らず、文字列を出力する <text> タグ自体に属性を付与するか、属性なしのシンプル構成をベースにする。
+    ４．フォントは２種類
+        <text font="font_a">標準のフォント（Font A: 12×24ドット）</text>（明朝系）と 
+        <text font="font_b">小ぶりのフォント（Font B: 9×24ドットまたは9×17ドット）</text>（ゴシック系）の２種類のみを使用する。
     */
 
     // 不正な制御文字やUnicodeを完全に削り落とす安全なエスケープ関数
