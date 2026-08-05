@@ -2921,43 +2921,6 @@ const app = {
     // 💡 一括印刷中の一時的な対象IDリストを記憶する変数
     currentlyPrintingIds : [],
 
-    async printAPI(order) {
-        var canvas = document.getElementById('canvas');
-        //var context = canvas.getContext('2d');
-        var address = 'http://192.168.12.100/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
-
-        var builder = new epson.ePOSBuilder();
-        builder.addTextLang('ja');
-        builder.addTextFont(builder.FONT_A);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_B);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_C);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_D);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_E);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_SPECIAL_A);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addTextFont(builder.FONT_SPECIAL_B);
-        builder.addText('Hello\n');
-        builder.addText('濱野　克久\n');
-        builder.addCut(builder.CUT_FEED);
-
-        var epos = new epson.ePOSPrint(address);
-        epos.onreceive = function (res) { alert(res.success); };
-        epos.onerror = function (err) { alert(err.status); };
-        epos.oncoveropen = function () { alert('coveropen'); };
-        epos.send(builder.toString());
-    },
-
     /**
      * 【1件印刷 / 個別再印刷用】
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
@@ -2965,8 +2928,6 @@ const app = {
     async printSingleOrderHtml(order) {
         if (!order) return;
         try {
-            const printResult = await this.printAPI(order);
-            /*
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order);
             
@@ -2977,7 +2938,6 @@ const app = {
                 },
                 body: JSON.stringify({ xml: xmlContent })
             });
-            */
 
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
@@ -3126,9 +3086,12 @@ const app = {
         const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
+        xml += '<text lang="ja"/>'
+        xml += '<text font="font_b"/>'
+'
 
         // 1. タイトル
-        xml += '<text lang="ja" align="center" width="1" height="1">予約注文伝票&#10;</text>';
+        xml += '<text>予約注文伝票&#10;</text>';
 
         // 2. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
