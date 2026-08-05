@@ -3088,7 +3088,6 @@ const app = {
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
         xml += '<text lang="ja"/>'
         xml += '<text font="font_b"/>'
-'
 
         // 1. タイトル
         xml += '<text>予約注文伝票&#10;</text>';
