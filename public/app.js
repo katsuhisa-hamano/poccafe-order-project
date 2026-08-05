@@ -2923,7 +2923,7 @@ const app = {
 
     async printAPI(order) {
         var canvas = document.getElementById('canvas');
-        var context = canvas.getContext('2d');
+        //var context = canvas.getContext('2d');
         var address = 'http://192.168.12.100/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
 
         var builder = new epson.ePOSBuilder();
