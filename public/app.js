@@ -2500,11 +2500,11 @@ const app = {
                     : `<span class="inline-block bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black mb-1">未受領</span>`;
                 
                 const printButtonHtml = (order.printed_status === 1)
-                    ?  `<button onclick='app.triggerReprint(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
+                    ?  `<button onclick='app.triggerReprint(${JSON.stringify(order).replace(/'/g, "&apos;")}, targetDate)' 
                                 class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-3 py-1.5 rounded text-xs font-medium">
                             🔄 再印刷
                         </button>`
-                    :  `<button onclick='app.printSingleOrderHtml(${JSON.stringify(order).replace(/'/g, "&apos;")})' 
+                    :  `<button onclick='app.printSingleOrderHtml(${JSON.stringify(order).replace(/'/g, "&apos;")}, targetDate)' 
                                 class="bg-blue-50 text-red-600 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold">
                             ⏳ 未印刷
                         </button>`;
@@ -2925,11 +2925,11 @@ const app = {
      * 【1件印刷 / 個別再印刷用】
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
      */
-    async printSingleOrderHtml(order) {
+    async printSingleOrderHtml(order, targetDate) {
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
-            const xmlContent = this.generateOrderXmlTemplate(order);
+            const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
             
             const printResult = await fetch('/api/print', {
                 method: 'POST',
@@ -2970,9 +2970,9 @@ const app = {
      * 【単発・個別再印刷ボタン用】
      * 印刷済みアイテムの「再印刷」ボタンを押したときに実行される
      */
-    async triggerReprint(order) {
+    async triggerReprint(order, targetDate) {
         if (!confirm(`${order.user_name} 様の伝票を再印刷しますか？`)) return;
-        await this.printSingleOrderHtml(order);
+        await this.printSingleOrderHtml(order, targetDate );
         // 再印刷時は一括処理ではないため、フラグ更新などは行わずブラウザに戻るだけで完結
     },
 
@@ -3075,11 +3075,12 @@ const app = {
         return cleaned;
     },
 
-    generateOrderXmlTemplate(order) {
+    generateOrderXmlTemplate(order, targetDate) {
         if (!order) return '';
 
         // 各項目を厳密に無害化
         const orderId = this.cleanAndEscapeXml(order.id || order.order_id || '---');
+        const targetDate = this.cleanAndEscapeXml(targetDate || '---');
         const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
         const rawPrice = Number(order.total_price || order.total_amount) || 0;
         const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
@@ -3095,6 +3096,7 @@ const app = {
         // 2. 注文情報
         xml += `<text>注文ID: ${orderId}&#10;</text>`;
         xml += `<text>お名前: ${userName} 様&#10;</text>`;
+        xml += `<text>受取日: ${targetDate}&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
 
         // 3. 商品明細
