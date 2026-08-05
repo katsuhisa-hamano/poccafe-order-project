@@ -3080,7 +3080,6 @@ const app = {
 
         // 各項目を厳密に無害化
         const orderId = this.cleanAndEscapeXml(order.id || order.order_id || '---');
-        const targetDate = this.cleanAndEscapeXml(targetDate || '---');
         const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
         const rawPrice = Number(order.total_price || order.total_amount) || 0;
         const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
