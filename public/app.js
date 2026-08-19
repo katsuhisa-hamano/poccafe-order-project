@@ -2953,7 +2953,7 @@ const app = {
                 if (result.success) {
                     // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
                     app.currentlyPrintingIds = [];
-                    alert(`${unprintedOrders.length}件の伝票を一括印刷しました。`);
+                    alert(`1件の伝票を一括印刷しました。`);
                     app.loadAdminOrders(); // 管理画面のリスト表示を再描画
                 }
             } else {
