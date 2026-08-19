@@ -3124,6 +3124,15 @@ const app = {
         return xml;
     },
 
+    generateBulkOrderXmlTemplate(orders, targetDate) {
+        const xmls = "";
+        for (const order of orders) {
+            const singleXml = this.generateOrderXmlTemplate(order, targetDate);
+            xmls += singleXml; // 各注文のXMLを連結
+        }
+        return xmls;
+    },
+
     /**
      * 【帰還検知システム】
      * スタッフがすべての印刷を終えてブラウザに戻ってきた瞬間に、フラグを一括更新する
