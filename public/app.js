@@ -2935,7 +2935,9 @@ const app = {
             const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/xml; charset=utf-8'
+                    'Content-Type': 'text/xml; charset=utf-8',
+                    'SOAPAction': '""',
+                    'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
                 },
                 body: soapBody,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
