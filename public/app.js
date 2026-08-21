@@ -2996,7 +2996,7 @@ const app = {
 
         // 3. ラズパイ CUPS の RAW ポート (9100) または IPP (631) へ直接送信
         try {
-            const response = await fetch('http://192.168.12.150:631/printers/TM-m30III-H', {
+            const response = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/octet-stream' // RAWデータとして送信
