@@ -2935,8 +2935,7 @@ const app = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
-                    'SOAPAction': '""',
-                    'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
+                    'SOAPAction': '""'
                 },
                 body: xmlContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
