@@ -2926,6 +2926,7 @@ const app = {
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
      */
     async printSingleOrderHtml(order, targetDate) {
+        this.printDirectToCups(order);return;
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
@@ -2963,6 +2964,49 @@ const app = {
 
         } catch (err) {
             console.error("個別印刷エラー:", err);
+        }
+    },
+
+    async printDirectToCups(order) {
+        // 1. 印字用テキストの生成（XMLではなくシンプルなテキスト）
+        const orderId = order.id || order.order_id || '---';
+        const userName = order.user_name || 'お客様';
+        const totalPrice = (Number(order.total_price || order.total_amount) || 0).toLocaleString();
+
+        let text = "";
+        text += "================================\n";
+        text += "          予約注文伝票          \n";
+        text += "================================\n";
+        text += `注文ID: ${orderId}\n`;
+        text += `お名前: ${userName} 様\n`;
+        text += "--------------------------------\n";
+
+        if (Array.isArray(order.items)) {
+            order.items.forEach(item => {
+                text += `${item.name || '商品'}  x${item.quantity || 1}\n`;
+            });
+        }
+
+        text += "--------------------------------\n";
+        text += `合計金額: ${totalPrice}円\n`;
+        text += "================================\n\n\n\n";
+
+        // 2. 切断（Cut）などの制御を行いたい場合のESC/POS初期化・カットコード（16進数/バイナリ）
+        // 通常のテキストのみであれば、CUPSの自動改行/カット設定に任せることも可能です。
+
+        // 3. ラズパイ CUPS の RAW ポート (9100) または IPP (631) へ直接送信
+        try {
+            const response = await fetch('http://192.168.12.150:631/printers/TM-m30III-H', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream' // RAWデータとして送信
+                },
+                body: text
+            });
+            
+            console.log("送信レスポンス:", response.status);
+        } catch (err) {
+            console.error("印刷送信エラー:", err);
         }
     },
 
