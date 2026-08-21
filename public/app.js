@@ -2929,14 +2929,14 @@ const app = {
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
-            const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
+            const textContent = this.generateOrderPlaneTemplate(order, targetDate);
             
             const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8'
                 },
-                body: text,
+                body: textContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
 
