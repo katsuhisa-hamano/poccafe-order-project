@@ -3000,7 +3000,9 @@ const app = {
                 headers: {
                     'Content-Type': 'application/octet-stream' // RAWデータとして送信
                 },
-                body: text
+                body: text,
+                // ★ PNA仕様に伴うローカルネットワーク明示オプション
+                targetAddressSpace: 'private'
             });
             
             console.log("送信レスポンス:", response.status);
