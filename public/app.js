@@ -3135,7 +3135,7 @@ const app = {
         text += `================================\n`;
 
         // 2. 注文情報
-        text += `注文ID: ${orderId}&#10;`;
+        text += `注文ID: ${orderId}\n`;
         let xml = `<text>お名前: ${userName} 様&#10;</text>`;
         xml += `<text>受取日: ${targetDate}&#10;</text>`;
         xml += '<text>--------------------------------&#10;</text>';
