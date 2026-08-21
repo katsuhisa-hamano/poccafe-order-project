@@ -1912,7 +1912,9 @@ export async function onRequest(context) {
             'SOAPAction': '""',
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
-          body: bodyBuffer
+          body: bodyBuffer,
+          // ★ PNA仕様に伴うローカルネットワーク明示オプション
+          targetAddressSpace: 'private'
         });
 
         const responseText = await printerResponse.text();
