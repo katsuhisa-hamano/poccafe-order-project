@@ -2936,9 +2936,10 @@ const app = {
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8'
                 },
-                body: text,
+                body: xmlContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
+
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
             if (printResult.ok) {
