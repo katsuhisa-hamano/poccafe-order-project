@@ -2934,7 +2934,7 @@ const app = {
             const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/xml; charset=Shift_JIS'
+                    'Content-Type': 'text/xml; charset=utf-8'
                 },
                 body: textContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
