@@ -2929,14 +2929,14 @@ const app = {
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
-            const textContent = this.generateOrderPlaneTemplate(order, targetDate);
+            const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
             
             const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8'
                 },
-                body: textContent,
+                body: xmlContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
 
@@ -3117,53 +3117,6 @@ const app = {
             .replace(/'/g, '&apos;');
 
         return cleaned;
-    },
-
-    generateOrderPlaneTemplate(order, targetDate) {
-        if (!order) return '';
-
-        // 各項目を厳密に無害化
-        const orderId = this.cleanAndEscapeXml(order.id || order.order_id || '---');
-        const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
-        const rawPrice = Number(order.total_price || order.total_amount) || 0;
-        const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
-        const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
-
-        // 1. タイトル
-        let text = `テスト印刷 12345`;
-        text += `あいうえお \n`;
-        text += `================================\n`;
-
-        // 2. 注文情報
-        text += `注文ID: ${orderId}\n`;
-        let xml = `<text>お名前: ${userName} 様&#10;</text>`;
-        xml += `<text>受取日: ${targetDate}&#10;</text>`;
-        xml += '<text>--------------------------------&#10;</text>';
-
-        // 3. 商品明細
-        if (Array.isArray(order.items) && order.items.length > 0) {
-            order.items.forEach(item => {
-                if (!item) return;
-                const name = this.cleanAndEscapeXml(item.name || '商品名なし');
-                const qty = Number(item.quantity) || 1;
-
-                xml += `<text>${name} x${qty}&#10;</text>`;
-            });
-        } else {
-            xml += '<text>商品情報なし&#10;</text>';
-        }
-
-        // 4. 合計金額・ステータス
-        xml += '<text>--------------------------------&#10;</text>';
-        xml += `<text>合計金額: ${totalPrice}円&#10;</text>`;
-        xml += `<text>${statusText}&#10;</text>`;
-
-        // 5. 紙送り・カット
-        xml += '<feed line="3"/>';
-        xml += '<cut type="feed"/>';
-        xml += '</epos-print>';
-
-        return text;
     },
 
     generateOrderXmlTemplate(order, targetDate) {
