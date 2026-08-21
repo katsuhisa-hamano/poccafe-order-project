@@ -2936,6 +2936,7 @@ const app = {
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
                     'SOAPAction': '""',
+                    'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
                 },
                 body: xmlContent,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
