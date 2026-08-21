@@ -2930,6 +2930,10 @@ const app = {
         try {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
+
+            const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${xmlContent}</s:Body></s:Envelope>`;
+            const encoder = new TextEncoder();
+            const bodyBuffer = encoder.encode(soapBody);
             
             const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
@@ -2937,7 +2941,7 @@ const app = {
                     'Content-Type': 'text/xml; charset=utf-8',
                     'SOAPAction': '""'
                 },
-                body: xmlContent,
+                body: bodyBuffer,
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
 
