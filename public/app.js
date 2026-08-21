@@ -2931,14 +2931,14 @@ const app = {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
             
-            const printResult = await fetch('/api/print', {
+            const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'text/xml; charset=utf-8'
                 },
-                body: JSON.stringify({ xml: xmlContent })
+                body: text,
+                targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
-
             app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
 
             if (printResult.ok) {

@@ -1899,8 +1899,14 @@ export async function onRequest(context) {
 
         const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${cleanXml}</s:Body></s:Envelope>`;
 
-        //const printerUrl = 'https://printer.pokkapoka.net/cgi-bin/epos/service.cgi?devid=local_printer&timeout=60000';
-        const printerUrl = 'http://192.168.12.150:3000';
+await fetch('http://192.168.12.150:3000', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8'
+            },
+            body: text,
+            targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
+        });        const printerUrl = 'http://192.168.12.150:3000';
 
         const encoder = new TextEncoder();
         const bodyBuffer = encoder.encode(soapBody);
@@ -1913,7 +1919,6 @@ export async function onRequest(context) {
             'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
           },
           body: bodyBuffer,
-          // ★ PNA仕様に伴うローカルネットワーク明示オプション
           targetAddressSpace: 'private'
         });
 
