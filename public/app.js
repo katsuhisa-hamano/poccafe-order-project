@@ -2926,7 +2926,6 @@ const app = {
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
      */
     async printSingleOrderHtml(order, targetDate) {
-        this.printDirectToCups(order);return;
         if (!order) return;
         try {
             // 単発印刷用のHTML（改ページなし）
