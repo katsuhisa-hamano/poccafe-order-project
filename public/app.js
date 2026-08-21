@@ -2931,7 +2931,7 @@ const app = {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
             
-            const printResult = await fetch('http://192.168.12.150:3000/cgi-bin/epos/service.cgi?devid=local_printer&timeout=10000', {
+            const printResult = await fetch('http://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
