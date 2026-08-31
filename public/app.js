@@ -772,8 +772,6 @@ const app = {
             container.innerHTML = customers.map(c => {
                 // メールアドレスの有無を判定
                 const isSelfRegistered = c.email && c.email.trim() !== "";
-
-                const isSpecial = ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/ ).test(c.email.trim());
                 // ★【追加】注文データがある（c.has_orders === 1）場合は削除不可
                 const isDeleteDisabled = c.has_orders === 1;                
                 return `
@@ -783,9 +781,9 @@ const app = {
                                 <span class="font-bold text-gray-800">${c.name}</span>
                                 ${isSelfRegistered 
                                     ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
-                                    : isSpecial 
-                                        ? `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
-                                        : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
+                                    : ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/ ).test(c.email.trim()) 
+                                        ? `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
+                                        : `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
                                 }
                             </div>
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
