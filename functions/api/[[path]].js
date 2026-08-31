@@ -973,7 +973,7 @@ export async function onRequest(context) {
       }
 
       try {
-        // 1. 顧客名と電話番号で重複チェック
+        // 1. DB重複チェック
         const exists = await env.DB.prepare(`
           SELECT id FROM users WHERE name = ? AND tel = ?
         `).bind(name, tel).first();
@@ -984,92 +984,52 @@ export async function onRequest(context) {
 
         let squareCustomerId = null;
 
+        // Common Headers
+        const squareHeaders = {
+          'Square-Version': '2026-05-20',
+          'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        };
+
+        // 電話番号の整形（国際電話番号形式 +81）
+        let formattedTel = undefined;
+        if (tel) {
+          const cleanedTel = tel.trim().replace(/[-()\s]/g, '');
+          if (cleanedTel.startsWith('0')) {
+            formattedTel = '+81' + cleanedTel.substring(1);
+          } else {
+            formattedTel = cleanedTel;
+          }
+        }
+
         // Squareレジ連携
         try {
-          // 電話番号の整形
-          let formattedTel = undefined;
-          if (tel) {
-            const cleanedTel = tel.trim().replace(/[-()\s]/g, '');
-            if (cleanedTel.startsWith('0')) {
-              formattedTel = '+81' + cleanedTel.substring(1);
-            } else {
-              formattedTel = cleanedTel;
-            }
-          }
-
-          // 1. Squareから全顧客データをページネーションで全件取得
-          let allCustomers = [];
-          let cursor = undefined;
-          let hasMore = true;
-
-          try {
-            while (hasMore) {
-              const bodyPayload = {};
-              if (cursor) {
-                bodyPayload.cursor = cursor; // 次のページがある場合はカーソルを指定
-              }
-
-              const listRes = await fetch('https://connect.squareup.com/v2/customers/search', {
-                method: 'POST',
-                headers: {
-                  'Square-Version': '2026-05-20', // 本番環境のバージョンに合わせて調整してください
-                  'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(bodyPayload) // 空、またはcursorのみを指定すると全件取得の動きになります
-              });
-
-              if (!listRes.ok) {
-                const errText = await listRes.text();
-                return new Response(JSON.stringify({ success: false, message: `Square顧客データの全件取得に失敗: ${errText}` }), { status: 400, headers: corsHeaders });
-              }
-
-              const listData = await listRes.json();
-              if (listData.customers) {
-                allCustomers = allCustomers.concat(listData.customers);
-              }
-
-              // 次のページがあるか確認
-              if (listData.cursor) {
-                cursor = listData.cursor;
-              } else {
-                hasMore = false;
-              }
-            }
-          } catch (error) {
-            return new Response(JSON.stringify({ success: false, message: `通信エラー: ${error.message}` }), { status: 500, headers: corsHeaders });
-          }
-
-          // 2. メモリ上で「電話番号」と「名前」の一致フィルタリングを実行
-          if (allCustomers.length > 0) {
-            const searchName = name ? name.replace(/\s+/g, "").toLowerCase() : "";
-
-            const matchedCustomer = allCustomers.find(customer => {
-              // 電話番号の比較（存在する場合のみ一致確認）
-              const matchTel = formattedTel ? (customer.phone_number === formattedTel) : true;
-
-              // 名前の比較（given_name や family_name を結合してスペースを除去して比較）
-              // ※Square側は given_name と family_name が分かれているため、結合して判定するのが安全です
-              const customerGiven = customer.given_name || "";
-              const customerFamily = customer.family_name || "";
-              const customerFullName = `${customerFamily}${customerGiven}`.replace(/\s+/g, "").toLowerCase();
-              
-              const matchName = searchName ? (customerFullName.includes(searchName) || searchName.includes(customerFullName)) : true;
-
-              // 電話番号と名前の両方が指定されている場合は「両方一致」、片方なら「片方一致」で判定
-              if (formattedTel && searchName) {
-                return matchTel && matchName;
-              } else if (formattedTel) {
-                return matchTel;
-              } else if (searchName) {
-                return matchName;
-              }
-              return false;
+          // 2. Square APIの検索フィルタを使用して直接電話番号で検索
+          if (formattedTel) {
+            const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
+              method: 'POST',
+              headers: squareHeaders,
+              body: JSON.stringify({
+                query: {
+                  filter: {
+                    phone_number: {
+                      exact: formattedTel
+                    }
+                  }
+                }
+              })
             });
 
-            if (matchedCustomer) {
-              squareCustomerId = matchedCustomer.id;
-              console.log("既存のSquare顧客IDを取得(全件走査フィルタ):", squareCustomerId);
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              if (searchData.customers && searchData.customers.length > 0) {
+                // 電話番号で一致した顧客を取得
+                squareCustomerId = searchData.customers[0].id;
+                console.log("既存のSquare顧客IDを取得:", squareCustomerId);
+              }
+            } else {
+              const errText = await searchRes.text();
+              console.warn("Square検索に失敗（新規作成へスキップ）:", errText);
             }
           }
 
@@ -1077,7 +1037,7 @@ export async function onRequest(context) {
           if (!squareCustomerId) {
             const createRes = await fetch('https://connect.squareup.com/v2/customers', {
               method: 'POST',
-              headers: headers,
+              headers: squareHeaders, // 修正：定義した squareHeaders を使用
               body: JSON.stringify({
                 given_name: name.trim(),
                 phone_number: formattedTel
@@ -1098,7 +1058,7 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: `Square通信に失敗しました: ${e.message}` }), { status: 500, headers: corsHeaders });
         }
 
-        // 4. アプリDBに登録（取得した squareCustomerId を確実にバインドする）
+        // 4. アプリDBに登録
         await env.DB.prepare(`
           INSERT INTO users (name, email, tel, password_hash, square_customer_id, status)
           VALUES (?, null, ?, '', ?, 'active')
