@@ -771,24 +771,24 @@ const app = {
 
             container.innerHTML = customers.map(c => {
                 // メールアドレスの有無を判定
-                const isSelfRegistered = c.email && c.email.trim() !== "";
+                const userKind = c.kind; // 1: 一般会員, 2: 特別会員, 0: 代理登録
                 // ★【追加】注文データがある（c.has_orders === 1）場合は削除不可
-                const isDeleteDisabled = c.has_orders === 1;                
+                const isDeleteDisabled = c.has_orders === 1 || userKind === 2; // 特別会員は削除不可              
                 return `
                     <div class="p-4 flex items-center justify-between gap-4 text-sm">
                         <div>
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-gray-800">${c.name}</span>
-                                ${!isSelfRegistered 
-                                    ? `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
-                                    : ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/ ).test(c.email.trim()) 
-                                        ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
-                                        : `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
+                                ${userKind === 1 
+                                    ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
+                                    : userKind === 2
+                                        ? `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
+                                        : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
                                 }
                             </div>
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
                                 <p>TEL: ${c.tel || '未設定'}</p>
-                                ${isSelfRegistered ? `<p>Email: ${c.email}</p>` : ''}
+                                ${isSelfRegistered ? `<p>ID: ${c.email}</p>` : ''}
                                 ${isDeleteDisabled ? `<p class="text-[11px] text-orange-500 font-medium">※注文データがあるため削除できません</p>` : ''}
                             </div>
                         </div>
