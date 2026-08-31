@@ -789,7 +789,6 @@ const app = {
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
                                 <p>TEL: ${c.tel || '未設定'}</p>
                                 ${userKind !== 0 ? `<p>ID: ${c.email}</p>` : ''}
-                                ${isDeleteDisabled ? `<p class="text-[11px] text-orange-500 font-medium">※注文データがあるため削除できません</p>` : ''}
                             </div>
                         </div>
                         <div>
