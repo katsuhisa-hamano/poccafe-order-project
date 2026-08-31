@@ -773,7 +773,7 @@ const app = {
                 // メールアドレスの有無を判定
                 const isSelfRegistered = c.email && c.email.trim() !== "";
 
-                const isSpecial = ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/ ).test(c.email);
+                const isSpecial = "/^[^\s@]+@[^\s@]+\.[^\s@]+$/".test(c.email);
                 // ★【追加】注文データがある（c.has_orders === 1）場合は削除不可
                 const isDeleteDisabled = c.has_orders === 1;                
                 return `
