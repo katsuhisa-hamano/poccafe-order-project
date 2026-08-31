@@ -660,9 +660,17 @@ export async function onRequest(context) {
       const { email } = await request.json();
       if (!email) return new Response(JSON.stringify({ success: false, message: "メールアドレスが必要です。" }), { status: 400, headers: corsHeaders });
 
+      // メールアドレスの形式チェック（簡易正規表現）
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const cleanEmail = email.trim();
+
+      if (!emailRegex.test(cleanEmail)) {
+        return new Response(JSON.stringify({ success: false, message: "有効なメールアドレスの形式ではありません。\nメールアドレス以外のIDをお使いの場合はお問い合わせください。" }), { status: 400, headers: corsHeaders });
+      }
+
       const user = await env.DB.prepare(
         "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'"
-      ).bind(email.trim()).first();
+      ).bind(cleanEmail).first();
 
       if (!user) {
         return new Response(JSON.stringify({ success: false, message: "そのメールアドレスは登録されていません。" }), { status: 404, headers: corsHeaders });
@@ -689,7 +697,7 @@ export async function onRequest(context) {
             },
             body: JSON.stringify({
               from: 'ぽっカフェ <noreply@pokkapoka.net>',
-              to: [email.trim()],
+              to: [cleanEmail],
               subject: '【ぽっカフェ】パスワード再設定のご案内',
               text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
             })
