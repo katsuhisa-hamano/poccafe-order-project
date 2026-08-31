@@ -745,7 +745,7 @@ const app = {
                         // =========================================================
                         const isSelected = cust.square_customer_id === selectedValue ? 'selected' : '';
                         
-                        return `<option value="${cust.square_customer_id}" ${isSelected}>${cust.name}様 (${cust.email || 'メールなし'})</option>`;
+                        return `<option value="${cust.square_customer_id}" ${isSelected}>${cust.name}様 (${cust.email || '代理注文'})</option>`;
                     }).join('')}
                 </select>
                 ${isCartActive ? `<p class="text-xs text-red-600 mt-1 font-bold">※カートに商品が入っているため、注文者を変更できません。</p>` : ''}
@@ -772,6 +772,8 @@ const app = {
             container.innerHTML = customers.map(c => {
                 // メールアドレスの有無を判定
                 const isSelfRegistered = c.email && c.email.trim() !== "";
+
+                const isSpecial = ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/ ).test(c.email);
                 // ★【追加】注文データがある（c.has_orders === 1）場合は削除不可
                 const isDeleteDisabled = c.has_orders === 1;                
                 return `
@@ -781,7 +783,9 @@ const app = {
                                 <span class="font-bold text-gray-800">${c.name}</span>
                                 ${isSelfRegistered 
                                     ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
-                                    : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
+                                    : isSpecial 
+                                        ? `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
+                                        : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
                                 }
                             </div>
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
