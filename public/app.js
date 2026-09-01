@@ -210,7 +210,21 @@ const customerEditView = {
                         代理顧客として新規登録
                     </button>
                 </div>
-
+                <div class="bg-purple-50 border border-purple-200 rounded-2xl p-6 shadow-sm mb-8">
+                    <h3 class="text-sm font-black text-purple-800 mb-3 flex items-center">
+                        <span class="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">特別会員</span>
+                        特別会員として新規作成
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <input type="text" id="special-customer-name" placeholder="顧客名（例：特別 太郎）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="tel" id="special-customer-tel" placeholder="電話番号（例：09012345678）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="text" id="special-customer-id" placeholder="ログインID (例: kosekika) " class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="password" id="special-customer-password" placeholder="パスワード" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <button onclick="app.addSpecialCustomer()" class="w-full bg-purple-600 text-white h-11 rounded-xl font-bold hover:bg-purple-700 text-sm shadow-sm transition">
+                        特別会員として新規登録
+                    </button>
+                </div>
                 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
                     <div class="p-4 bg-gray-50 border-b border-gray-100">
                         <h2 class="font-black text-gray-800 text-sm">登録済み顧客一覧</h2>
