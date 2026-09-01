@@ -796,7 +796,7 @@ const app = {
                                 ${userKind === 1 
                                     ? `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded font-bold">一般会員</span>`
                                     : userKind === 2
-                                        ? `<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
+                                        ? `<span class="bg-green-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
                                         : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
                                 }
                             </div>
