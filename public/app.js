@@ -864,6 +864,41 @@ const app = {
         }
     },
 
+    async addSpecialCustomer() {
+        const name = document.getElementById('special-customer-name').value.trim();
+        const tel = document.getElementById('special-customer-tel').value.trim();
+        const id = document.getElementById('special-customer-id').value.trim(); // IDとしてemailフィールドに格納
+        const password = document.getElementById('special-customer-password').value;
+
+        if (!name || !tel || !id || !password) {
+            await sharedDialog("全ての項目（顧客名、電話番号、ID、パスワード）を入力してください。");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/customers/add-special', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, tel, id, password })
+            });
+
+            const result = await res.json();
+            if (res.ok && result.success) {
+                await sharedDialog(`顧客「${name}」様を特別会員として登録し、Squareに同期しました。x:${result.x}`);
+                name.value = "";
+                tel.value = "";
+                id.value = "";
+                password.value = "";
+                // リストを再ロード
+                await this.loadAdminCustomersEdit();
+            } else {
+                await sharedDialog("エラー: " + result.message);
+            }
+        } catch (err) {
+            await sharedDialog("通信エラーが発生しました: " + err.message);
+        }
+    },
+
     // 3. 顧客の削除処理
     async deleteCustomer(customerId, customerName) {
         if (!await sharedDialog(`顧客「${customerName}」様のアカウント情報を削除してよろしいですか？\n※この操作は取り消せません。`, "#333333", true)) {
