@@ -2093,6 +2093,9 @@ async function fetchSquareSalesMap(targetDate, env) {
 // =========================================================
 // HMAC + Base62 による決定論的 8桁 パスワード生成
 // =========================================================
+
+const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
 async function generate8CharPassword(email, secretKeyString) {
   const enc = new TextEncoder();
   const keyData = enc.encode(secretKeyString);
