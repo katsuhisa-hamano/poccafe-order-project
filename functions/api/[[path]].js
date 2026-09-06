@@ -2090,3 +2090,50 @@ async function fetchSquareSalesMap(targetDate, env) {
 
   return squareSalesMap;
 }
+
+// =========================================================
+// Base62 エンコード / デコード 関数
+// =========================================================
+const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+function encodeBase62(buffer) {
+  let bytes = new Uint8Array(buffer);
+  let value = BigInt(0);
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8n) | BigInt(bytes[i]);
+  }
+  if (value === 0n) return BASE62[0];
+  let result = '';
+  while (value > 0n) {
+    result = BASE62[Number(value % 62n)] + result;
+    value = value / 62n;
+  }
+  return result;
+}
+
+// =========================================================
+// AES-GCM による可逆暗号化 (パスワード生成)
+// =========================================================
+async function generateEncryptedPassword(plainText, secretKeyString) {
+  const enc = new TextEncoder();
+  const keyData = enc.encode(secretKeyString.padEnd(32, '0').slice(0, 32)); // 256bitキー
+  
+  const key = await crypto.subtle.importKey(
+    "raw", keyData, { name: "AES-GCM" }, false, ["encrypt"]
+  );
+
+  // 固定長またはプレフィックス付きIV (例: 12バイト)
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    enc.encode(plainText)
+  );
+
+  // IV + 暗号化データを結合してBase62化
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+
+  return encodeBase62(combined.buffer);
+}
