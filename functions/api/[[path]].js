@@ -1145,7 +1145,7 @@ export async function onRequest(context) {
             const createRes = await fetch('https://connect.squareup.com/v2/customers', {
               method: 'POST',
               headers: squareHeaders,
-              body: JSON.stringify({ given_name: name.trim(), email_address: id.trim(), phone_number: formattedTel })
+              body: JSON.stringify({ given_name: name.trim(), phone_number: formattedTel })
             });
 
             if (createRes.ok) {
