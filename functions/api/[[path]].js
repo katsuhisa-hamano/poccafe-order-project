@@ -2113,7 +2113,7 @@ function encodeBase62(buffer) {
 // =========================================================
 // AES暗号化による短い初期パスワード生成 (約10文字)
 // =========================================================
-async function generateShortEncryptedPassword(userId, secretKeyString) {
+async function generateEncryptedPassword(userId, secretKeyString) {
   const enc = new TextEncoder();
   // 32バイト(256bit)の鍵を作成
   const keyData = enc.encode(secretKeyString.padEnd(32, '0').slice(0, 32));

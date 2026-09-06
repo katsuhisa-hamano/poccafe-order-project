@@ -216,9 +216,9 @@ const customerEditView = {
                         特別会員の新規作成（初期パスワード自動生成）
                     </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                        <input type="text" id="special-customer-name" placeholder="顧客名（例：特別 太郎）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="text" id="special-customer-name" placeholder="顧客名（例：ふれあい教室）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
                         <input type="tel" id="special-customer-tel" placeholder="電話番号（例：09012345678）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        <input type="text" id="special-customer-id" placeholder="ログインID / メールアドレス" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="text" id="special-customer-id" placeholder="ログインID" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
                     </div>
                     <button onclick="app.addSpecialCustomer()" class="w-full bg-purple-600 text-white h-11 rounded-xl font-bold hover:bg-purple-700 text-sm shadow-sm transition">
                         初期パスワードを生成して登録
