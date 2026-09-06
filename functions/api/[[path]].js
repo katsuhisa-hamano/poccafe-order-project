@@ -2092,7 +2092,7 @@ async function fetchSquareSalesMap(targetDate, env) {
 }
 
 // =========================================================
-// Base62 エンコード / デコード 関数
+// Base62 エンコード (短いバイト配列用)
 // =========================================================
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -2102,38 +2102,40 @@ function encodeBase62(buffer) {
   for (let i = 0; i < bytes.length; i++) {
     value = (value << 8n) | BigInt(bytes[i]);
   }
-  if (value === 0n) return BASE62[0];
   let result = '';
   while (value > 0n) {
     result = BASE62[Number(value % 62n)] + result;
     value = value / 62n;
   }
-  return result;
+  return result.padStart(10, '0'); // 10桁に整形
 }
 
 // =========================================================
-// AES-GCM による可逆暗号化 (パスワード生成)
+// AES暗号化による短い初期パスワード生成 (約10文字)
 // =========================================================
-async function generateEncryptedPassword(plainText, secretKeyString) {
+async function generateShortEncryptedPassword(userId, secretKeyString) {
   const enc = new TextEncoder();
-  const keyData = enc.encode(secretKeyString.padEnd(32, '0').slice(0, 32)); // 256bitキー
+  // 32バイト(256bit)の鍵を作成
+  const keyData = enc.encode(secretKeyString.padEnd(32, '0').slice(0, 32));
   
   const key = await crypto.subtle.importKey(
-    "raw", keyData, { name: "AES-GCM" }, false, ["encrypt"]
+    "raw", keyData, { name: "AES-CBC" }, false, ["encrypt"]
   );
 
-  // 固定長またはプレフィックス付きIV (例: 12バイト)
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  // 16バイト(128bit)のデータバッファを作成 (ユーザーIDを数値化して埋め込み)
+  const data = new Uint8Array(16);
+  const idBytes = enc.encode(String(userId));
+  data.set(idBytes.subarray(0, 16));
+
+  // 短く保つため、固定IV（16バイト）を使用
+  const iv = enc.encode("FixedIV16Bytes!!").subarray(0, 16);
+
   const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv },
+    { name: "AES-CBC", iv: iv },
     key,
-    enc.encode(plainText)
+    data
   );
 
-  // IV + 暗号化データを結合してBase62化
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(encrypted), iv.length);
-
-  return encodeBase62(combined.buffer);
+  // AES-CBC出力の先頭16バイトのみをBase62変換 (約10文字)
+  return encodeBase62(encrypted.slice(0, 16));
 }
