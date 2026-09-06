@@ -1099,8 +1099,7 @@ export async function onRequest(context) {
         // 2. AES暗号化 + Base62 による初期パスワード生成
         const secretKey = env.ENCRYPTION_SECRET || "YourSecretKey123456";
         // 生成シード（メールアドレス + タイムスタンプなど）
-        const seedText = `${id.trim()}_${Date.now()}`;
-        const initialPassword = await generate8CharPassword(seedText, secretKey);
+        const initialPassword = await generate8CharPassword(id.trim(), secretKey);
 
         // 3. ログイン認証用パスワードハッシュの生成 (SHA-256)
         const msgUint8 = new TextEncoder().encode(initialPassword);
