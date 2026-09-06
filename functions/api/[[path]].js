@@ -1136,19 +1136,6 @@ export async function onRequest(context) {
                 }
               })
             });
-
-            if (searchRes.ok) {
-              const searchData = await searchRes.json();
-              if (searchData.customers && searchData.customers.length > 0) {
-                squareCustomerId = searchData.customers[0].id;
-                // 既存顧客にメールアドレスを付与/更新
-                await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
-                  method: 'PUT',
-                  headers: squareHeaders,
-                  body: JSON.stringify({ email_address: id.trim() })
-                });
-              }
-            }
           }
 
           // Squareに存在しない場合は新規登録
@@ -1158,7 +1145,6 @@ export async function onRequest(context) {
               headers: squareHeaders,
               body: JSON.stringify({
                 given_name: name.trim(),
-                email_address: email.trim(),
                 phone_number: formattedTel
               })
             });
@@ -1180,7 +1166,7 @@ export async function onRequest(context) {
         await env.DB.prepare(`
           INSERT INTO users (name, email, tel, password_hash, square_customer_id, status)
           VALUES (?, ?, ?, ?, ?, 'active')
-        `).bind(name.trim(), email.trim(), tel.trim(), passwordHash, squareCustomerId).run();
+        `).bind(name.trim(), id.trim(), tel.trim(), passwordHash, squareCustomerId).run();
 
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (dbErr) {
