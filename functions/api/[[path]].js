@@ -1083,17 +1083,17 @@ export async function onRequest(context) {
     // 管理者用：特別会員顧客の追加 (POST /api/admin/customers/add-special)
     // ---------------------------------------------------------
     if (path === '/api/admin/customers/add-special' && method === 'POST') {
-      const { name, tel, email, password } = await request.json();
+      const { name, tel, id, password } = await request.json();
 
-      if (!name || !tel || !email || !password) {
+      if (!name || !tel || !id || !password) {
         return new Response(JSON.stringify({ success: false, message: "顧客名、電話番号、ID(メールアドレス)、パスワードは必須です。" }), { status: 400, headers: corsHeaders });
       }
 
       try {
         // 1. メールアドレス(ID)の重複チェック
-        const emailCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(email.trim()).first();
-        if (emailCheck) {
-          return new Response(JSON.stringify({ success: false, message: "このID（メールアドレス）は既に登録されています。" }), { status: 400, headers: corsHeaders });
+        const idCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(id.trim()).first();
+        if (idCheck) {
+          return new Response(JSON.stringify({ success: false, message: "このアカウントは既に登録されています。" }), { status: 400, headers: corsHeaders });
         }
 
         // 2. パスワードハッシュ化 (SHA-256)
@@ -1145,7 +1145,7 @@ export async function onRequest(context) {
                 await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
                   method: 'PUT',
                   headers: squareHeaders,
-                  body: JSON.stringify({ email_address: email.trim() })
+                  body: JSON.stringify({ email_address: id.trim() })
                 });
               }
             }
