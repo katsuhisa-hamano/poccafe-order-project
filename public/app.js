@@ -213,16 +213,15 @@ const customerEditView = {
                 <div class="bg-purple-50 border border-purple-200 rounded-2xl p-6 shadow-sm mb-8">
                     <h3 class="text-sm font-black text-purple-800 mb-3 flex items-center">
                         <span class="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-bold mr-2">特別会員</span>
-                        特別会員として新規作成
+                        特別会員の新規作成（初期パスワード自動生成）
                     </h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         <input type="text" id="special-customer-name" placeholder="顧客名（例：特別 太郎）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
                         <input type="tel" id="special-customer-tel" placeholder="電話番号（例：09012345678）" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        <input type="text" id="special-customer-id" placeholder="ログインID (例: kosekika) " class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        <input type="password" id="special-customer-password" placeholder="パスワード" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        <input type="text" id="special-customer-id" placeholder="ログインID / メールアドレス" class="bg-white border border-purple-300 h-11 px-3 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
                     </div>
                     <button onclick="app.addSpecialCustomer()" class="w-full bg-purple-600 text-white h-11 rounded-xl font-bold hover:bg-purple-700 text-sm shadow-sm transition">
-                        特別会員として新規登録
+                        初期パスワードを生成して登録
                     </button>
                 </div>
                 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -867,11 +866,10 @@ const app = {
     async addSpecialCustomer() {
         const name = document.getElementById('special-customer-name').value.trim();
         const tel = document.getElementById('special-customer-tel').value.trim();
-        const id = document.getElementById('special-customer-id').value.trim(); // IDとしてemailフィールドに格納
-        const password = document.getElementById('special-customer-password').value;
+        const id = document.getElementById('special-customer-id').value.trim();
 
-        if (!name || !tel || !id || !password) {
-            await sharedDialog("全ての項目（顧客名、電話番号、ID、パスワード）を入力してください。");
+        if (!name || !tel || !id) {
+            alert("全ての項目（顧客名、電話番号、ID）を入力してください。");
             return;
         }
 
@@ -879,23 +877,26 @@ const app = {
             const res = await fetch('/api/admin/customers/add-special', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, tel, id, password })
+            body: JSON.stringify({ name, tel, id })
             });
 
-            const result = await res.json();
-            if (res.ok && result.success) {
-                await sharedDialog(`顧客「${name}」様を特別会員として登録し、Squareに同期しました。x:${result.x}`);
-                name.value = "";
-                tel.value = "";
-                id.value = "";
-                password.value = "";
-                // リストを再ロード
-                await this.loadAdminCustomersEdit();
+            const data = await res.json();
+            if (data.success) {
+            // 発行された初期パスワードを表示
+            alert(`【登録完了】\n\n発行された初期パスワード:\n${data.generatedPassword}\n\n※このパスワードを顧客へご案内ください。顧客マイページから変更可能です。`);
+            
+            document.getElementById('special-customer-name').value = '';
+            document.getElementById('special-customer-tel').value = '';
+            document.getElementById('special-customer-id').value = '';
+
+            if (typeof app.loadCustomersEdit === 'function') {
+                app.loadCustomersEdit();
+            }
             } else {
-                await sharedDialog("エラー: " + result.message);
+            alert("エラー: " + data.message);
             }
         } catch (err) {
-            await sharedDialog("通信エラーが発生しました: " + err.message);
+            alert("通信エラーが発生しました: " + err.message);
         }
     },
 
@@ -3445,4 +3446,51 @@ async function initOrderCalendar() {
     } catch (err) {
         console.error("カレンダー初期化エラー:", err);
     }
+}
+
+// =========================================================
+// Base62 エンコード / デコード 関数
+// =========================================================
+const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+function encodeBase62(buffer) {
+  let bytes = new Uint8Array(buffer);
+  let value = BigInt(0);
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8n) | BigInt(bytes[i]);
+  }
+  if (value === 0n) return BASE62[0];
+  let result = '';
+  while (value > 0n) {
+    result = BASE62[Number(value % 62n)] + result;
+    value = value / 62n;
+  }
+  return result;
+}
+
+// =========================================================
+// AES-GCM による可逆暗号化 (パスワード生成)
+// =========================================================
+async function generateEncryptedPassword(plainText, secretKeyString) {
+  const enc = new TextEncoder();
+  const keyData = enc.encode(secretKeyString.padEnd(32, '0').slice(0, 32)); // 256bitキー
+  
+  const key = await crypto.subtle.importKey(
+    "raw", keyData, { name: "AES-GCM" }, false, ["encrypt"]
+  );
+
+  // 固定長またはプレフィックス付きIV (例: 12バイト)
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    enc.encode(plainText)
+  );
+
+  // IV + 暗号化データを結合してBase62化
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+
+  return encodeBase62(combined.buffer);
 }

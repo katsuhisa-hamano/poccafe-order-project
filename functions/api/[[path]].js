@@ -1080,95 +1080,96 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 管理者用：特別会員顧客の追加 (POST /api/admin/customers/add-special)
+    // 管理者用：特別会員顧客の追加 (AES + Base62 初期パスワード自動生成)
     // ---------------------------------------------------------
     if (path === '/api/admin/customers/add-special' && method === 'POST') {
-      const { name, tel, id, password } = await request.json();
+      const { name, tel, id } = await request.json();
 
-      if (!name || !tel || !id || !password) {
-        return new Response(JSON.stringify({ success: false, message: "顧客名、電話番号、ID(メールアドレス)、パスワードは必須です。" }), { status: 400, headers: corsHeaders });
+      if (!name || !tel || !id) {
+        return new Response(JSON.stringify({ success: false, message: "顧客名、電話番号、ID(メールアドレス)は必須です。" }), { status: 400, headers: corsHeaders });
       }
 
       try {
         // 1. メールアドレス(ID)の重複チェック
-        const idCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(id.trim()).first();
-        if (idCheck) {
-          return new Response(JSON.stringify({ success: false, message: "このアカウントは既に登録されています。" }), { status: 400, headers: corsHeaders });
+        const emailCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(id.trim()).first();
+        if (emailCheck) {
+          return new Response(JSON.stringify({ success: false, message: "このID（メールアドレス）は既に登録されています。" }), { status: 400, headers: corsHeaders });
         }
 
-        // 2. パスワードハッシュ化 (SHA-256)
-        const msgUint8 = new TextEncoder().encode(password);
+        // 2. AES暗号化 + Base62 による初期パスワード生成
+        const secretKey = env.ENCRYPTION_SECRET || "YourDefaultSecretKey32CharsLong!!";
+        // 生成シード（メールアドレス + タイムスタンプなど）
+        const seedText = `${id.trim()}_${Date.now()}`;
+        const initialPassword = await generateEncryptedPassword(seedText, secretKey);
+
+        // 3. ログイン認証用パスワードハッシュの生成 (SHA-256)
+        const msgUint8 = new TextEncoder().encode(initialPassword);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
+        // 4. Square顧客同期
         let squareCustomerId = null;
-
-        // 3. Square顧客連携・同期
         const squareHeaders = {
           'Square-Version': '2026-05-20',
           'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
           'Content-Type': 'application/json'
         };
 
-        // 電話番号の整形（国際電話番号形式 +81）
         let formattedTel = undefined;
         if (tel) {
           const cleanedTel = tel.trim().replace(/[-()\s]/g, '');
-          if (cleanedTel.startsWith('0')) {
-            formattedTel = '+81' + cleanedTel.substring(1);
-          } else {
-            formattedTel = cleanedTel;
-          }
+          formattedTel = cleanedTel.startsWith('0') ? '+81' + cleanedTel.substring(1) : cleanedTel;
         }
 
         try {
-          // Squareで既存の顧客を検索
           if (formattedTel) {
             const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
               method: 'POST',
               headers: squareHeaders,
-              body: JSON.stringify({
-                query: {
-                  filter: {
-                    phone_number: { exact: formattedTel }
-                  }
-                }
-              })
+              body: JSON.stringify({ query: { filter: { phone_number: { exact: formattedTel } } } })
             });
+
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              if (searchData.customers && searchData.customers.length > 0) {
+                squareCustomerId = searchData.customers[0].id;
+                await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
+                  method: 'PUT',
+                  headers: squareHeaders,
+                  body: JSON.stringify({ given_name: name.trim() })
+                });
+              }
+            }
           }
 
-          // Squareに存在しない場合は新規登録
           if (!squareCustomerId) {
             const createRes = await fetch('https://connect.squareup.com/v2/customers', {
               method: 'POST',
               headers: squareHeaders,
-              body: JSON.stringify({
-                given_name: name.trim(),
-                phone_number: formattedTel
-              })
+              body: JSON.stringify({ given_name: name.trim(), email_address: id.trim(), phone_number: formattedTel })
             });
 
             if (createRes.ok) {
               const createData = await createRes.json();
               squareCustomerId = createData.customer.id;
-            } else {
-              const createErrText = await createRes.text();
-              return new Response(JSON.stringify({ success: false, message: `Square作成に失敗: ${createErrText}` }), { status: 400, headers: corsHeaders });
             }
           }
         } catch (e) {
           console.error("Square Customer Sync Error", e);
-          return new Response(JSON.stringify({ success: false, message: `Square通信に失敗しました: ${e.message}` }), { status: 500, headers: corsHeaders });
         }
 
-        // 4. アプリDBに保存（status = 'active' で即時ログイン可能・メール認証なし）
+        // 5. アプリDBに保存 (initial_password_encrypted にAES暗号化パスワードを保存)
         await env.DB.prepare(`
-          INSERT INTO users (name, email, tel, password_hash, square_customer_id, status)
-          VALUES (?, ?, ?, ?, ?, 'active')
-        `).bind(name.trim(), id.trim(), tel.trim(), passwordHash, squareCustomerId).run();
+          INSERT INTO users (name, email, tel, password_hash, initial_password_encrypted, square_customer_id, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'active')
+        `).bind(name.trim(), id.trim(), tel.trim(), passwordHash, initialPassword, squareCustomerId).run();
 
-        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        // 発行された初期パスワードを管理者へ返却
+        return new Response(JSON.stringify({ 
+          success: true, 
+          generatedPassword: initialPassword 
+        }), { headers: corsHeaders });
+
       } catch (dbErr) {
         return new Response(JSON.stringify({ success: false, message: dbErr.message }), { status: 500, headers: corsHeaders });
       }
