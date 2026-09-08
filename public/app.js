@@ -2986,7 +2986,7 @@ const app = {
             const encoder = new TextEncoder();
             const bodyBuffer = encoder.encode(soapBody);
             
-            const printResult = await fetch('http://192.168.12.150:3000', {
+            const printResult = await fetch('https://192.168.12.150:3000', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
