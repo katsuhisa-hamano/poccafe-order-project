@@ -1833,6 +1833,11 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "注文IDが不足しています。" }), { status: 400, headers: corsHeaders });
         }
 
+        const order = await env.DB.prepare("SELECT printed_status FROM orders WHERE id = ?").bind(orderId).first();
+        if (order && order.printed_status === 1) {
+          return new Response(JSON.stringify({ success: false, message: "伝票印刷済みの注文はキャンセルできません。" }), { status: 400, headers: corsHeaders });
+        }
+
         // トランザクション処理を擬似的にバッチで実行（親と明細の双方のstatusを 'Canceled' に変更）
         await env.DB.batch([
           env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(orderId),
@@ -1853,6 +1858,11 @@ export async function onRequest(context) {
         const { orderId, items } = await request.json(); // items: [{ order_item_id, quantity }]
         if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
           return new Response(JSON.stringify({ success: false, message: "パラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        const order = await env.DB.prepare("SELECT printed_status FROM orders WHERE id = ?").bind(orderId).first();
+        if (order && order.printed_status === 1) {
+          return new Response(JSON.stringify({ success: false, message: "伝票印刷済みの注文内容は変更できません。" }), { status: 400, headers: corsHeaders });
         }
 
         const statements = [];
