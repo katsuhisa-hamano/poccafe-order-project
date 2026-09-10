@@ -18,7 +18,11 @@
             <p id="userDisplay" class="text-[10px] text-gray-400 mt-1">ログイン中: --様</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="router.go('history')" class="text-[11px] font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-full">履歴</button>
+            <button 
+                onclick="app.showChangePasswordModal()" 
+                class="bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded transition">
+                パスワード変更
+            </button>
             <button onclick="app.logout()" class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full">ログアウト</button>
         </div>
     </header>
