@@ -2681,6 +2681,9 @@ const app = {
                 const deleteItemBtnClass = isPrinted 
                     ? "text-gray-400 bg-gray-200 opacity-60 cursor-not-allowed" 
                     : "text-red-500 hover:underline";
+                const inputClass = isPrinted 
+                    ? "w-16 border rounded px-2 py-1 text-center bg-gray-100 text-gray-500 cursor-not-allowed" 
+                    : "qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500";
                 const disabledAttr = isPrinted ? "disabled" : "";
                 const itemsHtml = order.items.map(item => {
                     const vId = item.variation_id || item.square_variation_id;
@@ -2720,7 +2723,8 @@ const app = {
                                 data-group-key="${groupKey || ''}"
                                 data-item-name="${item.name}"
                                 oninput="app.handleQtyInputLive(this)"
-                                class="qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
+                                class="${inputClass}"
+                                ${disabledAttr}
                             />
                             <span class="text-gray-400">個</span>
                             <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] ml-2 ${deleteItemBtnClass}" ${disabledAttr}>個別に消去</button>
