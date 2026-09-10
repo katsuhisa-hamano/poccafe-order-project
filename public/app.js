@@ -625,6 +625,43 @@ const app = {
         }
     },
 
+    async submitPasswordChange(event) {
+        event.preventDefault();
+
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+
+        if (newPassword !== confirmPassword) {
+            alert("新しいパスワードと確認用パスワードが一致しません。");
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/user/change-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.authToken}` // ログインセッション保持用トークン
+            },
+            body: JSON.stringify({
+                newPassword: newPassword
+            })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+            alert("パスワードを変更しました。");
+            this.closeChangePasswordModal();
+            } else {
+            alert("変更に失敗しました: " + result.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("通信エラーが発生しました。");
+        }
+    },
+
     // 起動時の認証チェック
     async init() {
         console.log("=== app.js が正常に起動しました ===");
@@ -1460,6 +1497,11 @@ const app = {
     closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
     showForgotPassword() { document.getElementById('forgot-modal').classList.remove('hidden'); },
     closeForgotPassword() { document.getElementById('forgot-modal').classList.add('hidden'); },
+    showChangePasswordModal() {
+        document.getElementById('change-password-modal').classList.remove('hidden');
+        document.getElementById('change-password-form').reset();
+    },
+    closeChangePasswordModal() { document.getElementById('change-password-modal').classList.add('hidden'); },
     closeModal() { document.getElementById('modal').classList.add('hidden'); },
 
     // 注文ロジック：メニューの読み込み

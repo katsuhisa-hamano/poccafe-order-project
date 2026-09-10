@@ -747,6 +747,33 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。" }), { headers: corsHeaders });
     }
 
+    if (path === '/api/user/change-password' && method === 'POST') {
+      try {
+        // 認証情報の確認（セッション/JWT等からユーザーIDを取得）
+        const userId = getUserIdFromRequest(request); 
+        if (!userId) {
+          return new Response(JSON.stringify({ success: false, message: "認証が必要です。" }), { status: 401, headers: corsHeaders });
+        }
+
+        const { newPassword } = await request.json();
+        if (!newPassword || newPassword.length < 8) {
+          return new Response(JSON.stringify({ success: false, message: "パスワードは8文字以上で入力してください。" }), { status: 400, headers: corsHeaders });
+        }
+
+        // パスワードのハッシュ化（利用しているハッシュ化ロジックに合わせます）
+        const hashedPassword = await hashPassword(newPassword);
+
+        // DBのパスワードを更新
+        await env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+          .bind(hashedPassword, userId)
+          .run();
+
+        return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // ---------------------------------------------------------
     // 6. メニュー取得・詳細用エンドポイント (GET /api/menus)
     // ---------------------------------------------------------
