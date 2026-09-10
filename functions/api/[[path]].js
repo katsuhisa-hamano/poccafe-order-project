@@ -680,7 +680,7 @@ export async function onRequest(context) {
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1時間有効
 
       await env.DB.prepare(
-        "UPDATE users SET verify_token = ?, token_expires_at = ? WHERE id = ?"
+        "UPDATE users SET verify_token = ?, token_expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).bind(resetToken, expiresAt, user.id).run();
 
       // ハッシュ（#）付きの再設定リンクを生成
@@ -741,7 +741,7 @@ export async function onRequest(context) {
       const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       await env.DB.prepare(
-        "UPDATE users SET password_hash = ?, verify_token = NULL, token_expires_at = NULL WHERE id = ?"
+        "UPDATE users SET password_hash = ?, verify_token = NULL, token_expires_at = NULL , updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).bind(passwordHash, user.id).run();
 
       return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。" }), { headers: corsHeaders });
@@ -765,7 +765,7 @@ export async function onRequest(context) {
         const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
         // DBのパスワードを更新
-        await env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+        await env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE square_customer_id = ?")
           .bind(passwordHash, userId)
           .run();
 
