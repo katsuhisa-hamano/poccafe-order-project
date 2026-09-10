@@ -644,7 +644,8 @@ const app = {
                 'Authorization': `Bearer ${this.authToken}` // ログインセッション保持用トークン
             },
             body: JSON.stringify({
-                newPassword: newPassword
+                newPassword: newPassword,
+                userId: this.state.user.id
             })
             });
 
