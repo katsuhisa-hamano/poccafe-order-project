@@ -760,12 +760,15 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "パスワードは8文字以上で入力してください。" }), { status: 400, headers: corsHeaders });
         }
 
-        // パスワードのハッシュ化（利用しているハッシュ化ロジックに合わせます）
-        const hashedPassword = await hashPassword(newPassword);
+        // 新パスワードハッシュ化
+        const msgUint8 = new TextEncoder().encode(newPassword);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
         // DBのパスワードを更新
         await env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-          .bind(hashedPassword, userId)
+          .bind(passwordHash, userId)
           .run();
 
         return new Response(JSON.stringify({ success: true, message: "パスワードを更新しました。" }), { headers: corsHeaders });
