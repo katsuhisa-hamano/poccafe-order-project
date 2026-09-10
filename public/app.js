@@ -2675,6 +2675,12 @@ const app = {
                 const cancelBtnClass = isPrinted 
                     ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed" 
                     : "text-red-600 bg-red-50 hover:bg-red-100";
+                const confirmBtnClass = isPrinted 
+                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed" 
+                    : "text-white bg-gray-900 hover:bg-gray-800";
+                const deleteItemBtnClass = isPrinted 
+                    ? "text-gray-400 bg-gray-200 opacity-60 cursor-not-allowed" 
+                    : "text-red-500 hover:underline";
                 const disabledAttr = isPrinted ? "disabled" : "";
                 const itemsHtml = order.items.map(item => {
                     const vId = item.variation_id || item.square_variation_id;
@@ -2717,7 +2723,7 @@ const app = {
                                 class="qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500" 
                             />
                             <span class="text-gray-400">個</span>
-                            <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] text-red-500 hover:underline ml-2">個別に消去</button>
+                            <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] ml-2 ${deleteItemBtnClass}" ${disabledAttr}>個別に消去</button>
                         </div>
                     </div>
                     `;
@@ -2745,7 +2751,7 @@ const app = {
                                 注文全体をキャンセル
                             </button>
                             <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}], '${order.delivery_date}')" 
-                                    class="text-xs font-bold text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-xl shadow-xs transition">
+                                    class="text-xs font-bold px-4 py-1.5 rounded-xl shadow-xs transition ${confirmBtnClass}" ${disabledAttr}>
                                 数量の変更を確定
                             </button>
                         </div>
