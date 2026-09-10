@@ -1769,7 +1769,7 @@ export async function onRequest(context) {
         // 1. 今日以降で、かつ完全にキャンセル(Canceled)されていない注文を検索
         // 代理注文の場合も考慮し、customer_idが一致するものを取得
         const { results: orders } = await env.DB.prepare(`
-          SELECT id, customer_name, delivery_date, total_amount, status 
+          SELECT id, customer_name, delivery_date, total_amount, status, printed_status 
           FROM orders 
           WHERE customer_id = ? AND delivery_date >= ? AND IFNULL(status, '') != 'Canceled'
           ORDER BY delivery_date ASC, id DESC
@@ -1812,6 +1812,7 @@ export async function onRequest(context) {
             user_name: order.customer_name,
             delivery_date: order.delivery_date,
             total_price: order.total_amount,
+            printed_status: order.printed_status || 0,
             items: orderItems
           };
         }).filter(order => order.items.length > 0); // 明細がすべて個別に消された注文は除外

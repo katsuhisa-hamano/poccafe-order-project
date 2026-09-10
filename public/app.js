@@ -2671,6 +2671,11 @@ const app = {
 
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
+                const isPrinted = Number(order.printed_status) === 1;
+                const cancelBtnClass = isPrinted 
+                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed" 
+                    : "text-red-600 bg-red-50 hover:bg-red-100";
+                const disabledAttr = isPrinted ? "disabled" : "";
                 const itemsHtml = order.items.map(item => {
                     const vId = item.variation_id || item.square_variation_id;
                     
@@ -2736,7 +2741,7 @@ const app = {
 
                         <div class="flex justify-end gap-2 mt-1">
                             <button onclick="app.cancelEntireOrder(${order.id}, '${order.delivery_date}')" 
-                                    class="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition">
+                                    class="text-xs font-bold px-3 py-1.5 rounded-xl transition ${cancelBtnClass}" ${disabledAttr}>
                                 注文全体をキャンセル
                             </button>
                             <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}], '${order.delivery_date}')" 
