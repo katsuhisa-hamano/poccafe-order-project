@@ -1016,31 +1016,54 @@ const app = {
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-gray-800 font-bold text-sm">曜日限定設定</label>
-                                    <p class="text-xs text-gray-400">特定の曜日のみ注文可能にする場合はONにします</p>
+                                    <p class="text-xs text-gray-400">「第◯週の◯曜日」のみ注文可能にする場合はONにします（休日設定と同じ形式）</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" id="menu-day-limit-toggle-${menu.id}" onchange="app.toggleMenuDayLimit(${menu.id}, this.checked)" class="sr-only peer" ${isLimitOn ? 'checked' : ''}>
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                                 </label>
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <p class="text-xs text-gray-500 font-semibold">販売を許可する曜日を選択（複数選択可）</p>
+                                    <p class="text-xs text-gray-500 font-semibold">販売を許可する「第◯週の◯曜日」を選択（複数選択可）</p>
                                     <button onclick="app.saveMenuAvailableDays(${menu.id})" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition shadow-sm self-end sm:self-auto">
                                         曜日設定を保存
                                     </button>
                                 </div>
                             </div>
                             <div id="menu-days-checkbox-wrapper-${menu.id}" class="${isLimitOn ? '' : 'hidden'} border-t border-gray-200/60 pt-3 mt-3">
-                                <div class="grid grid-cols-4 sm:grid-cols-7 gap-2 mt-2">
-                                    ${['日', '月', '火', '水', '木', '金', '土'].map((day, dIdx) => {
-                                        const isChecked = allowedDays.includes(dIdx.toString());
-                                        return `
-                                            <label class="flex items-center justify-center p-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:bg-orange-50 has-[:checked]:border-orange-400 has-[:checked]:text-orange-700 transition">
-                                                <input type="checkbox" name="menu-available-days-${menu.id}" value="${dIdx}" class="sr-only" ${isChecked ? 'checked' : ''}>
-                                                ${day}曜
-                                            </label>
-                                        `;
-                                    }).join('')}
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse min-w-[420px]">
+                                        <thead>
+                                            <tr class="border-b border-gray-200">
+                                                <th class="pb-2 text-[10px] font-bold text-gray-400 text-center w-14">週＼曜日</th>
+                                                <th class="pb-2 text-xs font-bold text-red-500 text-center">日</th>
+                                                <th class="pb-2 text-xs font-bold text-gray-700 text-center">月</th>
+                                                <th class="pb-2 text-xs font-bold text-gray-700 text-center">火</th>
+                                                <th class="pb-2 text-xs font-bold text-gray-700 text-center">水</th>
+                                                <th class="pb-2 text-xs font-bold text-gray-700 text-center">木</th>
+                                                <th class="pb-2 text-xs font-bold text-gray-700 text-center">金</th>
+                                                <th class="pb-2 text-xs font-bold text-blue-500 text-center">土</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100">
+                                            ${[1, 2, 3, 4, 5].map(w => `
+                                                <tr>
+                                                    <td class="py-2 text-[10px] font-bold text-gray-500 text-center bg-gray-100/50 rounded-lg">第${w}週</td>
+                                                    ${[0, 1, 2, 3, 4, 5, 6].map(d => {
+                                                        const isChecked = allowedDays.includes(`${w}-${d}`);
+                                                        return `
+                                                            <td class="py-2 text-center">
+                                                                <label class="inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-orange-100/60 cursor-pointer transition">
+                                                                    <input type="checkbox" class="menu-matrix-checkbox w-4 h-4 accent-orange-500" data-menu-id="${menu.id}" data-week="${w}" data-day="${d}" ${isChecked ? 'checked' : ''}>
+                                                                </label>
+                                                            </td>
+                                                        `;
+                                                    }).join('')}
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
                                 </div>
+                                <p class="text-[11px] text-gray-400 mt-2">※例: 第2・第4水曜日のみ販売する場合は「第2週の水」と「第4週の水」にチェックしてください。</p>
                             </div>
                         </div>
 
@@ -1147,9 +1170,9 @@ const app = {
         } else {
             // OFFになったら hidden クラスを追加して非表示にする
             wrapper.classList.add('hidden');
-            
+
             // OFFにされた場合は、選択されていたチェックボックスをすべてクリアする
-            const checkboxes = document.querySelectorAll(`input[name="menu-available-days-${menuId}"]`);
+            const checkboxes = document.querySelectorAll(`.menu-matrix-checkbox[data-menu-id="${menuId}"]`);
             checkboxes.forEach(cb => cb.checked = false);
         }
     },
@@ -1158,13 +1181,13 @@ const app = {
         const toggle = document.getElementById(`menu-day-limit-toggle-${menuId}`);
         let availableDays = [];
 
-        // トグルがONの場合のみ、選択された曜日（0〜6）を取得
+        // トグルがONの場合のみ、選択された「第◯週-曜日」（例: "2-3"）を取得
         if (toggle && toggle.checked) {
-            const checkedBoxes = document.querySelectorAll(`input[name="menu-available-days-${menuId}"]:checked`);
-            availableDays = Array.from(checkedBoxes).map(cb => cb.value);
-            
+            const checkedBoxes = document.querySelectorAll(`.menu-matrix-checkbox[data-menu-id="${menuId}"]:checked`);
+            availableDays = Array.from(checkedBoxes).map(cb => `${cb.getAttribute('data-week')}-${cb.getAttribute('data-day')}`);
+
             if (availableDays.length === 0) {
-                await sharedDialog("曜日限定設定がONですが、曜日が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
+                await sharedDialog("曜日限定設定がONですが、「第◯週の◯曜日」が一つも選択されていません。最低一つチェックするか、トグルをOFFにしてください。");
                 return;
             }
         }
@@ -1223,13 +1246,13 @@ const app = {
             return;
         }
 
-        // メニューを保存する関数（送信データの組み立て部分）内で実行
-        const toggle = document.getElementById('menu-day-limit-toggle');
+        // 既存の曜日限定設定（「第◯週-曜日」形式）を維持したまま商品差し替えを行う
+        const toggle = document.getElementById(`menu-day-limit-toggle-${menuId}`);
         let availableDays = [];
 
         if (toggle && toggle.checked) {
-            const checkedBoxes = document.querySelectorAll('input[name="menu-available-days"]:checked');
-            availableDays = Array.from(checkedBoxes).map(cb => cb.value); // 例: ["1", "3"]
+            const checkedBoxes = document.querySelectorAll(`.menu-matrix-checkbox[data-menu-id="${menuId}"]:checked`);
+            availableDays = Array.from(checkedBoxes).map(cb => `${cb.getAttribute('data-week')}-${cb.getAttribute('data-day')}`); // 例: ["2-3", "4-3"]
         }
 
         // 4. 新しい商品構造に合わせてバリエーション配列をフォーマット
@@ -1581,11 +1604,13 @@ const app = {
         const container = document.getElementById('menu-list');
         if (!container) return;
 
-        let currentDayOfWeek = null;
-        
+        let currentMatrixKey = null;
+
         if (app.state.selectedDate) {
             const selectedDateObj = new Date(app.state.selectedDate);
-            currentDayOfWeek = selectedDateObj.getDay().toString(); // 例: 水曜日なら "3"
+            const d = selectedDateObj.getDay(); // 曜日 (0:日 〜 6:土)
+            const w = Math.ceil(selectedDateObj.getDate() / 7); // 第何週目か (1〜5)
+            currentMatrixKey = `${w}-${d}`; // 例: 第2週の水曜日なら "2-3"（休日設定マトリックスと同じ形式）
         }
 
         if (this.state.menus.length === 0) {
@@ -1602,13 +1627,13 @@ const app = {
                 return true;
             }
 
-            // 日付（曜日）が取得できていない初期状態の時は、念のためすべて表示させておく場合
-            if (!currentDayOfWeek) {
-                return true; 
+            // 日付（第何週・曜日）が取得できていない初期状態の時は、念のためすべて表示させておく場合
+            if (!currentMatrixKey) {
+                return true;
             }
 
-            // 曜日設定がある場合のみ、選択された曜日が含まれているかチェック
-            return allowedDays.includes(currentDayOfWeek);
+            // 曜日設定がある場合のみ、選択された日の「第◯週の◯曜日」が含まれているかチェック
+            return allowedDays.includes(currentMatrixKey);
         });
 
         // もし選択された日のメニューが1つも残らなかった場合
@@ -2335,15 +2360,12 @@ const app = {
             }
             // ---------------------------------------------------------
 
-            // 2. 選択された日の曜日（"0"〜"6"）を割り出す
-            const currentDayOfWeek = d.toString();
-
-            // 3. 曜日限定メニューの設定に基づいてアイテムをフィルタリング
+            // 2. 曜日限定メニューの設定に基づいてアイテムをフィルタリング（「第◯週-曜日」形式、休日設定と同じ）
             const visibleStats = statsData.stats.filter(item => {
                 if (!item.availableDays) return true;
                 const allowedDays = JSON.parse(item.availableDays);
                 if (allowedDays.length === 0) return true;
-                return allowedDays.includes(currentDayOfWeek);
+                return allowedDays.includes(currentMatrixKey);
             });
 
             if (visibleStats.length === 0) {
