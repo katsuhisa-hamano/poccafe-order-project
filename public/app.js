@@ -1744,9 +1744,9 @@ const app = {
             });
 
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] p-6 flex flex-col shadow-xl overflow-hidden">
-                    <div class="relative flex-grow min-h-0 mb-6">
-                    <div id="option-modal-scroll" class="absolute inset-0 overflow-y-auto pr-1">
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col shadow-xl">
+                    <div class="relative mb-6">
+                    <div id="option-modal-scroll" class="max-h-[38vh] overflow-y-auto pr-1">
                         <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
                         <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
 
