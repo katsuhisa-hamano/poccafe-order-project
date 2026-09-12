@@ -445,7 +445,6 @@ const app = {
         user: { id: null, name: null, email: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
         resetToken: null,
-        squareCatalogItems: [],
         availableSquareItems: [],
         stockGroups: [], // 共有在庫グループの情報を保持する配列
         currentStockMap: [],
@@ -964,21 +963,6 @@ const app = {
     },
     
     // 1. Square側から直接全アイテム（バリエーション含む）を取得して保持する
-    async loadSquareItems() {
-        try {
-            // Squareアイテム一覧を取得するバックエンドAPIへのリクエスト（適宜環境に合わせて調整）
-            const res = await fetch('/api/admin/square-catalog'); 
-            if (!res.ok) throw new Error("Squareカタログの取得に失敗");
-            const data = await res.json();
-            this.state.squareCatalogItems = data.items || [];
-            
-            // 最下部の新規追加用セレクターを構築
-            this.populateSquareItemSelectors();
-        } catch (e) {
-            console.error("Squareアイテムロードエラー:", e);
-        }
-    },
-
     // 2. アプリDBに登録されている現在のメニュー＆バリエーション階層をロードして描画
     async loadAdminMenuList() {
         const container = document.getElementById('admin-menu-hierarchy-list');
@@ -1109,17 +1093,6 @@ const app = {
         } catch (err) {
             container.innerHTML = `<p class="text-center text-red-500 py-12 text-sm">エラー: ${err.message}</p>`;
         }
-    },
-
-    // 3. セレクター要素にSquareカタログ情報を流し込む共通処理
-    populateSquareItemSelectors() {
-        const selector = document.getElementById('new-square-item-selector');
-        if (!selector) return;
-
-        selector.innerHTML = '<option value="">Squareのカタログから商品を選択...</option>' + 
-            this.state.squareCatalogItems.map(item => `
-                <option value="${item.id}">${item.name}</option>
-            `).join('');
     },
 
     // 4. ITEM（親商品）の表示順序（sort_order）を変更する処理
@@ -1532,20 +1505,6 @@ const app = {
         }
     },
 
-    isCartEmpty() {
-        return Object.keys(this.state.cart).length === 0;
-    },
-
-    changeQty(id, delta) {
-        const current = this.state.cart[id] || 0;
-        const menu = this.state.menus.find(m => m.square_item_id === id);
-        if (!menu) return;
-        const next = Math.max(0, Math.min(30, Math.min(menu.remaining, current + delta)));
-        this.state.cart[id] = next;
-        this.renderMenus();
-        this.updateCartBar();
-    },
-
     updateCartBar() {
         let total = 0;
         let count = 0;
@@ -1663,15 +1622,15 @@ const app = {
             return `
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 flex flex-col">
                     ${item.image_url ? `
-                        <div onclick="app.openOptionModal('${item.square_item_id}')" 
+                        <div onclick="app.openOptionModal('${item.square_item_id}')"
                              role="button"
                              tabindex="0"
-                             class="w-full h-48 bg-gray-50 flex items-center justify-center p-2 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
+                             class="w-full aspect-[4/3] bg-gray-50 cursor-pointer active:bg-gray-100 transition duration-200 select-none touch-manipulation"
                              style="-webkit-tap-highlight-color: rgba(0,0,0,0.1);">
-                            <img src="${item.image_url}" class="w-full h-full object-contain pointer-events-none">
+                            <img src="${item.image_url}" class="w-full h-full object-cover pointer-events-none">
                         </div>
                     ` : ''}
-                    
+
                     <div class="p-4 flex flex-col flex-grow justify-between">
                         <div>
                             <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
@@ -1679,7 +1638,7 @@ const app = {
                         </div>
                         <div class="mt-4 flex justify-between items-center">
                             <span class="text-orange-600 font-bold text-lg">¥${item.price.toLocaleString()}〜</span>
-                            <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold active:bg-opacity-80 transition">
+                            <button onclick="app.openOptionModal('${item.square_item_id}')" class="bg-orange-600 text-white px-5 py-2.5 rounded-full text-sm font-bold active:bg-opacity-80 transition touch-manipulation">
                                 選択する
                             </button>
                         </div>
@@ -1705,11 +1664,6 @@ const app = {
                 const subtotal = unitPrice * qty; // この商品の小計 (単価×数量)
                 totalAmount += subtotal;
 
-                // キー（例: "ITEM_ID:MOD_1,MOD_2"）から元のメニューIDだけを取り出す
-                //const [menuId] = key.split(':');
-                
-                // キャッシュされている menus から該当の商品データを検索
-                //const m = this.state.menus.find(x => x.square_item_id === menuId || x.id === menuId);
                 const itemName = `${cartItem.itemName} ( ${cartItem.variationName} )`;
 
                 // 【追加】もし選択されたトッピング等があれば、確認画面に副題として出すためのテキスト生成
@@ -1744,10 +1698,6 @@ const app = {
             <span class="font-black text-gray-900">¥${totalAmount.toLocaleString()}</span>
         </div>`;
 
-        const confirmTotalDisplay = document.getElementById('confirm-total-price');
-        if (confirmTotalDisplay) {
-            confirmTotalDisplay.innerText = `¥${totalAmount.toLocaleString()}`;
-        }
         this.state.payload.overallPrice = totalAmount; // カート全体の合計金額をstateに保存（必要に応じて他の部分で参照可能）
         this.state.payload.items = this.state.cart
 
@@ -1871,12 +1821,12 @@ const app = {
 
                     <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center ${allSoldOut ? 'opacity-50 pointer-events: none;' : ''}">
                         <span class="font-bold text-sm text-gray-700">数量</span>
-                        <div class="flex items-center space-x-3 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
-                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.decrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50">
+                        <div class="flex items-center space-x-2 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
+                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.decrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
                                 －
                             </button>
                             <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
-                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.incrementModalQty()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50">
+                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.incrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
                                 ＋
                             </button>
                         </div>
@@ -2747,19 +2697,19 @@ const app = {
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-b border-orange-100/50 last:border-0 text-xs text-gray-700">
                         <div class="flex flex-col">
                             <span class="font-medium">${item.name}</span>
-                            ${liveRemaining <= 2 && liveRemaining > 0 ? `<span class="text-[10px] text-red-500 font-bold">（本日残り僅か: あと ${liveRemaining} 点分追加可能）</span>` : ''}
-                            ${liveRemaining <= 0 ? `<span class="text-[10px] text-gray-400 font-bold">（この在庫グループは満杯のため増量不可）</span>` : ''}
+                            ${liveRemaining <= 2 && liveRemaining > 0 ? `<span class="text-[11px] text-red-500 font-bold">（本日残り僅か: あと ${liveRemaining} 点分追加可能）</span>` : ''}
+                            ${liveRemaining <= 0 ? `<span class="text-[11px] text-gray-400 font-bold">（この在庫グループは満杯のため増量不可）</span>` : ''}
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-400 text-[10px]">単価:</span>
+                            <span class="text-gray-400 text-[11px]">単価:</span>
                             <span class="font-semibold text-gray-600">${item.price}</span>
                             <span class="text-gray-400">円</span>
-                            <span class="text-gray-400 text-[10px]">数量:</span>
-                            
-                            <input type="number" 
-                                id="update-qty-${order.id}-${item.order_item_id}" 
-                                value="${item.quantity}" 
-                                min="0" 
+                            <span class="text-gray-400 text-[11px]">数量:</span>
+
+                            <input type="number"
+                                id="update-qty-${order.id}-${item.order_item_id}"
+                                value="${item.quantity}"
+                                min="0"
                                 max="${maxAllowed}"
                                 data-original-qty="${item.quantity}"
                                 data-variation-id="${vId || ''}"
@@ -2770,7 +2720,7 @@ const app = {
                                 ${disabledAttr}
                             />
                             <span class="text-gray-400">個</span>
-                            <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-[10px] ml-2 ${deleteItemBtnClass}" ${disabledAttr}>個別に消去</button>
+                            <button onclick="app.cancelSingleOrderItem(${order.id}, ${item.order_item_id}, '${item.name}')" class="text-xs min-h-[36px] px-2 ml-1 touch-manipulation ${deleteItemBtnClass}" ${disabledAttr}>個別に消去</button>
                         </div>
                     </div>
                     `;
@@ -2781,7 +2731,7 @@ const app = {
                         <div class="flex flex-wrap justify-between items-center border-b border-gray-100 pb-2 text-xs">
                             <div>
                                 <span class="font-black text-gray-800 text-sm mr-2">${order.delivery_date} 受け取り分</span>
-                                <span class="text-gray-400 text-[10px]">注文者: ${order.user_name}様 (ID: ${order.id})</span>
+                                <span class="text-gray-400 text-[11px]">注文者: ${order.user_name}様 (ID: ${order.id})</span>
                             </div>
                             <div class="font-black text-lightgreen-600 text-sm mt-1 sm:mt-0">
                                 合計: ¥${order.total_price.toLocaleString()}
@@ -2793,12 +2743,12 @@ const app = {
                         </div>
 
                         <div class="flex justify-end gap-2 mt-1">
-                            <button onclick="app.cancelEntireOrder(${order.id}, '${order.delivery_date}')" 
-                                    class="text-xs font-bold px-3 py-1.5 rounded-xl transition ${cancelBtnClass}" ${disabledAttr}>
+                            <button onclick="app.cancelEntireOrder(${order.id}, '${order.delivery_date}')"
+                                    class="text-xs font-bold px-3 min-h-[44px] rounded-xl transition touch-manipulation ${cancelBtnClass}" ${disabledAttr}>
                                 注文全体をキャンセル
                             </button>
-                            <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}], '${order.delivery_date}')" 
-                                    class="text-xs font-bold px-4 py-1.5 rounded-xl shadow-xs transition ${confirmBtnClass}" ${disabledAttr}>
+                            <button onclick="app.submitOrderChanges(${order.id}, [${order.items.map(i => i.order_item_id).join(',')}], '${order.delivery_date}')"
+                                    class="text-xs font-bold px-4 min-h-[44px] rounded-xl shadow-xs transition touch-manipulation ${confirmBtnClass}" ${disabledAttr}>
                                 数量の変更を確定
                             </button>
                         </div>
@@ -3078,49 +3028,6 @@ const app = {
 
         } catch (err) {
             console.error("個別印刷エラー:", err);
-        }
-    },
-
-    async printDirectToCups(order) {
-        // 1. 印字用テキストの生成（XMLではなくシンプルなテキスト）
-        const orderId = order.id || order.order_id || '---';
-        const userName = order.user_name || 'お客様';
-        const totalPrice = (Number(order.total_price || order.total_amount) || 0).toLocaleString();
-
-        let text = "";
-        text += "================================\n";
-        text += "          予約注文伝票          \n";
-        text += "================================\n";
-        text += `注文ID: ${orderId}\n`;
-        text += `お名前: ${userName} 様\n`;
-        text += "--------------------------------\n";
-
-        if (Array.isArray(order.items)) {
-            order.items.forEach(item => {
-                text += `${item.name || '商品'}  x${item.quantity || 1}\n`;
-            });
-        }
-
-        text += "--------------------------------\n";
-        text += `合計金額: ${totalPrice}円\n`;
-        text += "================================\n\n\n\n";
-
-        // 2. 切断（Cut）などの制御を行いたい場合のESC/POS初期化・カットコード（16進数/バイナリ）
-        // 通常のテキストのみであれば、CUPSの自動改行/カット設定に任せることも可能です。
-
-        // 3. ラズパイ CUPS の RAW ポート (9100) または IPP (631) へ直接送信
-        try {
-            const response = await fetch('http://192.168.12.150:3000', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/octet-stream' // RAWデータとして送信
-                },
-                body: text
-            });
-            
-            console.log("送信レスポンス:", response.status);
-        } catch (err) {
-            console.error("印刷送信エラー:", err);
         }
     },
 
