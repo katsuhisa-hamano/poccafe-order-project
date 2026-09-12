@@ -1744,11 +1744,12 @@ const app = {
             });
 
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col justify-between shadow-xl">
-                    <div class="flex-grow overflow-y-auto mb-6 pr-1">
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] p-6 flex flex-col shadow-xl">
+                    <div class="relative flex-grow min-h-0 mb-6">
+                    <div id="option-modal-scroll" class="h-full overflow-y-auto pr-1">
                         <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
                         <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
-                        
+
                         <div class="mb-6 text-left">
                             <label class="block text-gray-700 font-bold mb-2 text-sm border-l-4 border-emerald-600 pl-2">サイズ / 種類 (必須)</label>
                             <div class="space-y-2">
@@ -1818,6 +1819,10 @@ const app = {
                             </div>
                         `).join('')}
                     </div>
+                    <div id="option-modal-scroll-hint" class="hidden absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-white to-transparent">
+                        <span class="absolute bottom-1 left-0 right-0 text-center text-[11px] font-bold text-gray-400 animate-bounce">続きは下にスクロール ▼</span>
+                    </div>
+                    </div>
 
                     <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center ${allSoldOut ? 'opacity-50 pointer-events: none;' : ''}">
                         <span class="font-bold text-sm text-gray-700">数量</span>
@@ -1853,6 +1858,19 @@ const app = {
             `;
 
             this.calculateModalPrice();
+
+            // 💡 バリエーション数が多い商品（例: 盛り付けオプション付き）は選択肢が画面外に隠れてしまうため、
+            // スクロールが必要な場合のみ「下にスクロール」の案内を表示し、下端まで見たら自動的に消す
+            const scrollEl = document.getElementById('option-modal-scroll');
+            const hintEl = document.getElementById('option-modal-scroll-hint');
+            if (scrollEl && hintEl) {
+                const updateScrollHint = () => {
+                    const hasMoreBelow = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight > 8;
+                    hintEl.classList.toggle('hidden', !hasMoreBelow);
+                };
+                updateScrollHint();
+                scrollEl.addEventListener('scroll', updateScrollHint);
+            }
 
         } catch (e) {
             modal.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-md w-full text-center text-red-500 font-bold">エラー: ${e.message}</div>`;
