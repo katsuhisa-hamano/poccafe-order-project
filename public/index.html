@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>ぽっカフェ 注文</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,24 +16,24 @@
         <!-- 1段目：タイトルと大量注文 -->
         <div class="flex items-baseline gap-2">
             <h1 class="text-lg font-black text-orange-600 leading-none">ぽっカフェ</h1>
-            <p class="text-[12px] text-blue-600">大量注文はご相談ください。(0595-83-3105)</p>
+            <p class="text-[13px] text-blue-600">大量注文はご相談ください。(0595-83-3105)</p>
         </div>
 
         <!-- 2段目：ログイン中（左）と ボタン群（右端）を同じレベルに配置 -->
         <div class="flex flex-row justify-between items-center w-full">
             <!-- ログイン中 -->
-            <p id="userDisplay" class="text-[12px] text-blue-600">ログイン中: --様</p>
-            
-            <!-- ボタン群 -->
+            <p id="userDisplay" class="text-[13px] text-blue-600">ログイン中: --様</p>
+
+            <!-- ボタン群（タップしやすいよう最小44pxの高さを確保） -->
             <div class="flex gap-2">
-                <button 
-                    onclick="app.showChangePasswordModal()" 
-                    class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full hover:bg-red-100 transition-colors">
+                <button
+                    onclick="app.showChangePasswordModal()"
+                    class="inline-flex items-center justify-center min-h-[44px] px-4 text-[12px] font-bold text-red-500 bg-red-50 rounded-full hover:bg-red-100 active:bg-red-100 transition-colors">
                     パスワード変更
                 </button>
                 <button
                     onclick="app.logout()"
-                    class="text-[11px] font-bold text-red-500 bg-red-50 px-3 py-2 rounded-full hover:bg-red-100 transition-colors">
+                    class="inline-flex items-center justify-center min-h-[44px] px-4 text-[12px] font-bold text-red-500 bg-red-50 rounded-full hover:bg-red-100 active:bg-red-100 transition-colors">
                     ログアウト
                 </button>
             </div>
@@ -52,11 +52,11 @@
 
             <div class="space-y-4 max-w-sm mx-auto w-full">
                 <div class="bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
-                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase">Email Address OR ID</label>
+                    <label class="text-[11px] font-bold text-gray-400 ml-4 uppercase">Email Address OR ID</label>
                     <input type="text" id="login-email" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-lg focus:outline-none" placeholder="example@mail.com or ID">
                 </div>
                 <div class="bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
-                    <label class="text-[10px] font-bold text-gray-400 ml-4 uppercase">Password</label>
+                    <label class="text-[11px] font-bold text-gray-400 ml-4 uppercase">Password</label>
                     <input type="password" id="login-password" class="w-full px-4 pb-2 bg-transparent border-0 focus:ring-0 text-lg focus:outline-none" placeholder="••••••••">
                 </div>
 
@@ -88,9 +88,9 @@
             <div class="mb-6">
                 <div id="admin-customer-selector-wrapper" class="hidden"></div>
                 <div id="upcoming-reservations-container" class="hidden"></div>
-                <label class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">受取希望日</label>
+                <label class="text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-2 block ml-1">受取希望日</label>
                 <div class="w-full">
-                    <label class="block text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">受取希望日を選択してください</label>
+                    <label class="block text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">受取希望日を選択してください</label>
                     <input type="text" id="order-date" class="hidden">
                     <div id="inline-calendar-container" class="mt-2 flex justify-center"></div>
                 </div>
@@ -218,7 +218,7 @@
             <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8"></div>
             <h3 class="text-xl font-black mb-6">注文内容の確認</h3>
             <div id="modal-content" class="max-h-[40vh] overflow-y-auto mb-8 hide-scrollbar"></div>
-            <button onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg">注文を確定する</button>
+            <button id="order-submit-btn" onclick="app.submitOrder()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg disabled:opacity-60">注文を確定する</button>
         </div>
     </div>
 

@@ -48,55 +48,31 @@ input[type="date"], input[type="month"], input[type="number"] {
   display: none;
 }
 
-/* メニューカードのインタラクション */
-.menu-card {
-  transition: transform 0.1s ease, border-color 0.2s ease;
+/* ログイン画面: iOS Safariは 100vh にアドレスバー分を含めてしまうため、
+   対応ブラウザでは動的ビューポート単位(dvh)を優先させて表示崩れを防ぐ */
+#view-login {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.menu-card:active {
-  transform: scale(0.98);
-}
-
-/* ボトムカートバーの装飾 */
+/* ボトムカートバーの装飾（ホームインジケーターの上に余白を確保） */
 #cart-bar {
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  padding-bottom: calc(2rem + var(--safe-area-bottom));
 }
 
-/* プラス・マイナスボタンの押しやすさ */
-.qty-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  font-weight: bold;
-  user-select: none;
-  touch-action: manipulation;
-}
-
-.qty-btn-minus {
-  border: 2px solid #e5e7eb;
-  background: white;
-}
-
-.qty-btn-plus {
-  background: #1f2937;
-  color: white;
-}
-
-.qty-btn:active {
-  background: #d1d5db;
+/* ボトムシート形式のモーダル（登録・パスワード再設定・注文確認）も同様に
+   ホームインジケーターとボタンが重ならないよう余白を確保 */
+#register-modal > .relative,
+#forgot-modal > .relative,
+#reset-modal > .relative,
+#modal > .relative {
+  padding-bottom: calc(2rem + var(--safe-area-bottom));
 }
 
 /* モーダルのオーバーレイ */
 #modal {
   transition: opacity 0.3s ease;
-}
-
-/* 管理者画面用スタイル */
-.admin-card {
-  border-left: 4px solid var(--orange-primary);
 }
