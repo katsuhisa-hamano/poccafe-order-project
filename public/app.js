@@ -820,7 +820,8 @@ const app = {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || "データ取得失敗");
 
-            const customers = data.customers || [];
+            // 顧客名の五十音順（かな/カナ順）に並べ替え
+            const customers = (data.customers || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
             if (customers.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-400 py-8 text-sm">登録されている顧客はいません。</p>`;
                 return;
