@@ -921,14 +921,9 @@ const app = {
             if (data.success) {
             // 発行された初期パスワードを表示
             alert(`【登録完了】\n\n発行された初期パスワード:\n${data.generatedPassword}\n\n※このパスワードを顧客へご案内ください。顧客マイページから変更可能です。`);
-            
-            document.getElementById('special-customer-name').value = '';
-            document.getElementById('special-customer-tel').value = '';
-            document.getElementById('special-customer-id').value = '';
 
-            if (typeof app.loadCustomersEdit === 'function') {
-                app.loadCustomersEdit();
-            }
+            // 確定後、ページをリフレッシュする
+            location.reload();
             } else {
             alert("エラー: " + data.message);
             }

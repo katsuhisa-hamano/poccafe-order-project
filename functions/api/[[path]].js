@@ -1149,21 +1149,24 @@ export async function onRequest(context) {
         }
 
         try {
-          if (formattedTel) {
-            const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
-              method: 'POST',
-              headers: squareHeaders,
-              body: JSON.stringify({ query: { filter: { phone_number: { exact: formattedTel } } } })
-            });
+          // 電話番号ではなく名前（完全一致）でSquare顧客を特定する
+          // → 電話番号の重複は許容し、キーとしては使用しない
+          const searchRes = await fetch('https://connect.squareup.com/v2/customers/search', {
+            method: 'POST',
+            headers: squareHeaders,
+            body: JSON.stringify({ query: { text_query: { query: name.trim() } } })
+          });
 
-            if (searchRes.ok) {
-              const searchData = await searchRes.json();
-              if (searchData.customers && searchData.customers.length > 0) {
-                squareCustomerId = searchData.customers[0].id;
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const matched = (searchData.customers || []).find(c => (c.given_name || '').trim() === name.trim());
+            if (matched) {
+              squareCustomerId = matched.id;
+              if (formattedTel) {
                 await fetch(`https://connect.squareup.com/v2/customers/${squareCustomerId}`, {
                   method: 'PUT',
                   headers: squareHeaders,
-                  body: JSON.stringify({ given_name: name.trim() })
+                  body: JSON.stringify({ phone_number: formattedTel })
                 });
               }
             }
