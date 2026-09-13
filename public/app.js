@@ -3223,15 +3223,14 @@ const app = {
         xml += '<text lang="ja"/>'
         xml += '<text font="font_b"/>'
 
-        // 1. タイトル（少し大きく表示。fontの切り替え(font_a/font_b)では見た目に差が
-        //    出なかったため、文字高さの倍率指定(height="2")で確実に拡大する）
-        xml += '<text height="2">予約注文伝票&#10;</text>';
+        // 1. タイトル（少し大きく表示）
+        xml += '<text font="font_a">予約注文伝票&#10;</text>';
 
         // 2. 注文情報（お名前・受取日は少し大きく表示）
-        xml += `<text height="1">注文ID: ${orderId}&#10;</text>`;
-        xml += `<text height="2">お名前: ${userName} 様&#10;</text>`;
+        xml += `<text font="font_b">注文ID: ${orderId}&#10;</text>`;
+        xml += `<text font="font_a">お名前: ${userName} 様&#10;</text>`;
         xml += `<text>受取日: ${targetDate}&#10;</text>`;
-        xml += '<text height="1">--------------------------------&#10;</text>';
+        xml += '<text font="font_b">--------------------------------&#10;</text>';
 
         // 3. 商品明細
         if (Array.isArray(order.items) && order.items.length > 0) {
@@ -3248,8 +3247,8 @@ const app = {
 
         // 4. 合計金額・ステータス（合計金額は少し大きく表示）
         xml += '<text>--------------------------------&#10;</text>';
-        xml += `<text height="2">合計金額: ${totalPrice}円&#10;</text>`;
-        xml += `<text height="1">${statusText}&#10;</text>`;
+        xml += `<text font="font_a">合計金額: ${totalPrice}円&#10;</text>`;
+        xml += `<text font="font_b">${statusText}&#10;</text>`;
 
         // 5. 紙送り・カット
         xml += '<feed line="3"/>';
