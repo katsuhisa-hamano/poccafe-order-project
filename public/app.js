@@ -3083,7 +3083,10 @@ const app = {
 
     /**
      * 【一括伝票印刷ボタン用】
-     * 未印刷の項目をすべて1つのHTMLに結合してPassPRNTへ送り、帰還待ち状態にする
+     * 未印刷の注文を1件ずつ、個別印刷と同じ経路（ブラウザ→店内プリンタへ直送）で送信し、
+     * 印刷が成功したことを確認できた注文だけ、その場でprinted_statusを個別に更新する。
+     * 途中で1件でも印刷に失敗したら、それ以降はループを中断する
+     * （すでに成功した分のフラグ更新は取り消さない）。
      */
     async printUnprintedOrdersAll() {
         const targetDate = document.getElementById('stats-target-date').value;
@@ -3092,10 +3095,10 @@ const app = {
         try {
             const res = await fetch(`/api/admin/reception-list?date=${targetDate}`);
             const result = await res.json();
-            
+
             if (!result.success || !result.list) return alert("データの取得に失敗しました。");
 
-            // 1. 「未印刷 (printed_status !== 1)」の注文だけを抽出
+            // 「未印刷 (printed_status !== 1)」の注文だけを抽出
             unprintedOrders = result.list.filter(order => order.printed_status !== 1);
 
             if (unprintedOrders.length === 0) {
@@ -3104,45 +3107,71 @@ const app = {
 
             if (!confirm(`未印刷の注文が ${unprintedOrders.length} 件あります。\n一括印刷を開始します。`)) return;
 
-            // 2. 印刷対象のIDを記憶しておく（戻ってきたときのフラグ更新用）
-            app.currentlyPrintingIds = unprintedOrders.map(order => order.id);
+            let successCount = 0;
+            let failedOrder = null;
 
-            // 2. 一括印刷用のXMLを生成
-            const bulkXml = this.generateBulkOrderXmlTemplate(unprintedOrders);
-            
-            const printResult = await fetch(`/api/print`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/xml; charset=utf-8',
-                'If-Modified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT'
-            },
-            body: bulkXml
-            });
-            
-            if (printResult.ok) {
-                
-                // 💡 印刷された全IDをバックグラウンドAPIに送り、まとめて「印刷済み(1)」に更新
-                const response = await fetch(`/api/admin/update-print-status-bulk`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: app.currentlyPrintingIds, printed_status: 1 })
-                });
-                
-                const result = await response.json();
+            for (const order of unprintedOrders) {
+                // 個別印刷（printSingleOrderHtml）と同じ組み立て・送信方法で1件ずつ処理する
+                const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
+                const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${xmlContent}</s:Body></s:Envelope>`;
+                const encoder = new TextEncoder();
+                const bodyBuffer = encoder.encode(soapBody);
 
-                if (result.success) {
-                    // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
-                    app.currentlyPrintingIds = [];
-                    alert(`${unprintedOrders.length}件の伝票を一括印刷しました。`);
-                    app.loadAdminOrders(); // 管理画面のリスト表示を再描画
+                let printResult;
+                try {
+                    printResult = await fetch('https://192.168.12.150:3000', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/xml; charset=utf-8',
+                            'SOAPAction': '""'
+                        },
+                        body: bodyBuffer,
+                        targetAddressSpace: 'private'
+                    });
+                } catch (err) {
+                    console.error(`注文ID ${order.id} の印刷通信でエラー:`, err);
+                    failedOrder = order;
+                    break;
                 }
+
+                if (!printResult.ok) {
+                    console.error(await printResult.text());
+                    failedOrder = order;
+                    break;
+                }
+
+                // 印刷完了を確認できた注文だけ、その場で個別にフラグを更新する
+                try {
+                    const flagRes = await fetch(`/api/admin/update-print-status-bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: [order.id], printed_status: 1 })
+                    });
+                    const flagResult = await flagRes.json();
+                    if (!flagResult.success) {
+                        console.error(`注文ID ${order.id} の印刷済みフラグ更新に失敗:`, flagResult.message);
+                        failedOrder = order;
+                        break;
+                    }
+                } catch (err) {
+                    console.error(`注文ID ${order.id} の印刷済みフラグ更新通信でエラー:`, err);
+                    failedOrder = order;
+                    break;
+                }
+
+                successCount++;
+            }
+
+            if (failedOrder) {
+                alert(`${successCount}件の印刷が完了した時点で、${failedOrder.user_name || failedOrder.id} 様の伝票印刷に失敗したため中断しました。\n印刷済みの${successCount}件のフラグは更新済みです。`);
             } else {
-                console.error(await printResult.text());
-                alert('プリンターへの一括送信に失敗しました。');
-            }            
-            console.log(`${unprintedOrders.length}件の注文を一括送信します。`);
+                alert(`${successCount}件の伝票を一括印刷しました。`);
+            }
+
+            app.loadAdminOrders(); // 管理画面のリスト表示を再描画
         } catch (err) {
             console.error("一括印刷エラー:", err);
+            alert("一括印刷中にエラーが発生しました。");
         }
     },
 
@@ -3230,7 +3259,7 @@ const app = {
     },
 
     generateBulkOrderXmlTemplate(orders, targetDate) {
-        const xmls = "";
+        let xmls = "";
         for (const order of orders) {
             const singleXml = this.generateOrderXmlTemplate(order, targetDate);
             xmls += singleXml; // 各注文のXMLを連結
