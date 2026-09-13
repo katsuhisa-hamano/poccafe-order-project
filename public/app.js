@@ -725,7 +725,14 @@ const app = {
                 await this.loadAdminCustomers();
             }
 
-            router.go('home');
+            // 特定画面からの意図的なリロード後は、その画面に復帰させる
+            const postReloadView = sessionStorage.getItem('postReloadView');
+            if (postReloadView) {
+                sessionStorage.removeItem('postReloadView');
+                router.go(postReloadView);
+            } else {
+                router.go('home');
+            }
         } else {
             const adminBtn = document.getElementById('go-to-admin-btn');
             if (adminBtn) adminBtn.classList.add('hidden');
@@ -922,7 +929,8 @@ const app = {
             // 発行された初期パスワードを表示
             alert(`【登録完了】\n\n発行された初期パスワード:\n${data.generatedPassword}\n\n※このパスワードを顧客へご案内ください。顧客マイページから変更可能です。`);
 
-            // 確定後、ページをリフレッシュする
+            // 確定後、ページをリフレッシュする（顧客登録画面に復帰させる）
+            sessionStorage.setItem('postReloadView', 'customer-edit');
             location.reload();
             } else {
             alert("エラー: " + data.message);
