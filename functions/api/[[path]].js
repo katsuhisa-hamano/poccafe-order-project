@@ -105,9 +105,16 @@ export async function onRequest(context) {
                 cnt += (rCount + sSalesCount - pCount);
               });
 
+            // 【バグ修正】カート内の全商品ではなく、"同じ在庫グループに属する商品"の数量だけを合算する。
+            // 修正前は他の商品（別グループ・単品）の数量まで巻き込んで合算していたため、
+            // 無関係な商品の注文数によって在庫不足の誤判定が発生していた。
             for (const x of Object.keys(items)) {
-              const item = items[x];
-              reqQty += (parseInt(item.quantity, 10) || 0);
+              const otherItem = items[x];
+              if (!otherItem || !otherItem.variationId) continue;
+              const otherStockGroupId = stockGroupMap.get(otherItem.variationId) || null;
+              if (otherStockGroupId === stockGroupId) {
+                reqQty += (parseInt(otherItem.quantity, 10) || 0);
+              }
             }
           } else {
             // 単品在庫の場合
