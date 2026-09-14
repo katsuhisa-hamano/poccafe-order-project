@@ -1800,7 +1800,7 @@ const app = {
                                                    name="square_variation" 
                                                    value="${v.id}" 
                                                    data-price="${v.price}" 
-                                                   onchange="app.calculateModalPrice()"
+                                                   onchange="app.calculateModalPrice(); app.scrollOptionModalToBottom();"
                                                    ${isChecked ? 'checked' : ''} 
                                                    ${isSoldOut ? 'disabled' : ''}
                                                    class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50">
@@ -1927,6 +1927,15 @@ const app = {
         const priceDisplay = document.getElementById('modal-total-price');
         if (priceDisplay) {
             priceDisplay.innerText = `¥${total.toLocaleString()}`;
+        }
+    },
+
+    // 💡 サイズ/種類を選択したら、盛り付けオプションなど続きの選択肢や数量・合計が
+    // 見えるよう自動で一番下までスクロールする
+    scrollOptionModalToBottom() {
+        const scrollEl = document.getElementById('option-modal-scroll');
+        if (scrollEl) {
+            scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
         }
     },
 
