@@ -571,12 +571,12 @@ const app = {
         }
     },
 
-    // パスワードリセットメール申請
+    // パスワードリセット申請（メールアドレス／特別会員IDのどちらも受け付ける）
     async submitForgotPassword() {
         const btn = document.getElementById('forgot-submit-btn');
         const email = document.getElementById('forgot-email').value;
 
-        if (!email) return await sharedDialog("メールアドレスを入力してください");
+        if (!email) return await sharedDialog("IDまたはメールアドレスを入力してください");
 
         btn.innerText = "送信中...";
         btn.disabled = true;
@@ -589,8 +589,10 @@ const app = {
             });
             const result = await res.json();
 
+            // 💡 メールアドレスの場合は送信完了、特別会員IDの場合は初期パスワードへの
+            //    リセット完了メッセージが返るため、サーバーからのメッセージをそのまま表示する
             if (res.ok && result.success) {
-                await sharedDialog("再設定用メールを送信しました。メール内のリンクをご確認ください。");
+                await sharedDialog(result.message || "処理が完了しました。");
                 this.closeForgotPassword();
             } else {
                 await sharedDialog(result.message || "送信に失敗しました。");
@@ -598,7 +600,7 @@ const app = {
         } catch(e) {
             await sharedDialog("通信エラーが発生しました。");
         } finally {
-            btn.innerText = "再設定メールを送る";
+            btn.innerText = "パスワードを再設定する";
             btn.disabled = false;
         }
     },

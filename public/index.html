@@ -147,11 +147,11 @@
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeForgotPassword()"></div>
         <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto">
             <h3 class="text-xl font-bold mb-2">パスワードの再設定</h3>
-            <p class="text-xs text-gray-400 mb-6">登録しているメールアドレスへ再設定リンクを送信します。</p>
+            <p class="text-xs text-gray-400 mb-6">登録しているメールアドレス、または特別会員IDを入力してください。メールアドレスの場合は再設定リンクをメールで送信します。特別会員IDの場合はご利用案内記載の初期パスワードにリセットします。</p>
             <div class="space-y-4 mb-8">
-                <input type="email" id="forgot-email" placeholder="example@mail.com" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
+                <input type="text" id="forgot-email" placeholder="example@mail.com or ID" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
             </div>
-            <button onclick="app.submitForgotPassword()" id="forgot-submit-btn" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold">再設定メールを送る</button>
+            <button onclick="app.submitForgotPassword()" id="forgot-submit-btn" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold">パスワードを再設定する</button>
         </div>
     </div>
 

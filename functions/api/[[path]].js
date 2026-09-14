@@ -661,18 +661,46 @@ export async function onRequest(context) {
     }
 
     // ---------------------------------------------------------
-    // 4. パスワードリセット申請メール送信 (POST /api/auth/forgot-password)
+    // 4. パスワードリセット申請 (POST /api/auth/forgot-password)
+    //    ID・メールアドレスどちらも受け付ける。
+    //    - メールアドレス形式 → 従来通り、再設定リンクをメール送信
+    //    - 特別会員のID（メールアドレス形式ではない email カラムの値）→
+    //      初期パスワードへ即時リセットし、その旨を画面に案内する
     // ---------------------------------------------------------
     if (path === '/api/auth/forgot-password' && method === 'POST') {
       const { email } = await request.json();
-      if (!email) return new Response(JSON.stringify({ success: false, message: "メールアドレスが必要です。" }), { status: 400, headers: corsHeaders });
+      if (!email) return new Response(JSON.stringify({ success: false, message: "IDまたはメールアドレスが必要です。" }), { status: 400, headers: corsHeaders });
 
-      // メールアドレスの形式チェック（簡易正規表現）
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const cleanEmail = email.trim();
+      const CONTACT_TEL = "0595-83-3105";
 
+      // ---- 特別会員ID（メールアドレス形式ではない）の場合：初期パスワードへリセット ----
       if (!emailRegex.test(cleanEmail)) {
-        return new Response(JSON.stringify({ success: false, message: "有効なメールアドレスの形式ではありません。\nメールアドレス以外のIDをお使いの場合はお問い合わせください。" }), { status: 400, headers: corsHeaders });
+        const specialUser = await env.DB.prepare(
+          "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'"
+        ).bind(cleanEmail).first();
+
+        if (!specialUser || !specialUser.initial_password_encrypted) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: `入力されたIDが見つかりませんでした。ご利用案内に記載のIDをご確認いただくか、お電話にてお問い合わせください（${CONTACT_TEL}）。`
+          }), { status: 404, headers: corsHeaders });
+        }
+
+        // 初期パスワードのハッシュを再計算してセット
+        const msgUint8 = new TextEncoder().encode(specialUser.initial_password_encrypted);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        await env.DB.prepare(
+          "UPDATE users SET password_hash = ?, verify_token = NULL, token_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(passwordHash, specialUser.id).run();
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `パスワードを初期パスワードにリセットしました。ご利用案内に記載の初期パスワードでログインしてください。わからない場合はお電話にてお問い合わせください（${CONTACT_TEL}）。`
+        }), { headers: corsHeaders });
       }
 
       const user = await env.DB.prepare(
