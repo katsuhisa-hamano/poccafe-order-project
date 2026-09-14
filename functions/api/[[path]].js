@@ -1784,7 +1784,30 @@ export async function onRequest(context) {
     }
 
     // =========================================================
-    // 【新設】注文画面用：ログインユーザーの今日以降の注文一覧取得 
+    // 【新設】管理者用：注文受領ステータスの一括更新 (POST /api/admin/reception-list/bulk-toggle)
+    // =========================================================
+    if (path === '/api/admin/reception-list/bulk-toggle' && method === 'POST') {
+      try {
+        const { ids, status } = await request.json(); // status: 1(受領) または 0(未受領)
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0 || status === undefined) {
+          return new Response(JSON.stringify({ success: false, message: "必要なパラメータが不足しています。" }), { status: 400, headers: corsHeaders });
+        }
+
+        const placeholders = ids.map(() => '?').join(', ');
+        const sql = `UPDATE orders SET received_status = ? WHERE id IN (${placeholders})`;
+        const queryArgs = [status, ...ids];
+
+        await env.DB.prepare(sql).bind(...queryArgs).run();
+
+        return new Response(JSON.stringify({ success: true, message: "受領ステータスを一括更新しました。" }), { headers: corsHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // =========================================================
+    // 【新設】注文画面用：ログインユーザーの今日以降の注文一覧取得
     // (GET /api/orders/upcoming?userId=XXX)
     // =========================================================
     if (path === '/api/orders/upcoming' && method === 'GET') {

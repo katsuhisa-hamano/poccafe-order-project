@@ -88,10 +88,23 @@ const adminView = {
                             </button>
                         </div>
                     </div>
+
+                    <!-- チェックした注文をまとめて受領済みにするバー -->
+                    <div class="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5 mb-3">
+                        <span id="reception-selected-count" class="text-xs font-bold text-emerald-800">0件選択中</span>
+                        <button id="reception-bulk-confirm-btn" onclick="app.confirmBulkReception()" disabled
+                                class="text-xs bg-emerald-600 text-white px-4 py-1.5 rounded-md font-bold hover:bg-emerald-700 active:bg-emerald-800 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">
+                            選択した注文を受領済みにする
+                        </button>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-sm text-gray-700">
                             <thead>
                                 <tr class="border-b border-gray-100 font-bold text-gray-500 text-xs uppercase tracking-wider">
+                                    <th class="pb-3 px-2 w-10 text-center">
+                                        <input type="checkbox" id="reception-select-all" onchange="app.toggleSelectAllReception(this)" class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                                    </th>
                                     <th class="pb-3 px-2">注文者</th>
                                     <th class="pb-3 px-2">注文商品と個数</th>
                                     <th class="pb-3 px-2 text-right">合計金額</th>
@@ -99,7 +112,7 @@ const adminView = {
                                 </tr>
                             </thead>
                             <tbody id="admin-orders-list" class="divide-y divide-gray-50">
-                                <tr><td colspan="4" class="text-center text-gray-400 py-6 text-xs">データを読み込み中...</td></tr>
+                                <tr><td colspan="5" class="text-center text-gray-400 py-6 text-xs">データを読み込み中...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2545,7 +2558,7 @@ const app = {
             const data = await res.json();
 
             if (!data.success || data.list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-8 text-xs">本日の受け取り予定注文はありません。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-8 text-xs">本日の受け取り予定注文はありません。</td></tr>`;
                 return;
             }
 
@@ -2561,10 +2574,12 @@ const app = {
 
                 // 受領済みフラグの状態によってボタンを出し分け
                 const isReceived = order.received_status === 1;
-                
+
+                // 💡 未受領はチェックボックスでまとめて受領するため個別ボタンは出さず、
+                //    受領済みの取り消しだけ個別操作として残す
                 const actionButton = isReceived
                     ? `<button onclick="app.toggleReception(${order.id}, 0, '${order.user_name}')" class="w-full text-xs bg-red-50 text-red-600 border border-red-200 py-1.5 rounded-lg font-bold hover:bg-red-100 transition shadow-sm">受領を取り消す</button>`
-                    : `<button onclick="app.toggleReception(${order.id}, 1, '${order.user_name}')" class="w-full text-xs bg-emerald-600 text-white py-1.5 rounded-lg font-bold hover:bg-emerald-700 transition shadow-sm">商品を受領する</button>`;
+                    : '';
 
                 const statusBadge = isReceived
                     ? `<span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-black mb-1">受領済</span>`
@@ -2582,6 +2597,12 @@ const app = {
 
                 html += `
                     <tr class="hover:bg-gray-50/50 transition ${isReceived ? 'bg-gray-50/40 text-gray-400' : ''}">
+                        <td class="p-3 px-2 text-center align-top">
+                            ${isReceived
+                                ? `<span class="inline-block text-emerald-600 text-base leading-none" title="受領済">✓</span>`
+                                : `<input type="checkbox" class="reception-checkbox h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer" data-order-id="${order.id}" data-user-name="${order.user_name}" onchange="app.updateReceptionSelectionUI()">`
+                            }
+                        </td>
                         <td class="p-3 px-2 font-bold text-gray-800 align-top">
                             <div class="text-sm">${order.user_name} 様</div>
                             <div class="text-[10px] text-gray-400 font-normal mt-0.5">注文ID: ${order.id}</div>
@@ -2605,8 +2626,59 @@ const app = {
 
             tbody.innerHTML = html;
 
+            // 💡 一覧を再描画するたびに、チェック状態と一括確定バーをリセットする
+            const selectAllEl = document.getElementById('reception-select-all');
+            if (selectAllEl) selectAllEl.checked = false;
+            this.updateReceptionSelectionUI();
+
         } catch (e) {
             console.error("注文受領リストの取得に失敗しました", e);
+        }
+    },
+
+    // 一覧ヘッダーの「全選択」チェックボックスの処理
+    toggleSelectAllReception(headerCheckbox) {
+        document.querySelectorAll('.reception-checkbox').forEach(cb => {
+            cb.checked = headerCheckbox.checked;
+        });
+        this.updateReceptionSelectionUI();
+    },
+
+    // 選択件数に応じて一括確定バーの表示（件数・ボタンの有効/無効）を更新する
+    updateReceptionSelectionUI() {
+        const countEl = document.getElementById('reception-selected-count');
+        const confirmBtn = document.getElementById('reception-bulk-confirm-btn');
+        const checked = document.querySelectorAll('.reception-checkbox:checked');
+
+        if (countEl) countEl.innerText = `${checked.length}件選択中`;
+        if (confirmBtn) confirmBtn.disabled = checked.length === 0;
+    },
+
+    // チェックした注文をまとめて受領済みにする
+    async confirmBulkReception() {
+        const checked = Array.from(document.querySelectorAll('.reception-checkbox:checked'));
+        if (checked.length === 0) return;
+
+        const ids = checked.map(cb => Number(cb.dataset.orderId));
+        const confirmMessage = `選択した ${ids.length} 件の注文をまとめて【受領】状態に変更します。よろしいですか？`;
+
+        if (!await sharedDialog(confirmMessage, "#333333", true)) return;
+
+        try {
+            const res = await fetch('/api/admin/reception-list/bulk-toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids, status: 1 })
+            });
+            const result = await res.json();
+
+            if (result.success) {
+                await this.loadAdminOrders();
+            } else {
+                await sharedDialog(result.message);
+            }
+        } catch (e) {
+            await sharedDialog("通信エラーが発生しました。");
         }
     },
 
@@ -2614,7 +2686,7 @@ const app = {
     async toggleReception(orderId, nextStatus, userName) {
         const actionText = nextStatus === 1 ? "【受領】" : "【未受領（取り消し）】";
         const confirmMessage = `${userName} 様の注文ID: ${orderId} を${actionText}状態に変更します。よろしいですか？`;
-        
+
         if (!await sharedDialog(confirmMessage, "#333333", true)) return;
 
         try {
