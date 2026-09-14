@@ -1766,12 +1766,6 @@ const app = {
                 return liveRemaining <= 0;
             });
 
-            // 💡【新設】売り切れていない最初のバリエーションのインデックスを取得
-            const firstAvailableIdx = item.variations.findIndex(v => {
-                const liveRemaining = this.state.currentStockMap.get(v.id);
-                return liveRemaining > 0;
-            });
-
             modal.innerHTML = `
                 <div id="option-modal-scroll" class="bg-white rounded-lg max-w-md w-full shadow-xl overflow-y-auto" style="max-height:85vh;max-height:85dvh;">
                     <div class="p-6 pb-2">
@@ -1786,9 +1780,6 @@ const app = {
                                     const liveRemaining = this.state.currentStockMap.get(v.id);
                                     const isSoldOut = liveRemaining <= 0;
 
-                                    // 💡 売り切れていない最初のアイテム、またはすべて売り切れの場合は一番最初のアイテムに checked を割り振る
-                                    const isChecked = (firstAvailableIdx === idx) || (allSoldOut && idx === 0);
-
                                     return `
                                     <label for="${radioId}" 
                                            class="flex items-center justify-between p-3 border rounded-lg select-none transition-all
@@ -1801,7 +1792,6 @@ const app = {
                                                    value="${v.id}" 
                                                    data-price="${v.price}" 
                                                    onchange="app.calculateModalPrice(); app.scrollOptionModalToBottom();"
-                                                   ${isChecked ? 'checked' : ''} 
                                                    ${isSoldOut ? 'disabled' : ''}
                                                    class="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50">
                                             <span class="${isSoldOut ? 'text-gray-400 line-through' : 'text-gray-800'} font-bold">${v.name}</span>
