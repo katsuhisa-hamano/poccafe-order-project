@@ -374,8 +374,8 @@ const router = {
             if (cartBar) cartBar.classList.add('hidden');
         } else if (view === 'home') {
             if (header) header.classList.remove('hidden');
-            if (cartBar && Object.keys(app.state.cart).length > 0) {
-                cartBar.classList.remove('hidden');
+            if (cartBar) {
+                cartBar.classList.toggle('hidden', Object.keys(app.state.cart).length === 0);
             }
             // 一般ホーム画面に戻った際、管理者ならセレクターを生成/描画する
             app.renderAdminCustomerSelector();
@@ -2110,7 +2110,8 @@ const app = {
             if (response.ok && result.success) {
                 // 5. 注文成功時のクリーンアップ処理
                 sharedDialog("注文が確定しました！ありがとうございます。");
-                
+
+                app.closeModal();             // 「注文を確認」で開いた確認モーダルを閉じる（開いたままだと無効な内容が残ってしまう）
                 app.state.cart = {};          // カートの状態を空にする
                 app.state.payload = {
                     customer_id: null,
