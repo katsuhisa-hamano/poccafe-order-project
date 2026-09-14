@@ -1773,9 +1773,9 @@ const app = {
             });
 
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-y-auto p-6 flex flex-col shadow-xl">
-                    <div class="relative mb-6">
-                    <div id="option-modal-scroll" class="max-h-[38vh] overflow-y-auto pr-1">
+                <div class="bg-white rounded-lg max-w-md w-full max-h-[85vh] flex flex-col shadow-xl overflow-hidden">
+                    <div class="relative flex-1 min-h-0">
+                    <div id="option-modal-scroll" class="h-full overflow-y-auto p-6 pb-8">
                         <h2 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h2>
                         <p class="text-gray-500 text-sm mb-6">${item.description || ''}</p>
 
@@ -1853,35 +1853,37 @@ const app = {
                     </div>
                     </div>
 
-                    <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center ${allSoldOut ? 'opacity-50 pointer-events: none;' : ''}">
-                        <span class="font-bold text-sm text-gray-700">数量</span>
-                        <div class="flex items-center space-x-2 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
-                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.decrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
-                                －
+                    <div class="flex-shrink-0 px-6 pt-4 pb-6 border-t border-gray-100 bg-white">
+                        <div class="mb-4 p-4 bg-gray-50 rounded-xl flex justify-between items-center ${allSoldOut ? 'opacity-50 pointer-events: none;' : ''}">
+                            <span class="font-bold text-sm text-gray-700">数量</span>
+                            <div class="flex items-center space-x-2 bg-white border border-gray-200 rounded-full p-1 shadow-sm">
+                                <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.decrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
+                                    －
+                                </button>
+                                <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
+                                <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.incrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
+                                    ＋
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900 ${allSoldOut ? 'hidden' : ''}">
+                            <span class="font-bold text-sm">現在の選択合計</span>
+                            <span id="modal-total-price" class="text-xl font-black">¥0</span>
+                        </div>
+
+                        <div class="flex space-x-3">
+                            <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
+                                キャンセル
                             </button>
-                            <span id="modal-quantity-display" class="w-8 text-center font-black text-gray-800 text-base">1</span>
-                            <button type="button" ${allSoldOut ? 'disabled' : ''} onclick="app.incrementModalQty()" class="w-11 h-11 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all text-lg disabled:opacity-50 touch-manipulation">
-                                ＋
+
+                            <button ${allSoldOut ? 'disabled' : ''}
+                                    onclick="app.confirmAddToCart('${item.id}', '${item.name}')"
+                                    class="w-1/2 py-3 rounded-full font-black transition shadow-md block text-center text-base tracking-wider z-50
+                                    ${allSoldOut ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">
+                                ${allSoldOut ? '売り切れ' : 'カートに追加'}
                             </button>
                         </div>
-                    </div>
-
-                    <div class="mb-4 p-3 bg-emerald-50 rounded-lg flex justify-between items-center text-emerald-900 ${allSoldOut ? 'hidden' : ''}">
-                        <span class="font-bold text-sm">現在の選択合計</span>
-                        <span id="modal-total-price" class="text-xl font-black">¥0</span>
-                    </div>
-
-                    <div class="flex space-x-3 pt-4 border-t border-gray-100 bg-white sticky bottom-0">
-                        <button onclick="document.getElementById('option-modal').classList.add('hidden')" class="w-1/2 border border-gray-300 py-3 rounded-full font-bold text-gray-600 hover:bg-gray-50 transition">
-                            キャンセル
-                        </button>
-                        
-                        <button ${allSoldOut ? 'disabled' : ''} 
-                                onclick="app.confirmAddToCart('${item.id}', '${item.name}')" 
-                                class="w-1/2 py-3 rounded-full font-black transition shadow-md block text-center text-base tracking-wider z-50
-                                ${allSoldOut ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">
-                            ${allSoldOut ? '売り切れ' : 'カートに追加'}
-                        </button>
                     </div>
                 </div>
             `;
