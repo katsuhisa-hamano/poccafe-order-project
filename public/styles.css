@@ -72,6 +72,17 @@ input[type="date"], input[type="month"], input[type="number"] {
   padding-bottom: calc(2rem + var(--safe-area-bottom));
 }
 
+/* フルスクリーン固定オーバーレイ内のスクロール領域は、iOSでキーボード表示中に
+   フォーカス移動しても暴れないよう統一で安定化させる */
+#register-modal > .relative,
+#forgot-modal > .relative,
+#reset-modal > .relative,
+#modal > .relative,
+#change-password-modal > div {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* モーダルのオーバーレイ */
 #modal {
   transition: opacity 0.3s ease;
