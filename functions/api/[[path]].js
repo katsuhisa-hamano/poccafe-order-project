@@ -428,8 +428,9 @@ export async function onRequest(context) {
         });
       }
 
-      // すでに通常の登録（Emailが存在する）がある場合は重複エラー
-      const emailCheck = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(email).first();
+      // すでに本登録（status = 'active'）済みのEmailがある場合のみ重複エラー。
+      // status = 'pending'（確認コード未入力）はブロックせず、再登録＝コード再送を許可する。
+      const emailCheck = await env.DB.prepare(`SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND status = 'active'`).bind(email.trim()).first();
       if (emailCheck) {
         return new Response(JSON.stringify({ success: false, message: 'このメールアドレスは既に登録されています。' }), { status: 400, headers: corsHeaders });
       }
