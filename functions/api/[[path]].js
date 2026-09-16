@@ -708,7 +708,7 @@ export async function onRequest(context) {
         text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
       });
 
-      return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。" }), { headers: corsHeaders });
+      return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。※メールが届かない場合は迷惑メールフォルダもご確認ください。" }), { headers: corsHeaders });
     }
 
     // ---------------------------------------------------------

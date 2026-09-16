@@ -558,7 +558,7 @@ const app = {
                 await sharedDialog(`【登録不可】\n${result.message}`);
                 this.closeRegister();
             } else if (res.ok) {
-                await sharedDialog("認証メールを送信しました。メール内のリンクをクリックして完了してください。");
+                await sharedDialog("認証メールを送信しました。メール内のリンクをクリックして完了してください。\n※メールが届かない場合は迷惑メールフォルダもご確認ください。");
                 this.closeRegister();
             } else {
                 throw new Error(result.message || "登録エラー");
