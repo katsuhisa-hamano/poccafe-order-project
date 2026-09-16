@@ -747,8 +747,8 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "認証が必要です。" }), { status: 401, headers: corsHeaders });
         }
 
-        if (!newPassword || newPassword.length < 8) {
-          return new Response(JSON.stringify({ success: false, message: "パスワードは8文字以上で入力してください。" }), { status: 400, headers: corsHeaders });
+        if (!newPassword) {
+          return new Response(JSON.stringify({ success: false, message: "新しいパスワードを入力してください。" }), { status: 400, headers: corsHeaders });
         }
 
         // 新パスワードハッシュ化
