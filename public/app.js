@@ -915,6 +915,8 @@ const app = {
                 telInput.value = "";
                 // リストを再ロード
                 await this.loadAdminCustomersEdit();
+                // 一般画面（代理注文セレクター）用の顧客リストも再取得しておく
+                await this.loadAdminCustomers();
             } else {
                 await sharedDialog("登録に失敗しました: " + (result.message || "未知のエラー"));
             }
@@ -973,6 +975,8 @@ const app = {
             if (res.ok && result.success) {
                 await sharedDialog("顧客情報を削除しました。");
                 await this.loadAdminCustomersEdit();
+                // 一般画面（代理注文セレクター）用の顧客リストも再取得しておく
+                await this.loadAdminCustomers();
             } else {
                 await sharedDialog("削除に失敗しました: " + (result.message || "未知のエラー"));
             }
