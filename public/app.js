@@ -3424,6 +3424,24 @@ let unprintedOrders = [];
     });
 })();
 
+// 💡 iOSでキーボード表示中に入力欄間でフォーカスを移すと、CSSのvh/dvh/svh単位だけでは
+// 実際のビジュアルビューポート高さとズレてボトムシートが一瞬ジャンプすることがあるため、
+// visualViewport APIで実測した高さをボトムシートのmax-heightへ直接反映する。
+(function() {
+    if (!window.visualViewport) return;
+
+    function syncSheetHeights() {
+        const targetHeight = Math.round(window.visualViewport.height * 0.9);
+        document.querySelectorAll('.keyboard-safe-sheet').forEach((el) => {
+            el.style.maxHeight = targetHeight + 'px';
+        });
+    }
+
+    window.visualViewport.addEventListener('resize', syncSheetHeights);
+    window.visualViewport.addEventListener('scroll', syncSheetHeights);
+    syncSheetHeights();
+})();
+
 // 日付操作・顧客セレクターの変更を監視する処理
 (function() {
     document.addEventListener('change', (e) => {

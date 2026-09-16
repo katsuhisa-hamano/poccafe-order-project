@@ -131,7 +131,7 @@
 
     <div id="register-modal" class="hidden fixed inset-0 z-[70] flex items-end">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeRegister()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto" style="max-height:90vh;max-height:90svh;">
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-xl font-bold mb-6">アカウント作成</h3>
             <div class="space-y-4 mb-8">
                 <input type="text" id="reg-name" placeholder="お名前" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
@@ -145,7 +145,7 @@
 
     <div id="forgot-modal" class="hidden fixed inset-0 z-[70] flex items-end">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeForgotPassword()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto" style="max-height:90vh;max-height:90svh;">
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-xl font-bold mb-2">パスワードの再設定</h3>
             <p class="text-xs text-gray-400 mb-6">登録しているメールアドレス、または特別会員IDを入力してください。メールアドレスの場合は確認コードをメールで送信します。特別会員IDの場合はご利用案内記載の初期パスワードにリセットします。</p>
             <div class="space-y-4 mb-8">
@@ -157,7 +157,7 @@
 
     <div id="verify-code-modal" class="hidden fixed inset-0 z-[70] flex items-end">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeVerifyCode()"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto" style="max-height:90vh;max-height:90svh;">
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-xl font-bold mb-2">確認コードの入力</h3>
             <p id="verify-code-target-email" class="text-xs text-gray-400 mb-6"></p>
             <div class="space-y-4 mb-8">
@@ -169,7 +169,7 @@
 
     <div id="reset-modal" class="hidden fixed inset-0 z-[80] flex items-end">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto" style="max-height:90vh;max-height:90svh;">
+        <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-xl font-bold mb-2">新しいパスワードの設定</h3>
             <p class="text-xs text-gray-400 mb-6">メールに記載の確認コードと、新しいパスワードを入力してください。</p>
             <div class="space-y-4 mb-8">
@@ -181,7 +181,7 @@
     </div>
 
     <div id="change-password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl overflow-y-auto" style="max-height:90vh;max-height:90svh;">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-lg font-bold mb-4 text-gray-800">パスワード変更</h3>
             
             <form id="change-password-form" onsubmit="app.submitPasswordChange(event)">
