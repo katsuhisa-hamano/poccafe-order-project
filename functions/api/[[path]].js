@@ -553,7 +553,8 @@ export async function onRequest(context) {
       await sendTransactionalEmail(env, {
         to: email.trim(),
         subject: '【ぽっカフェ】アカウント作成の確認',
-        text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`
+        text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`,
+        html: `<p>${escapeHtml(name)}様</p><p>ぽっカフェへの会員登録申請ありがとうございます。<br>以下のリンクをクリックして、アカウント作成を完了させてください。</p><p><a href="${verifyLink}">${verifyLink}</a></p><p>※このリンクの有効期限は24時間です。</p>`
       });
 
       return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
@@ -705,7 +706,8 @@ export async function onRequest(context) {
       await sendTransactionalEmail(env, {
         to: cleanEmail,
         subject: '【ぽっカフェ】パスワード再設定のご案内',
-        text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
+        text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`,
+        html: `<p>${escapeHtml(user.name)}様</p><p>いつもぽっカフェをご利用いただきありがとうございます。<br>以下のリンクから新しいパスワードを設定してください。</p><p><a href="${resetLink}">${resetLink}</a></p>`
       });
 
       return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。※メールが届かない場合は迷惑メールフォルダもご確認ください。" }), { headers: corsHeaders });
@@ -2069,10 +2071,15 @@ export async function onRequest(context) {
 /**
  * 💡【共通関数】Brevo（旧Sendinblue）のTransactional Email APIでメールを送信する。
  * env.BREVO_API_KEY が未設定の場合は警告ログを出してスキップする（呼び出し元の処理は失敗させない）。
+ * html を渡すとクリック可能なリンク付きのHTMLメールとして送信し、text はその代替表示用になる。
  * @param {object} env - Cloudflare Pages Functions の環境変数
- * @param {{to: string, subject: string, text: string}} params
+ * @param {{to: string, subject: string, text: string, html?: string}} params
  */
-async function sendTransactionalEmail(env, { to, subject, text }) {
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function sendTransactionalEmail(env, { to, subject, text, html }) {
   if (!env.BREVO_API_KEY) {
     console.warn("env.BREVO_API_KEY が見つかりません。");
     return;
@@ -2090,7 +2097,8 @@ async function sendTransactionalEmail(env, { to, subject, text }) {
         sender: { name: 'ぽっカフェ', email: 'poccafe73@gmail.com' },
         to: [{ email: to }],
         subject,
-        textContent: text
+        textContent: text,
+        ...(html ? { htmlContent: html } : {})
       })
     });
 
