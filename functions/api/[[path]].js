@@ -554,7 +554,7 @@ export async function onRequest(context) {
         to: email.trim(),
         subject: '【ぽっカフェ】アカウント作成の確認',
         text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`,
-        html: `<p>${escapeHtml(name)}様</p><p>ぽっカフェへの会員登録申請ありがとうございます。<br>以下のリンクをクリックして、アカウント作成を完了させてください。</p><p><a href="${verifyLink}">${verifyLink}</a></p><p>※このリンクの有効期限は24時間です。</p>`
+        html: `<p>${escapeHtml(name)}様</p><p>ぽっカフェへの会員登録申請ありがとうございます。<br>以下のボタンをタップして、アカウント作成を完了させてください。</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">アカウント作成を完了する</a></p><p style="font-size:12px;color:#888;">ボタンが反応しない場合は、以下のURLをブラウザに直接貼り付けてください。<br>${verifyLink}</p><p>※このリンクの有効期限は24時間です。</p>`
       });
 
       return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
@@ -707,7 +707,7 @@ export async function onRequest(context) {
         to: cleanEmail,
         subject: '【ぽっカフェ】パスワード再設定のご案内',
         text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`,
-        html: `<p>${escapeHtml(user.name)}様</p><p>いつもぽっカフェをご利用いただきありがとうございます。<br>以下のリンクから新しいパスワードを設定してください。</p><p><a href="${resetLink}">${resetLink}</a></p>`
+        html: `<p>${escapeHtml(user.name)}様</p><p>いつもぽっカフェをご利用いただきありがとうございます。<br>以下のボタンから新しいパスワードを設定してください。</p><p><a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">パスワードを再設定する</a></p><p style="font-size:12px;color:#888;">ボタンが反応しない場合は、以下のURLをブラウザに直接貼り付けてください。<br>${resetLink}</p>`
       });
 
       return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。※メールが届かない場合は迷惑メールフォルダもご確認ください。" }), { headers: corsHeaders });
