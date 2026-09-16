@@ -525,7 +525,7 @@ export async function onRequest(context) {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const verifyToken = crypto.randomUUID();
+      const verifyToken = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       
@@ -548,35 +548,34 @@ export async function onRequest(context) {
       `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
       }
 
-      // メール送信処理（Brevo API 対応）
-      const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
+      // メール送信処理（Brevo API 対応。リンクではなく、アプリ側で入力する確認コードを送る）
       await sendTransactionalEmail(env, {
         to: email.trim(),
-        subject: '【ぽっカフェ】アカウント作成の確認',
-        text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`,
-        html: `<p>${escapeHtml(name)}様</p><p>ぽっカフェへの会員登録申請ありがとうございます。<br>以下のボタンをタップして、アカウント作成を完了させてください。</p><p style="text-align:center;"><a href="${verifyLink}" style="display:block;max-width:280px;margin:0 auto;padding:14px 24px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;text-align:center;">アカウント作成を完了する</a></p><p style="font-size:12px;color:#888;">ボタンが反応しない場合は、以下のURLをブラウザに直接貼り付けてください。<br>${verifyLink}</p><p>※このリンクの有効期限は24時間です。</p>`
+        subject: '【ぽっカフェ】アカウント作成の確認コード',
+        text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下の確認コードをアプリの画面に入力して、アカウント作成を完了させてください。\n\n確認コード: ${verifyToken}\n\n※このコードの有効期限は24時間です。`,
+        html: `<p>${escapeHtml(name)}様</p><p>ぽっカフェへの会員登録申請ありがとうございます。<br>以下の確認コードをアプリの画面に入力して、アカウント作成を完了させてください。</p><p style="text-align:center;font-size:32px;font-weight:bold;letter-spacing:0.1em;color:#f97316;">${verifyToken}</p><p>※このコードの有効期限は24時間です。</p>`
       });
 
-      return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
+      return new Response(JSON.stringify({ success: true, message: "確認コードをメールで送信しました。" }), { headers: corsHeaders });
     }
 
     // ---------------------------------------------------------
-    // 2. 本登録完了処理 (GET /api/auth/verify)
+    // 2. 本登録完了処理 (POST /api/auth/verify-code)
     // ---------------------------------------------------------
-    if (path === '/api/auth/verify' && method === 'GET') {
-      const token = url.searchParams.get('token');
-      if (!token) return new Response("Invalid Token", { status: 400 });
+    if (path === '/api/auth/verify-code' && method === 'POST') {
+      const { email, code } = await request.json();
+      if (!email || !code) return new Response(JSON.stringify({ success: false, message: "メールアドレスと確認コードを入力してください。" }), { status: 400, headers: corsHeaders });
 
       const user = await env.DB.prepare(
-        "SELECT * FROM users WHERE verify_token = ? AND status = 'pending'"
-      ).bind(token).first();
+        "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND verify_token = ? AND status = 'pending'"
+      ).bind(email.trim(), code.trim()).first();
 
       if (!user) {
-        return new Response("ユーザーが見つからないか、既にアクティブです。", { status: 400 });
+        return new Response(JSON.stringify({ success: false, message: "確認コードが正しくないか、既にアカウントが有効化されています。" }), { status: 400, headers: corsHeaders });
       }
 
       if (new Date().toISOString() > user.token_expires_at) {
-        return new Response("トークンの有効期限が切れています。もう一度登録し直してください。", { status: 400 });
+        return new Response(JSON.stringify({ success: false, message: "確認コードの有効期限が切れています。もう一度登録し直してください。" }), { status: 400, headers: corsHeaders });
       }
 
       // ステータスを active に更新
@@ -584,8 +583,7 @@ export async function onRequest(context) {
         "UPDATE users SET status = 'active', verify_token = NULL, token_expires_at = NULL WHERE id = ?"
       ).bind(user.id).run();
 
-      // 本登録完了後、自動でログイン画面（トップ）へリダイレクト
-      return Response.redirect(`${url.origin}/`, 302);
+      return new Response(JSON.stringify({ success: true, message: "アカウントが有効化されました。" }), { headers: corsHeaders });
     }
 
     // ---------------------------------------------------------
@@ -692,43 +690,40 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: false, message: "そのメールアドレスは登録されていません。" }), { status: 404, headers: corsHeaders });
       }
 
-      const resetToken = crypto.randomUUID();
+      const resetToken = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1時間有効
 
       await env.DB.prepare(
         "UPDATE users SET verify_token = ?, token_expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).bind(resetToken, expiresAt, user.id).run();
 
-      // ハッシュ（#）付きの再設定リンクを生成
-      const resetLink = `${url.origin}/#token=${resetToken}`;
-
-      // メール送信処理（Brevo API 対応）
+      // メール送信処理（Brevo API 対応。リンクではなく、アプリ側で入力する確認コードを送る）
       await sendTransactionalEmail(env, {
         to: cleanEmail,
-        subject: '【ぽっカフェ】パスワード再設定のご案内',
-        text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`,
-        html: `<p>${escapeHtml(user.name)}様</p><p>いつもぽっカフェをご利用いただきありがとうございます。<br>以下のボタンから新しいパスワードを設定してください。</p><p style="text-align:center;"><a href="${resetLink}" style="display:block;max-width:280px;margin:0 auto;padding:14px 24px;background:#f97316;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;text-align:center;">パスワードを再設定する</a></p><p style="font-size:12px;color:#888;">ボタンが反応しない場合は、以下のURLをブラウザに直接貼り付けてください。<br>${resetLink}</p>`
+        subject: '【ぽっカフェ】パスワード再設定コード',
+        text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下の確認コードをアプリの画面に入力して、新しいパスワードを設定してください。\n\n確認コード: ${resetToken}\n\n※このコードの有効期限は1時間です。`,
+        html: `<p>${escapeHtml(user.name)}様</p><p>いつもぽっカフェをご利用いただきありがとうございます。<br>以下の確認コードをアプリの画面に入力して、新しいパスワードを設定してください。</p><p style="text-align:center;font-size:32px;font-weight:bold;letter-spacing:0.1em;color:#f97316;">${resetToken}</p><p>※このコードの有効期限は1時間です。</p>`
       });
 
-      return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。※メールが届かない場合は迷惑メールフォルダもご確認ください。" }), { headers: corsHeaders });
+      return new Response(JSON.stringify({ success: true, message: "確認コードをメールで送信しました。※メールが届かない場合は迷惑メールフォルダもご確認ください。" }), { headers: corsHeaders });
     }
 
     // ---------------------------------------------------------
     // 5. パスワードリセット実行 (POST /api/auth/reset-password)
     // ---------------------------------------------------------
     if (path === '/api/auth/reset-password' && method === 'POST') {
-      const { token, newPassword } = await request.json();
+      const { email, code, newPassword } = await request.json();
 
-      if (!token || !newPassword) {
+      if (!email || !code || !newPassword) {
         return new Response(JSON.stringify({ success: false, message: "データが不足しています。" }), { status: 400, headers: corsHeaders });
       }
 
       const user = await env.DB.prepare(
-        "SELECT * FROM users WHERE verify_token = ? AND status = 'active'"
-      ).bind(token).first();
+        "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND verify_token = ? AND status = 'active'"
+      ).bind(email.trim(), code.trim()).first();
 
       if (!user || new Date().toISOString() > user.token_expires_at) {
-        return new Response(JSON.stringify({ success: false, message: "無効なトークンか、有効期限が切れています。" }), { status: 400, headers: corsHeaders });
+        return new Response(JSON.stringify({ success: false, message: "確認コードが正しくないか、有効期限が切れています。" }), { status: 400, headers: corsHeaders });
       }
 
       // 新パスワードハッシュ化
@@ -2068,6 +2063,14 @@ export async function onRequest(context) {
   }
 }
 
+function generateVerificationCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 /**
  * 💡【共通関数】Brevo（旧Sendinblue）のTransactional Email APIでメールを送信する。
  * env.BREVO_API_KEY が未設定の場合は警告ログを出してスキップする（呼び出し元の処理は失敗させない）。
@@ -2075,10 +2078,6 @@ export async function onRequest(context) {
  * @param {object} env - Cloudflare Pages Functions の環境変数
  * @param {{to: string, subject: string, text: string, html?: string}} params
  */
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 async function sendTransactionalEmail(env, { to, subject, text, html }) {
   if (!env.BREVO_API_KEY) {
     console.warn("env.BREVO_API_KEY が見つかりません。");

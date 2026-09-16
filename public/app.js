@@ -457,7 +457,8 @@ const app = {
         },
         user: { id: null, name: null, email: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
-        resetToken: null,
+        pendingVerifyEmail: null, // 新規登録の確認コード入力待ちのメールアドレス
+        resetEmail: null, // パスワード再設定の確認コード入力待ちのメールアドレス
         availableSquareItems: [],
         stockGroups: [], // 共有在庫グループの情報を保持する配列
         currentStockMap: [],
@@ -558,8 +559,9 @@ const app = {
                 await sharedDialog(`【登録不可】\n${result.message}`);
                 this.closeRegister();
             } else if (res.ok) {
-                await sharedDialog("認証メールを送信しました。メール内のリンクをクリックして完了してください。\n※メールが届かない場合は迷惑メールフォルダもご確認ください。");
+                await sharedDialog("確認コードをメールで送信しました。次の画面でコードを入力してください。\n※メールが届かない場合は迷惑メールフォルダもご確認ください。");
                 this.closeRegister();
+                this.showVerifyCode(data.email.trim());
             } else {
                 throw new Error(result.message || "登録エラー");
             }
@@ -567,6 +569,42 @@ const app = {
             await sharedDialog(e.message || "登録処理中にエラーが発生しました。");
         } finally {
             btn.innerText = "認証メールを送る";
+            btn.disabled = false;
+        }
+    },
+
+    // 確認コードによるアカウント有効化
+    async submitVerifyCode() {
+        const btn = document.getElementById('verify-code-submit-btn');
+        const code = document.getElementById('verify-code-input').value.trim();
+        const email = this.state.pendingVerifyEmail;
+
+        if (!code) return await sharedDialog("確認コードを入力してください");
+        if (!email) return await sharedDialog("メールアドレス情報がありません。もう一度登録をやり直してください。");
+
+        btn.innerText = "確認中...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/auth/verify-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                await sharedDialog("アカウントが有効化されました。ログインしてください。");
+                this.closeVerifyCode();
+                const loginEmailInput = document.getElementById('login-email');
+                if (loginEmailInput) loginEmailInput.value = email;
+            } else {
+                await sharedDialog(result.message || "確認コードが正しくないか、有効期限が切れています。");
+            }
+        } catch (e) {
+            await sharedDialog("通信エラーが発生しました。");
+        } finally {
+            btn.innerText = "確認する";
             btn.disabled = false;
         }
     },
@@ -589,11 +627,16 @@ const app = {
             });
             const result = await res.json();
 
-            // 💡 メールアドレスの場合は送信完了、特別会員IDの場合は初期パスワードへの
-            //    リセット完了メッセージが返るため、サーバーからのメッセージをそのまま表示する
+            // 💡 メールアドレスの場合は確認コードを送信して次の画面へ、特別会員IDの場合は
+            //    初期パスワードへ即時リセット済みなのでメッセージ表示のみで完了させる
             if (res.ok && result.success) {
                 await sharedDialog(result.message || "処理が完了しました。");
                 this.closeForgotPassword();
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (emailRegex.test(email.trim())) {
+                    this.state.resetEmail = email.trim();
+                    this.showResetPasswordModal();
+                }
             } else {
                 await sharedDialog(result.message || "送信に失敗しました。");
             }
@@ -608,10 +651,11 @@ const app = {
     // パスワードの再設定（実行）
     async submitResetPassword() {
         const btn = document.getElementById('reset-submit-btn');
+        const code = document.getElementById('reset-code').value.trim();
         const newPassword = document.getElementById('reset-new-password').value;
 
-        if (!newPassword) return await sharedDialog("新しいパスワードを入力してください");
-        if (!this.state.resetToken) return await sharedDialog("トークンが無効です。メールのリンクから再度やり初めてください。");
+        if (!code || !newPassword) return await sharedDialog("確認コードと新しいパスワードを入力してください");
+        if (!this.state.resetEmail) return await sharedDialog("メールアドレス情報がありません。もう一度パスワード再設定をやり直してください。");
 
         btn.innerText = "更新中...";
         btn.disabled = true;
@@ -620,14 +664,15 @@ const app = {
             const res = await fetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: this.state.resetToken, newPassword })
+                body: JSON.stringify({ email: this.state.resetEmail, code, newPassword })
             });
             const result = await res.json();
 
             if (res.ok && result.success) {
                 await sharedDialog("パスワードを更新しました！新しいパスワードでログインしてください。");
                 document.getElementById('reset-modal').classList.add('hidden');
-                window.location.href = window.location.pathname; 
+                const loginEmailInput = document.getElementById('login-email');
+                if (loginEmailInput) loginEmailInput.value = this.state.resetEmail;
             } else {
                 await sharedDialog(result.message || "更新に失敗しました。有効期限切れの可能性があります。");
             }
@@ -680,30 +725,6 @@ const app = {
     // 起動時の認証チェック
     async init() {
         console.log("=== app.js が正常に起動しました ===");
-        
-        let token = null;
-        if (window.location.hash && window.location.hash.startsWith('#token=')) {
-            token = window.location.hash.split('=')[1];
-        }
-
-        if (token) {
-            this.state.resetToken = token;
-            setTimeout(() => {
-                const resetModal = document.getElementById('reset-modal');
-                if (resetModal) {
-                    resetModal.classList.remove('hidden');
-                    resetModal.style.display = 'flex'; 
-                }
-            }, 300);
-
-            if (document.getElementById('order-date')) {
-                const fp = document.getElementById('order-date')._flatpickr;
-                if (fp) {
-                    fp.setDate(new Date()); // または任意の変更したい日付
-                }
-            }
-            return; 
-        }
 
         const savedId = localStorage.getItem('cafe_user_id');
         const savedName = localStorage.getItem('cafe_user_name');
@@ -1517,6 +1538,19 @@ const app = {
     closeRegister() { document.getElementById('register-modal').classList.add('hidden'); },
     showForgotPassword() { document.getElementById('forgot-modal').classList.remove('hidden'); },
     closeForgotPassword() { document.getElementById('forgot-modal').classList.add('hidden'); },
+    showVerifyCode(email) {
+        this.state.pendingVerifyEmail = email;
+        const label = document.getElementById('verify-code-target-email');
+        if (label) label.innerText = `${email} 宛に送信した確認コードを入力してください。`;
+        document.getElementById('verify-code-input').value = '';
+        document.getElementById('verify-code-modal').classList.remove('hidden');
+    },
+    closeVerifyCode() { document.getElementById('verify-code-modal').classList.add('hidden'); },
+    showResetPasswordModal() {
+        document.getElementById('reset-code').value = '';
+        document.getElementById('reset-new-password').value = '';
+        document.getElementById('reset-modal').classList.remove('hidden');
+    },
     showChangePasswordModal() {
         document.getElementById('change-password-modal').classList.remove('hidden');
         document.getElementById('change-password-form').reset();
