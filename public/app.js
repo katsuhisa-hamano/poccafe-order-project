@@ -457,7 +457,6 @@ const app = {
         },
         user: { id: null, name: null, email: null, isAdmin: false },
         adminCustomers: [], // ★【追加】管理者が選べる顧客リストの保管場所
-        pendingVerifyEmail: null, // 新規登録の確認コード入力待ちのメールアドレス
         resetEmail: null, // パスワード再設定の確認コード入力待ちのメールアドレス
         availableSquareItems: [],
         stockGroups: [], // 共有在庫グループの情報を保持する配列
@@ -577,10 +576,9 @@ const app = {
     async submitVerifyCode() {
         const btn = document.getElementById('verify-code-submit-btn');
         const code = document.getElementById('verify-code-input').value.trim();
-        const email = this.state.pendingVerifyEmail;
+        const email = document.getElementById('verify-code-email').value.trim();
 
-        if (!code) return await sharedDialog("確認コードを入力してください");
-        if (!email) return await sharedDialog("メールアドレス情報がありません。もう一度登録をやり直してください。");
+        if (!email || !code) return await sharedDialog("メールアドレスと確認コードを入力してください");
 
         btn.innerText = "確認中...";
         btn.disabled = true;
@@ -1539,9 +1537,7 @@ const app = {
     showForgotPassword() { document.getElementById('forgot-modal').classList.remove('hidden'); },
     closeForgotPassword() { document.getElementById('forgot-modal').classList.add('hidden'); },
     showVerifyCode(email) {
-        this.state.pendingVerifyEmail = email;
-        const label = document.getElementById('verify-code-target-email');
-        if (label) label.innerText = `${email} 宛に送信した確認コードを入力してください。`;
+        document.getElementById('verify-code-email').value = email || '';
         document.getElementById('verify-code-input').value = '';
         document.getElementById('verify-code-modal').classList.remove('hidden');
     },

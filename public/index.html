@@ -76,6 +76,10 @@
                 <button onclick="app.showRegister()" class="w-full bg-white text-gray-600 py-4 rounded-3xl font-bold shadow-sm border border-gray-200 active:bg-gray-50">
                     新規アカウント作成
                 </button>
+
+                <div class="text-center pt-2">
+                    <button onclick="app.showVerifyCode()" class="text-xs font-bold text-orange-500 hover:underline">確認コードをお持ちの方はこちら</button>
+                </div>
             </div>
         </section>
 
@@ -159,8 +163,9 @@
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="app.closeVerifyCode()"></div>
         <div class="relative bg-white w-full rounded-t-[32px] p-8 animate-slide-up max-w-md mx-auto overflow-y-auto keyboard-safe-sheet" style="max-height:90vh;max-height:90svh;">
             <h3 class="text-xl font-bold mb-2">確認コードの入力</h3>
-            <p id="verify-code-target-email" class="text-xs text-gray-400 mb-6"></p>
+            <p class="text-xs text-gray-400 mb-6">登録したメールアドレスと、メールに記載の確認コードを入力してください。</p>
             <div class="space-y-4 mb-8">
+                <input type="email" id="verify-code-email" placeholder="メールアドレス" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none">
                 <input type="text" inputmode="numeric" id="verify-code-input" placeholder="6桁の確認コード" class="w-full p-4 rounded-xl bg-gray-50 focus:outline-none text-center text-2xl tracking-widest">
             </div>
             <button onclick="app.submitVerifyCode()" id="verify-code-submit-btn" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold">確認する</button>
