@@ -15,7 +15,7 @@ served as-is. There are no build/lint/test commands to run — don't go looking 
 
 There is also no `wrangler.toml` in the repo. Deployment is Cloudflare Pages connected directly to
 this GitHub repo (push to deploy); D1 database binding (`DB`) and secrets (`SQUARE_ACCESS_TOKEN`,
-`RESEND_API_KEY`, `ENCRYPTION_SECRET`) are configured in the Cloudflare dashboard, not in this repo.
+`BREVO_API_KEY`, `ENCRYPTION_SECRET`) are configured in the Cloudflare dashboard, not in this repo.
 
 `.gitignore` excludes `kakikori.js`, `square_menu.js`, `shema.sql` — these may exist locally as
 scratch/experiment files but are intentionally untracked.
@@ -88,9 +88,11 @@ address (`192.168.12.150:3000`) — this only works when the browser is physical
 network. The Cloudflare Function is only used afterward, to mark orders as printed
 (`/api/admin/update-print-status-bulk`).
 
-**Email** (verification, password reset) goes through the Resend API directly from the Pages
-Function using `env.RESEND_API_KEY`; if that binding is missing, the code logs a warning and
-silently skips sending rather than failing the request.
+**Email** (verification, password reset) goes through the Brevo Transactional Email API directly
+from the Pages Function (`sendTransactionalEmail` helper) using `env.BREVO_API_KEY`, sending from
+`poccafe73@gmail.com` (verified as a single sender in Brevo — no owned domain required); if the
+binding is missing, the code logs a warning and silently skips sending rather than failing the
+request.
 
 **Auth** is homegrown, not a framework: SHA-256 password hashing (no salt), UUID tokens for
 email-verify/password-reset stored directly on the `users` row with an expiry timestamp, and no

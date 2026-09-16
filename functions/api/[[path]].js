@@ -548,33 +548,13 @@ export async function onRequest(context) {
       `).bind(name.trim(), email.trim(), tel ? tel.trim() : null, passwordHash, squareCustomerId, verifyToken, expiresAt).run();
       }
 
-      // メール送信処理（Resend API 対応）
+      // メール送信処理（Brevo API 対応）
       const verifyLink = `${url.origin}/api/auth/verify?token=${verifyToken}`;
-      if (env.RESEND_API_KEY) {
-        try {
-          const resendRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: 'ぽっカフェ <noreply@pokkapoka.net>',
-              to: [email.trim()],
-              subject: '【ぽっカフェ】アカウント作成の確認',
-              text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`
-            })
-          });
-
-          if (!resendRes.ok) {
-            console.error("Resend API エラー:", await resendRes.text());
-          }
-        } catch (mailErr) {
-          console.error("メール送信エラー:", mailErr);
-        }
-      } else {
-        console.warn("env.RESEND_API_KEY が見つかりません。");
-      }
+      await sendTransactionalEmail(env, {
+        to: email.trim(),
+        subject: '【ぽっカフェ】アカウント作成の確認',
+        text: `${name}様\n\nぽっカフェへの会員登録申請ありがとうございます。\n以下のリンクをクリックして、アカウント作成を完了させてください。\n\n${verifyLink}\n\n※このリンクの有効期限は24時間です。`
+      });
 
       return new Response(JSON.stringify({ success: true, message: "認証メールを送信しました。" }), { headers: corsHeaders });
     }
@@ -721,32 +701,12 @@ export async function onRequest(context) {
       // ハッシュ（#）付きの再設定リンクを生成
       const resetLink = `${url.origin}/#token=${resetToken}`;
 
-      // メール送信処理（Resend API 対応）
-      if (env.RESEND_API_KEY) {
-        try {
-          const resendRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: 'ぽっカフェ <noreply@pokkapoka.net>',
-              to: [cleanEmail],
-              subject: '【ぽっカフェ】パスワード再設定のご案内',
-              text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
-            })
-          });
-
-          if (!resendRes.ok) {
-            console.error("Resend API エラー:", await resendRes.text());
-          }
-        } catch (mailErr) {
-          console.error("Resendパスワードリセット送信エラー:", mailErr);
-        }
-      } else {
-        console.warn("env.RESEND_API_KEY が見つかりません。");
-      }
+      // メール送信処理（Brevo API 対応）
+      await sendTransactionalEmail(env, {
+        to: cleanEmail,
+        subject: '【ぽっカフェ】パスワード再設定のご案内',
+        text: `${user.name}様\n\nいつもぽっカフェをご利用いただきありがとうございます。\n以下のリンクから新しいパスワードを設定してください。\n\n${resetLink}`
+      });
 
       return new Response(JSON.stringify({ success: true, message: "再設定メールを送信しました。" }), { headers: corsHeaders });
     }
@@ -2103,6 +2063,42 @@ export async function onRequest(context) {
 
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+  }
+}
+
+/**
+ * 💡【共通関数】Brevo（旧Sendinblue）のTransactional Email APIでメールを送信する。
+ * env.BREVO_API_KEY が未設定の場合は警告ログを出してスキップする（呼び出し元の処理は失敗させない）。
+ * @param {object} env - Cloudflare Pages Functions の環境変数
+ * @param {{to: string, subject: string, text: string}} params
+ */
+async function sendTransactionalEmail(env, { to, subject, text }) {
+  if (!env.BREVO_API_KEY) {
+    console.warn("env.BREVO_API_KEY が見つかりません。");
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: 'ぽっカフェ', email: 'poccafe73@gmail.com' },
+        to: [{ email: to }],
+        subject,
+        textContent: text
+      })
+    });
+
+    if (!res.ok) {
+      console.error("Brevo API エラー:", await res.text());
+    }
+  } catch (mailErr) {
+    console.error("メール送信エラー:", mailErr);
   }
 }
 
