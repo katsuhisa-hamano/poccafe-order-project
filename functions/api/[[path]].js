@@ -2171,17 +2171,34 @@ async function fetchSquareSalesMap(targetDate, env) {
     // 3. 取得した注文データから商品のバリエーションIDごとに対象数量を合算
     if (data.orders && Array.isArray(data.orders)) {
       for (const order of data.orders) {
-        if (!order.line_items) continue;
-        for (const item of order.line_items) {
-          // カタログバリエーションID（アプリ内の square_variation_id と一致するもの）
-          const varId = item.catalog_object_id;
-          if (!varId) continue;
+        if (order.line_items) {
+          for (const item of order.line_items) {
+            // カタログバリエーションID（アプリ内の square_variation_id と一致するもの）
+            const varId = item.catalog_object_id;
+            if (!varId) continue;
 
-          const qty = parseInt(item.quantity, 10) || 0;
-          
-          // Mapに数量を累積
-          const currentQty = squareSalesMap.get(varId) || 0;
-          squareSalesMap.set(varId, currentQty + qty);
+            const qty = parseInt(item.quantity, 10) || 0;
+
+            // Mapに数量を累積
+            const currentQty = squareSalesMap.get(varId) || 0;
+            squareSalesMap.set(varId, currentQty + qty);
+          }
+        }
+
+        // 【返品対応】レジで返品（リターン）された分は販売数から差し引く
+        if (order.returns) {
+          for (const ret of order.returns) {
+            if (!ret.return_line_items) continue;
+            for (const item of ret.return_line_items) {
+              const varId = item.catalog_object_id;
+              if (!varId) continue;
+
+              const qty = parseInt(item.quantity, 10) || 0;
+
+              const currentQty = squareSalesMap.get(varId) || 0;
+              squareSalesMap.set(varId, currentQty - qty);
+            }
+          }
         }
       }
     }
