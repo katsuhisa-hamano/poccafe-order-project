@@ -951,15 +951,22 @@ export async function onRequest(context) {
       try {
         // usersテーブルから、代理注文の選択肢として必要な情報を取得
         // ※ フロントが求めるキー名 (square_customer_id, name, email) にカラム名を合わせています
-        // ※ 本登録完了しているアクティブなユーザーのみを名前順（昇順）で取得します
+        // ※ 本登録完了しているアクティブなユーザーのみを、
+        //   ①emailがNULL → ②categoryが0 → ③それ以外 の順で、各グループ内は名前順（昇順）で取得します
         const { results } = await env.DB.prepare(`
-          SELECT 
-            square_customer_id, 
-            name, 
-            email 
-          FROM users 
+          SELECT
+            square_customer_id,
+            name,
+            email
+          FROM users
           WHERE status = 'active'
-          ORDER BY name ASC
+          ORDER BY
+            CASE
+              WHEN email IS NULL THEN 0
+              WHEN category = 0 THEN 1
+              ELSE 2
+            END ASC,
+            name ASC
         `).all();
 
         // 取得した配列データをそのままフロントに返却
