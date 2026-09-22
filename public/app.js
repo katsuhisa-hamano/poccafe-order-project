@@ -1542,6 +1542,13 @@ const app = {
         document.getElementById('verify-code-modal').classList.remove('hidden');
     },
     closeVerifyCode() { document.getElementById('verify-code-modal').classList.add('hidden'); },
+    togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.querySelector('.icon-eye').classList.toggle('hidden', !showing);
+        btn.querySelector('.icon-eye-off').classList.toggle('hidden', showing);
+    },
     showResetPasswordModal() {
         document.getElementById('reset-code').value = '';
         document.getElementById('reset-new-password').value = '';
