@@ -2150,7 +2150,19 @@ const app = {
 
             if (response.ok && result.success) {
                 // 5. 注文成功時のクリーンアップ処理
-                sharedDialog("注文が確定しました！ありがとうございます。");
+                let doneMessage = "注文が確定しました！ありがとうございます。";
+                if (result.merged) {
+                    // 同一受取日の既存注文に今回分を追加して1件の注文にまとめた場合
+                    doneMessage += "\n\n同じ受取日のご注文がすでにあったため、そのご注文に今回の商品を追加して1件の注文にまとめました。";
+                    if (app.state.user.isAdmin) {
+                        doneMessage += `\n（注文No.: ${app.toSlipNo(result.order_id)} に追加）`;
+                        if (Array.isArray(result.printed_order_ids) && result.printed_order_ids.length > 0) {
+                            const oldNos = result.printed_order_ids.map(id => app.toSlipNo(id)).join('、');
+                            doneMessage += `\n\n伝票を発行済みのため差し替えが必要です。新しい伝票を発行し、以前に発行した注文No.: ${oldNos} の伝票を取り除いてください。`;
+                        }
+                    }
+                }
+                sharedDialog(doneMessage);
 
                 app.closeModal();             // 「注文を確認」で開いた確認モーダルを閉じる（開いたままだと無効な内容が残ってしまう）
                 app.state.cart = {};          // カートの状態を空にする
@@ -2650,6 +2662,9 @@ const app = {
                         <td class="p-3 px-2 font-bold text-gray-800 align-top">
                             <div class="text-sm">${order.user_name} 様</div>
                             <div class="text-[10px] text-gray-400 font-normal mt-0.5">注文ID: ${order.id}</div>
+                            ${order.reissued === 1
+                                ? `<div class="inline-block bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-black mt-1">差替伝票（旧伝票を取り除く）</div>`
+                                : ''}
                         </td>
                         <td class="p-3 px-2 align-top">
                             <div class="space-y-1">${itemsHtml}</div>
@@ -3316,19 +3331,24 @@ const app = {
         return cleaned;
     },
 
+    // 伝票番号は注文IDを 1〜99 の連番に変換して表示する（(ID-1) % 99 + 1）
+    toSlipNo(id) {
+        const rawId = Number(id);
+        return Number.isInteger(rawId) && rawId > 0 ? ((rawId - 1) % 99) + 1 : '---';
+    },
+
     generateOrderXmlTemplate(order, targetDate) {
         if (!order) return '';
 
         // 各項目を厳密に無害化
-        // 伝票番号は注文IDを 1〜99 の連番に変換して表示する（(ID-1) % 99 + 1）
-        const rawId = Number(order.id || order.order_id);
-        const orderNo = this.cleanAndEscapeXml(
-            Number.isInteger(rawId) && rawId > 0 ? ((rawId - 1) % 99) + 1 : '---'
-        );
+        const orderNo = this.cleanAndEscapeXml(this.toSlipNo(order.id || order.order_id));
         const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
         const rawPrice = Number(order.total_price || order.total_amount) || 0;
         const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
-        const statusText = order.printed_status === 1 ? '【再印刷伝票】' : '【初回印刷伝票】';
+        const isReissued = order.reissued === 1;
+        const statusText = order.printed_status === 1 ? '【再印刷伝票】'
+            : isReissued ? '【差替伝票】'
+            : '【初回印刷伝票】';
 
         let xml = '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
         xml += '<text lang="ja"/>'
@@ -3360,6 +3380,17 @@ const app = {
         xml += '<text>--------------------------------&#10;</text>';
         xml += `<text font="font_a">合計金額: ${totalPrice}円&#10;</text>`;
         xml += `<text font="font_b">${statusText}&#10;</text>`;
+
+        // 4-2. 同一日の追加注文をまとめた差替伝票の場合：同じ注文No.の旧伝票を取り除くよう末尾に記載
+        //      （注文No.は旧伝票と同じため、どれが最新か分かるよう発行時刻も印字する）
+        if (isReissued) {
+            const now = new Date();
+            const issuedAt = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            xml += '<text>--------------------------------&#10;</text>';
+            xml += '<text font="font_a">※同日の追加注文をまとめた差替伝票です&#10;</text>';
+            xml += '<text font="font_a">以前に発行したこの注文No.の伝票を&#10;取り除いてください&#10;</text>';
+            xml += `<text font="font_b">発行: ${this.cleanAndEscapeXml(issuedAt)}&#10;</text>`;
+        }
 
         // 5. 紙送り・カット
         xml += '<feed line="3"/>';

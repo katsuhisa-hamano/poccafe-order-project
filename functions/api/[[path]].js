@@ -140,25 +140,79 @@ export async function onRequest(context) {
           }
         }
         
+        // ---------------------------------------------------------
+        // 💡 同一アカウント・同一受取日の既存注文（未キャンセル・未受領）があれば、
+        //    新しい注文は作らず、その既存注文（ベース注文）に今回分の明細を追加して1件にまとめる。
+        //    ベース注文の伝票を発行済みの場合は印刷状態を未印刷に戻して伝票を再発行させ、
+        //    reissued フラグを立てて、同じ注文No.の旧伝票を取り除くよう新しい伝票の末尾に印字する。
+        //    （通常は既存注文は1件だが、複数ある場合は最も古い注文をベースにして残りも吸収する）
+        // ---------------------------------------------------------
+        await ensureOrdersReissuedColumn(env);
+
+        const customerId = payload.customer_id ?? "";
+        let existingOrders = [];
+
+        if (customerId) {
+          const { results } = await env.DB.prepare(`
+            SELECT id, total_amount, printed_status, reissued
+            FROM orders
+            WHERE customer_id = ? AND delivery_date = ? AND IFNULL(status, '') != 'Canceled' AND IFNULL(received_status, 0) != 1
+            ORDER BY id
+          `).bind(customerId, targetDate).all();
+          existingOrders = results;
+        }
+
+        const baseOrder = existingOrders[0] || null;
+        const absorbedOrders = existingOrders.slice(1);
+
+        // 伝票を発行済みの既存注文（取り除いてもらう旧伝票）
+        const printedOrderIds = existingOrders.filter(o => o.printed_status === 1).map(o => o.id);
+        // 発行済みの伝票がある、または未発行の差替伝票を引き継ぐ場合は差替伝票として発行する
+        const reissued = existingOrders.some(o => o.printed_status === 1 || o.reissued === 1) ? 1 : 0;
+
+        const newItemsTotal = parseInt(payload.overallPrice, 10) || 0;
         const statements = [];
 
-        // ---------------------------------------------------------
-        // 1. 親（orders）テーブルへの挿入クエリを配列の最初に追加
-        // ---------------------------------------------------------
-        statements.push(
-          env.DB.prepare(`
-            INSERT INTO orders (customer_id, customer_name, customer_email, creater_id, creater_name, delivery_date, total_amount)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            payload.customer_id ?? "",
-            payload.customer_name ?? "ゲスト",
-            payload.customer_email ?? null,
-            payload.creater_id ?? "",
-            payload.creater_name ?? "",
-            payload.order_date ?? "",
-            parseInt(payload.overallPrice, 10) || 0
-          )
-        );
+        if (baseOrder) {
+          // ---------------------------------------------------------
+          // 1. 既存（ベース）注文の合計金額を更新し、伝票を再発行させるため未印刷に戻す
+          // ---------------------------------------------------------
+          const mergedTotal = existingOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) + newItemsTotal;
+          statements.push(
+            env.DB.prepare(`
+              UPDATE orders SET total_amount = ?, printed_status = 0, reissued = ? WHERE id = ?
+            `).bind(mergedTotal, reissued, baseOrder.id)
+          );
+
+          // 1-2. ベース以外の既存注文は明細をベース注文へ付け替えてからキャンセル扱いにする
+          absorbedOrders.forEach(o => {
+            statements.push(
+              env.DB.prepare("UPDATE order_items SET order_id = ? WHERE order_id = ? AND IFNULL(status, '') != 'Canceled'").bind(baseOrder.id, o.id)
+            );
+            statements.push(env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(o.id));
+          });
+        } else {
+          // ---------------------------------------------------------
+          // 1. 親（orders）テーブルへの挿入クエリを配列の最初に追加
+          // ---------------------------------------------------------
+          statements.push(
+            env.DB.prepare(`
+              INSERT INTO orders (customer_id, customer_name, customer_email, creater_id, creater_name, delivery_date, total_amount)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              customerId,
+              payload.customer_name ?? "ゲスト",
+              payload.customer_email ?? null,
+              payload.creater_id ?? "",
+              payload.creater_name ?? "",
+              payload.order_date ?? "",
+              newItemsTotal
+            )
+          );
+        }
+
+        // 明細の親注文ID：既存注文へ追加する場合はそのID、新規の場合は直前にINSERTした親注文のID
+        const parentOrderIdSql = baseOrder ? String(Number(baseOrder.id)) : '(SELECT MAX(id) FROM orders)';
 
         // ---------------------------------------------------------
         // 2. 連想配列（オブジェクト）をループ展開して子と孫のクエリを生成
@@ -174,7 +228,7 @@ export async function onRequest(context) {
           statements.push(
             env.DB.prepare(`
               INSERT INTO order_items (order_id, menu_id, menu_name, variation_id, variation_name, quantity, unit_price)
-              VALUES ((SELECT MAX(id) FROM orders), ?, ?, ?, ?, ?, ?)
+              VALUES (${parentOrderIdSql}, ?, ?, ?, ?, ?, ?)
             `).bind(
               item.itemId ?? "",
               item.itemName ?? "",
@@ -212,14 +266,17 @@ export async function onRequest(context) {
         // 例外がスローされ、一番上の「親（orders）」も含めてデータベースから【自動で完全にロールバック】されます。
         const batchResults = await env.DB.batch(statements);
 
-        // 新しく生成された親注文のIDを、親インサート文（[0]番目のクエリ）のメタデータから取得
-        const newOrderId = batchResults[0].meta.last_row_id;
+        // 既存注文へ追加した場合はそのID、新規の場合は親インサート文（[0]番目のクエリ）のメタデータから取得
+        const newOrderId = baseOrder ? baseOrder.id : batchResults[0].meta.last_row_id;
 
         // 成功レスポンスの返却
         return new Response(JSON.stringify({
-          success: true, 
+          success: true,
           message: '注文が正常に登録されました。',
-          order_id: newOrderId
+          order_id: newOrderId,
+          merged: !!baseOrder,
+          merged_order_ids: existingOrders.map(o => o.id),
+          printed_order_ids: printedOrderIds
         }), { headers: corsHeaders });
 
       } catch (dbErr) {
@@ -1702,9 +1759,11 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, message: "日付が指定されていません。" }), { status: 400, headers: corsHeaders });
         }
 
+        await ensureOrdersReissuedColumn(env);
+
         // 指定日の注文基本情報（注文者名など）を全件取得
         const { results: orders } = await env.DB.prepare(`
-          SELECT id, customer_name, total_amount, received_status, printed_status
+          SELECT id, customer_name, total_amount, received_status, printed_status, reissued
           FROM orders 
           WHERE delivery_date = ? AND IFNULL(status, '') != 'Canceled'
           ORDER BY id DESC
@@ -1745,6 +1804,7 @@ export async function onRequest(context) {
             total_price: order.total_amount,
             received_status: order.received_status || 0,
             printed_status: order.printed_status || 0,
+            reissued: order.reissued === 1 ? 1 : 0,
             items: orderItems
           };
         });
@@ -2115,6 +2175,26 @@ async function sendTransactionalEmail(env, { to, subject, text, html }) {
   } catch (mailErr) {
     console.error("メール送信エラー:", mailErr);
   }
+}
+
+/**
+ * orders.reissued 列（同一日の追加注文をまとめて伝票を差し替える場合に 1）が無ければ追加する。
+ * D1のスキーマはダッシュボード管理でリポジトリにマイグレーションが無いため、
+ * 初回アクセス時にコード側で追加する（isolate単位で1回だけ確認）。
+ */
+let ordersReissuedColumnReady = false;
+async function ensureOrdersReissuedColumn(env) {
+  if (ordersReissuedColumnReady) return;
+  const { results: columns } = await env.DB.prepare("PRAGMA table_info(orders)").all();
+  if (!columns.some(c => c.name === 'reissued')) {
+    try {
+      await env.DB.prepare("ALTER TABLE orders ADD COLUMN reissued INTEGER DEFAULT 0").run();
+    } catch (e) {
+      // 並行リクエストが先に追加した場合（duplicate column）は無視する
+      if (!String(e.message).includes('duplicate column')) throw e;
+    }
+  }
+  ordersReissuedColumnReady = true;
 }
 
 /**
