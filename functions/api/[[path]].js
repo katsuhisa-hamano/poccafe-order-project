@@ -214,12 +214,50 @@ export async function onRequest(context) {
         // 明細の親注文ID：既存注文へ追加する場合はそのID、新規の場合は直前にINSERTした親注文のID
         const parentOrderIdSql = baseOrder ? String(Number(baseOrder.id)) : '(SELECT MAX(id) FROM orders)';
 
+        // 同じ商品（バリエーション・単価・トッピングがすべて一致）の明細は行を増やさず数量を加算するため、
+        // 既存注文の明細を「一致判定キー → 明細ID」で引けるようにしておく
+        const lineKey = (variationId, unitPrice, modifierIds) =>
+          `${variationId}|${unitPrice}|${[...modifierIds].map(String).sort().join(',')}`;
+        const existingLineMap = new Map();
+
+        if (baseOrder) {
+          const orderIds = existingOrders.map(o => o.id);
+          const placeholders = orderIds.map(() => '?').join(',');
+          const { results: existingItems } = await env.DB.prepare(`
+            SELECT id, variation_id, unit_price FROM order_items
+            WHERE order_id IN (${placeholders}) AND IFNULL(status, '') != 'Canceled'
+            ORDER BY id
+          `).bind(...orderIds).all();
+          const { results: existingMods } = await env.DB.prepare(`
+            SELECT oim.order_item_id, oim.modifier_id FROM order_item_modifiers oim
+            INNER JOIN order_items oi ON oim.order_item_id = oi.id
+            WHERE oi.order_id IN (${placeholders}) AND IFNULL(oi.status, '') != 'Canceled'
+          `).bind(...orderIds).all();
+
+          existingItems.forEach(ei => {
+            const modIds = existingMods.filter(m => m.order_item_id === ei.id).map(m => m.modifier_id);
+            const k = lineKey(ei.variation_id, Number(ei.unit_price) || 0, modIds);
+            if (!existingLineMap.has(k)) existingLineMap.set(k, ei.id);
+          });
+        }
+
         // ---------------------------------------------------------
         // 2. 連想配列（オブジェクト）をループ展開して子と孫のクエリを生成
         // ---------------------------------------------------------
         Object.keys(items).forEach(key => {
           const item = items[key]; // キーに対応する商品のオブジェクトを取得
           if (!item) return;
+
+          // 既存注文に同じ商品の明細があれば、その数量に加算して終わり（トッピングも既存のものをそのまま使う）
+          const newModIds = Array.isArray(item.modifiers) ? item.modifiers.map(mod => mod.id ?? "") : [];
+          const matchedItemId = existingLineMap.get(lineKey(item.variationId ?? "", parseInt(item.price, 10) || 0, newModIds));
+          if (matchedItemId) {
+            statements.push(
+              env.DB.prepare("UPDATE order_items SET quantity = quantity + ? WHERE id = ?")
+                .bind(parseInt(item.quantity, 10) || 1, matchedItemId)
+            );
+            return;
+          }
 
           // ① 子（order_items）の挿入
           // 💡 重複問題の解決策: 配列の[0]番目でインサートした『親のID』を安全に引き出すため、
