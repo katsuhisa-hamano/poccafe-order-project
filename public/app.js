@@ -3338,7 +3338,7 @@ const app = {
         xml += '<text font="font_a">予約注文伝票&#10;</text>';
 
         // 2. 注文情報（お名前・受取日は少し大きく表示）
-        xml += `<text font="font_b">No.${orderNo}&#10;</text>`;
+        xml += `<text font="font_b">注文No.: ${orderNo}&#10;</text>`;
         xml += `<text font="font_a">お名前: ${userName} 様&#10;</text>`;
         xml += `<text>受取日: ${targetDate}&#10;</text>`;
         xml += '<text font="font_b">--------------------------------&#10;</text>';
