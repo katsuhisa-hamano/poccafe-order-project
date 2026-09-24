@@ -3320,7 +3320,11 @@ const app = {
         if (!order) return '';
 
         // 各項目を厳密に無害化
-        const orderId = this.cleanAndEscapeXml(order.id || order.order_id || '---');
+        // 伝票番号は注文IDを 1〜99 の連番に変換して表示する（(ID-1) % 99 + 1）
+        const rawId = Number(order.id || order.order_id);
+        const orderNo = this.cleanAndEscapeXml(
+            Number.isInteger(rawId) && rawId > 0 ? ((rawId - 1) % 99) + 1 : '---'
+        );
         const userName = this.cleanAndEscapeXml(order.user_name || 'お客様');
         const rawPrice = Number(order.total_price || order.total_amount) || 0;
         const totalPrice = this.cleanAndEscapeXml(rawPrice.toLocaleString());
@@ -3334,7 +3338,7 @@ const app = {
         xml += '<text font="font_a">予約注文伝票&#10;</text>';
 
         // 2. 注文情報（お名前・受取日は少し大きく表示）
-        xml += `<text font="font_b">注文ID: ${orderId}&#10;</text>`;
+        xml += `<text font="font_b">No.${orderNo}&#10;</text>`;
         xml += `<text font="font_a">お名前: ${userName} 様&#10;</text>`;
         xml += `<text>受取日: ${targetDate}&#10;</text>`;
         xml += '<text font="font_b">--------------------------------&#10;</text>';
