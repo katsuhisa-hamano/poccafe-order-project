@@ -877,6 +877,10 @@ const app = {
                                         ? `<span class="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded font-bold">特別会員</span>`
                                         : `<span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold">代理登録(電話)</span>`
                                 }
+                                ${userKind === 1 && c.status === 'pending'
+                                    ? `<span class="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold">未認証（確認コード未入力）</span>`
+                                    : ''
+                                }
                             </div>
                             <div class="text-xs text-gray-400 mt-0.5 space-y-0.5">
                                 <p>TEL: ${c.tel || '未設定'}</p>
