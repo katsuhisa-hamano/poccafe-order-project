@@ -1804,7 +1804,7 @@ export async function onRequest(context) {
           SELECT id, customer_name, total_amount, received_status, printed_status, reissued, created_at
           FROM orders
           WHERE delivery_date = ? AND IFNULL(status, '') != 'Canceled'
-          ORDER BY id DESC
+          ORDER BY created_at DESC, id DESC
         `).bind(targetDate).all();
 
         // 指定日のすべての注文明細を取得
