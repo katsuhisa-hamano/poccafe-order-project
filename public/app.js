@@ -2666,6 +2666,7 @@ const app = {
                         <td class="p-3 px-2 font-bold text-gray-800 align-top">
                             <div class="text-sm">${order.user_name} 様</div>
                             <div class="text-[10px] text-gray-400 font-normal mt-0.5">注文ID: ${order.id}</div>
+                            <div class="text-[10px] text-gray-400 font-normal">注文時刻: ${this.formatOrderedAt(order.created_at)}</div>
                             ${order.reissued === 1
                                 ? `<div class="inline-block bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-black mt-1">差替伝票（旧伝票を取り除く）</div>`
                                 : ''}
@@ -3341,6 +3342,18 @@ const app = {
         return Number.isInteger(rawId) && rawId > 0 ? ((rawId - 1) % 99) + 1 : '---';
     },
 
+    // orders.created_at（D1のCURRENT_TIMESTAMP = UTC "YYYY-MM-DD HH:MM:SS"）を日本時間の "YYYY/MM/DD HH:MM" に変換する
+    formatOrderedAt(createdAt) {
+        if (!createdAt) return '---';
+        const d = new Date(String(createdAt).replace(' ', 'T') + (/[zZ]|[+-]\d{2}:?\d{2}$/.test(createdAt) ? '' : 'Z'));
+        if (isNaN(d.getTime())) return '---';
+        const p = Object.fromEntries(new Intl.DateTimeFormat('ja-JP', {
+            timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).formatToParts(d).map(x => [x.type, x.value]));
+        return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
+    },
+
     generateOrderXmlTemplate(order, targetDate) {
         if (!order) return '';
 
@@ -3395,6 +3408,10 @@ const app = {
             xml += '<text font="font_a">以前に発行したこの注文No.の伝票を&#10;取り除いてください&#10;</text>';
             xml += `<text font="font_b">発行: ${this.cleanAndEscapeXml(issuedAt)}&#10;</text>`;
         }
+
+        // 4-3. 注文時刻（orders.created_at）を末尾に記載。冒頭の受取日と混同しないよう区切り線の後に小さく出す
+        xml += '<text font="font_b">--------------------------------&#10;</text>';
+        xml += `<text font="font_b">注文時刻: ${this.cleanAndEscapeXml(this.formatOrderedAt(order.created_at))}&#10;</text>`;
 
         // 5. 紙送り・カット
         xml += '<feed line="3"/>';
