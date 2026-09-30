@@ -3147,8 +3147,13 @@ const app = {
      * 【1件印刷 / 個別再印刷用】
      * 印刷済みアイテムの「再印刷」ボタンなどを押したときに実行される
      */
+    // 💡 個別印刷の送信中の注文ID（ボタンの連打・ダブルタップで同じ伝票が2枚出るのを防ぐ）
+    printingSingleIds: new Set(),
+
     async printSingleOrderHtml(order, targetDate) {
         if (!order) return;
+        if (this.printingSingleIds.has(order.id)) return; // 送信中の同じ伝票への再クリックは無視
+        this.printingSingleIds.add(order.id);
         try {
             // 単発印刷用のHTML（改ページなし）
             const xmlContent = this.generateOrderXmlTemplate(order, targetDate);
@@ -3167,21 +3172,18 @@ const app = {
                 targetAddressSpace: 'private' // ブラウザ側ならこのオプション指定が可能
             });
 
-            app.currentlyPrintingIds.push(order.id); // 印刷対象のIDを記憶しておく
-
             if (printResult.ok) {
-                // 💡 印刷された全IDをバックグラウンドAPIに送り、まとめて「印刷済み(1)」に更新
+                // 💡 印刷できた注文だけを「印刷済み(1)」に更新
+                //    （以前は失敗時もIDを記憶しており、フォーカス復帰時に未印刷のまま印刷済みにされることがあった）
                 const response = await fetch(`/api/admin/update-print-status-bulk`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: app.currentlyPrintingIds, printed_status: 1 })
+                    body: JSON.stringify({ ids: [order.id], printed_status: 1 })
                 });
                 const result = await response.json();
 
                 if (result.success) {
-                    // フラグ更新が成功したらメモリをクリアし、画面をリフレッシュ
-                    app.currentlyPrintingIds = [];
-                    alert(`1件の伝票を一括印刷しました。`);
+                    alert(`1件の伝票を印刷しました。`);
                     app.loadAdminOrders(); // 管理画面のリスト表示を再描画
                 }
             } else {
@@ -3195,6 +3197,8 @@ const app = {
             // 一括印刷と同様にユーザーへエラーを明示する。
             console.error("個別印刷エラー:", err);
             alert(`プリンターへの通信でエラーが発生しました。\n(${err.message || err})\n\n証明書の信頼設定やネットワーク接続をご確認ください。`);
+        } finally {
+            this.printingSingleIds.delete(order.id);
         }
     },
 
