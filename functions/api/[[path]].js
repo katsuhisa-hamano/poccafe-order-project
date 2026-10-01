@@ -1086,7 +1086,14 @@ export async function onRequest(context) {
           SELECT id, name, email, tel, status, created_at, 
           CASE WHEN (SELECT COUNT(*) FROM orders WHERE orders.customer_id = users.square_customer_id) > 0 THEN 1 ELSE 0 END AS has_orders,
           CASE WHEN email IS NOT NULL AND email LIKE '%_@_%._%' AND email NOT LIKE '% %' AND email NOT LIKE '%@%@%' THEN 1 WHEN email IS NOT NULL THEN 2 ELSE 0 END AS kind
-          FROM users ORDER BY id DESC
+          FROM users
+          ORDER BY
+            CASE
+              WHEN email IS NULL THEN 0
+              WHEN category = 0 THEN 1
+              ELSE 2
+            END ASC,
+            name ASC
         `).all();
         return new Response(JSON.stringify({ success: true, customers: users.results || [] }), { headers: corsHeaders });
       } catch (dbErr) {
