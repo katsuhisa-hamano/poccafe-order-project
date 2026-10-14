@@ -2828,20 +2828,21 @@ const app = {
 
             listBody.innerHTML = data.list.map(order => {
                 // 複数行の注文明細および数量変更用のインプットを用意
-                const isPrinted = Number(order.printed_status) === 1;
-                const cancelBtnClass = isPrinted 
-                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed" 
+                // 伝票印刷済みの注文は一般ユーザーは変更不可。管理者はいつでも変更できる
+                const isLocked = Number(order.printed_status) === 1 && !this.state.user.isAdmin;
+                const cancelBtnClass = isLocked
+                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed"
                     : "text-red-600 bg-red-50 hover:bg-red-100";
-                const confirmBtnClass = isPrinted 
-                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed" 
+                const confirmBtnClass = isLocked
+                    ? "text-gray-500 bg-gray-300 opacity-60 cursor-not-allowed"
                     : "text-white bg-gray-900 hover:bg-gray-800";
-                const deleteItemBtnClass = isPrinted 
-                    ? "text-gray-400 bg-gray-200 opacity-60 cursor-not-allowed" 
+                const deleteItemBtnClass = isLocked
+                    ? "text-gray-400 bg-gray-200 opacity-60 cursor-not-allowed"
                     : "text-red-500 hover:underline";
-                const inputClass = isPrinted 
-                    ? "w-16 border rounded px-2 py-1 text-center bg-gray-100 text-gray-500 cursor-not-allowed" 
+                const inputClass = isLocked
+                    ? "w-16 border rounded px-2 py-1 text-center bg-gray-100 text-gray-500 cursor-not-allowed"
                     : "qty-input-monitor w-12 text-center font-bold p-1 rounded border border-lightgreen-200 bg-white focus:outline-none focus:border-emerald-500";
-                const disabledAttr = isPrinted ? "disabled" : "";
+                const disabledAttr = isLocked ? "disabled" : "";
                 const itemsHtml = order.items.map(item => {
                     const vId = item.variation_id || item.square_variation_id;
                     
@@ -2935,7 +2936,7 @@ const app = {
             const res = await fetch('/api/orders/cancel-entire', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId })
+                body: JSON.stringify({ orderId, adminId: this.state.user.isAdmin ? this.state.user.id : null })
             });
             const data = await res.json();
             if (data.success) {
@@ -3021,7 +3022,7 @@ const app = {
             const res = await fetch('/api/orders/update-items', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId, items: updatePayloadItems })
+                body: JSON.stringify({ orderId, items: updatePayloadItems, adminId: this.state.user.isAdmin ? this.state.user.id : null })
             });
             const data = await res.json();
             if (data.success) {
@@ -3551,8 +3552,9 @@ async function initOrderCalendar() {
 
         const disableRules = [];
 
-        // 締め切り判定
-        if (now > cutoffDate) {
+        // 締め切り判定（管理者は締め切り後も当日分の注文・追加ができる）
+        const isPastCutoff = !app.state.user.isAdmin && now > cutoffDate;
+        if (isPastCutoff) {
             disableRules.push(todayStr);
         }
 
@@ -3608,7 +3610,7 @@ async function initOrderCalendar() {
             for (let i = 0; i < 30; i++) {
                 const checkStr = checkDate.getFullYear() + '-' + String(checkDate.getMonth() + 1).padStart(2, '0') + '-' + String(checkDate.getDate()).padStart(2, '0');
                 
-                const isCutoff = (i === 0 && now > cutoffDate); // 今日かつ締め切りを過ぎているか
+                const isCutoff = (i === 0 && isPastCutoff); // 今日かつ締め切りを過ぎているか
                 const isMatrix = isMatrixHoliday(checkDate);   // 定休日か
                 const isSpecific = specificHolidays && specificHolidays.includes(checkStr); // 臨時休業か
 

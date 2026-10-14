@@ -1992,13 +1992,14 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/orders/cancel-entire' && method === 'POST') {
       try {
-        const { orderId } = await request.json();
+        const { orderId, adminId } = await request.json();
         if (!orderId) {
           return new Response(JSON.stringify({ success: false, message: "注文IDが不足しています。" }), { status: 400, headers: corsHeaders });
         }
 
+        // 管理者は伝票印刷済みでもキャンセルできる
         const order = await env.DB.prepare("SELECT printed_status FROM orders WHERE id = ?").bind(orderId).first();
-        if (order && order.printed_status === 1) {
+        if (order && order.printed_status === 1 && !(await isAdminUser(env, adminId))) {
           return new Response(JSON.stringify({ success: false, message: "伝票印刷済みの注文はキャンセルできません。" }), { status: 400, headers: corsHeaders });
         }
 
@@ -2008,7 +2009,10 @@ export async function onRequest(context) {
           env.DB.prepare("UPDATE order_items SET status = 'Canceled' WHERE order_id = ?").bind(orderId)
         ]);
 
-        return new Response(JSON.stringify({ success: true, message: "注文をすべてキャンセルしました。" }), { headers: corsHeaders });
+        const message = order && order.printed_status === 1
+          ? "注文をすべてキャンセルしました。\n印刷済みの伝票は破棄してください。"
+          : "注文をすべてキャンセルしました。";
+        return new Response(JSON.stringify({ success: true, message }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
@@ -2019,13 +2023,15 @@ export async function onRequest(context) {
     // =========================================================
     if (path === '/api/orders/update-items' && method === 'POST') {
       try {
-        const { orderId, items } = await request.json(); // items: [{ order_item_id, quantity }]
+        const { orderId, items, adminId } = await request.json(); // items: [{ order_item_id, quantity }]
         if (!orderId || !items || !Array.isArray(items) || items.length === 0) {
           return new Response(JSON.stringify({ success: false, message: "パラメータが不足しています。" }), { status: 400, headers: corsHeaders });
         }
 
+        // 管理者は伝票印刷済みでも変更できる（その場合は差替伝票として再発行する）
         const order = await env.DB.prepare("SELECT printed_status FROM orders WHERE id = ?").bind(orderId).first();
-        if (order && order.printed_status === 1) {
+        const isPrinted = !!order && order.printed_status === 1;
+        if (isPrinted && !(await isAdminUser(env, adminId))) {
           return new Response(JSON.stringify({ success: false, message: "伝票印刷済みの注文内容は変更できません。" }), { status: 400, headers: corsHeaders });
         }
 
@@ -2060,6 +2066,10 @@ export async function onRequest(context) {
         if (newTotalPrice === 0) {
           // すべてのアイテムの数量が0になった場合は注文全体をキャンセル扱いにする
           statements.push(env.DB.prepare("UPDATE orders SET status = 'Canceled' WHERE id = ?").bind(orderId));
+        } else if (isPrinted) {
+          // 印刷済みの伝票は内容が古くなるため、未印刷に戻して差替伝票として出し直す
+          await ensureOrdersReissuedColumn(env);
+          statements.push(env.DB.prepare("UPDATE orders SET total_amount = ?, printed_status = 0, reissued = 1 WHERE id = ?").bind(newTotalPrice, orderId));
         } else {
           // 合計金額を上書き更新
           statements.push(env.DB.prepare("UPDATE orders SET total_amount = ? WHERE id = ?").bind(newTotalPrice, orderId));
@@ -2068,7 +2078,10 @@ export async function onRequest(context) {
         // 全クエリを一括実行
         await env.DB.batch(statements);
 
-        return new Response(JSON.stringify({ success: true, message: "注文内容を更新しました。" }), { headers: corsHeaders });
+        const message = isPrinted && newTotalPrice !== 0
+          ? "注文内容を更新しました。\n伝票は印刷済みのため、差替伝票を印刷して古い伝票と差し替えてください。"
+          : "注文内容を更新しました。";
+        return new Response(JSON.stringify({ success: true, message }), { headers: corsHeaders });
       } catch (err) {
         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
       }
@@ -2245,6 +2258,15 @@ async function ensureOrdersReissuedColumn(env) {
     }
   }
   ordersReissuedColumnReady = true;
+}
+
+/**
+ * 指定の square_customer_id が管理者ユーザーかどうか。
+ */
+async function isAdminUser(env, squareCustomerId) {
+  if (!squareCustomerId) return false;
+  const row = await env.DB.prepare("SELECT 1 FROM users WHERE square_customer_id = ? AND is_admin = 1").bind(squareCustomerId).first();
+  return !!row;
 }
 
 /**
