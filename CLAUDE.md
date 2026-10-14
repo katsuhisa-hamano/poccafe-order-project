@@ -78,7 +78,11 @@ else a shared "stock group" total, else the default), reservations already place
 (`order_items`), Square POS walk-in sales for that date, and pickups already marked received —
 remaining = manufactured − (reservations + POS sales − pickups already counted). Variations can
 share one manufactured quantity via `stock_group_id`; when they do, all reservations/sales across
-the group are summed before comparing against the shared total. Read this logic in
+the group are summed before comparing against the shared total. "Pickups" only count once a
+matching Square sale is found (`matchPickupsToSales`: a sale of the same variation closed at or
+after `orders.received_at` − 5 min; unmatched pickups count anyway after 30 min), so checking an
+order off before ringing it up doesn't briefly inflate the remaining count. The Pi status board
+(`~/PoccafeDisp/index.html` on the shop Pi) has its own copy of this logic. Read this logic in
 `functions/api/[[path]].js` (search `remainingCount`) before changing anything stock-related — it's
 easy to double-count or under-count across the group vs. single-item paths.
 
