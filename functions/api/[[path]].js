@@ -62,17 +62,17 @@ export async function onRequest(context) {
 
         // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
         const { results: reservations } = await env.DB.prepare(`
-          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count
+          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count, IFNULL(SUM(oir.quantity), 0) as pickup_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
+          LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled' AND IFNULL(oir.status, '') != 'Canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
-        const squareSalesEvents = [];
-        const squareSalesMap = await fetchSquareSalesMap(targetDate, env, squareSalesEvents);
-        const pickupMap = await fetchMatchedPickupMap(targetDate, env, squareSalesEvents);
+        const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
+        const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
         for (const key of Object.keys(items)) {
           const item = items[key];
@@ -1626,19 +1626,19 @@ export async function onRequest(context) {
 
         // 2. 予約システムからの予約数集計（例: orders / order_items テーブルがある想定）
         const { results: reservations } = await env.DB.prepare(`
-          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count
+          SELECT oi.variation_id as menu_variation_id, SUM(oi.quantity) as reserved_count, IFNULL(SUM(oir.quantity), 0) as pickup_count
           FROM order_items oi
           INNER JOIN orders o ON oi.order_id = o.id
-          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
+          LEFT JOIN order_items oir ON oi.id = oir.id AND o.received_status = 1
+          WHERE o.delivery_date = ? AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled' AND IFNULL(oir.status, '') != 'Canceled'
           GROUP BY oi.variation_id
         `).bind(targetDate).all();
         
         const reservationMap = new Map(reservations.map(r => [r.menu_variation_id, r.reserved_count]));
 
-        const squareSalesEvents = [];
-        const squareSalesMap = await fetchSquareSalesMap(targetDate, env, squareSalesEvents);
+        const pickupMap = new Map(reservations.map(r => [r.menu_variation_id, r.pickup_count]));
 
-        const pickupMap = await fetchMatchedPickupMap(targetDate, env, squareSalesEvents);
+        const squareSalesMap = await fetchSquareSalesMap(targetDate, env);
 
         /*
         // 3. Square API から当日のレジ販売数をリアルタイム取得
@@ -2292,70 +2292,15 @@ const RECEIVED_AT_SET_SQL = `received_at = CASE WHEN ? = 1
   THEN (CASE WHEN IFNULL(received_status, 0) = 1 AND received_at IS NOT NULL THEN received_at ELSE datetime('now') END)
   ELSE NULL END`;
 
-// 会計が消し込みより少し前に済んでいても同じ受け取りとみなす幅
-const PICKUP_SALE_SLACK_MS = 5 * 60 * 1000;
-// 消し込みからこの時間が過ぎても会計が見つからない分は、会計済み（まとめて後から消し込んだ等）とみなす
-const PICKUP_SALE_GRACE_MS = 30 * 60 * 1000;
-
-/**
- * 受取済み数（レジ売上から差し引く予約分）をバリエーションごとに返す。
- * 予約品は受け取り時にレジでも会計されるため、その分をレジ売上から引いて二重計上を防いでいるが、
- * 消し込みが会計より先に行われると、会計が反映されるまで残り数が多く出てしまう。
- * そこで、消し込み時刻以降（少し前も含む）に同じ商品のレジ会計が見つかった分だけ差し引く。
- */
-async function fetchMatchedPickupMap(targetDate, env, salesEvents) {
-  await ensureOrdersReceivedAtColumn(env);
-  const { results: pickups } = await env.DB.prepare(`
-    SELECT oi.variation_id, oi.quantity, o.received_at
-    FROM order_items oi
-    INNER JOIN orders o ON oi.order_id = o.id
-    WHERE o.delivery_date = ? AND o.received_status = 1
-      AND IFNULL(o.status, '') != 'Canceled' AND IFNULL(oi.status, '') != 'Canceled'
-  `).bind(targetDate).all();
-  return matchPickupsToSales(pickups, salesEvents, Date.now());
-}
-
-function matchPickupsToSales(pickups, salesEvents, now) {
-  const salesByVar = new Map();
-  for (const e of salesEvents) {
-    const t = Date.parse(e.closedAt);
-    if (!salesByVar.has(e.varId)) salesByVar.set(e.varId, []);
-    salesByVar.get(e.varId).push({ t: Number.isNaN(t) ? 0 : t, left: e.qty });
-  }
-  for (const list of salesByVar.values()) list.sort((a, b) => a.t - b.t);
-
-  // received_at が無い分（列追加前の消し込み）を先に、以降は消し込み時刻順に照合する
-  const sorted = pickups
-    .map(p => ({ varId: p.variation_id, qty: p.quantity || 0, t: p.received_at ? Date.parse(p.received_at.replace(' ', 'T') + 'Z') : null }))
-    .sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
-
-  const pickupMap = new Map();
-  for (const p of sorted) {
-    const from = p.t === null ? -Infinity : p.t - PICKUP_SALE_SLACK_MS;
-    let matched = 0;
-    for (const sale of salesByVar.get(p.varId) || []) {
-      if (matched >= p.qty) break;
-      if (sale.t < from || sale.left <= 0) continue;
-      const take = Math.min(sale.left, p.qty - matched);
-      sale.left -= take;
-      matched += take;
-    }
-    const counted = (p.t === null || now - p.t >= PICKUP_SALE_GRACE_MS) ? p.qty : matched;
-    pickupMap.set(p.varId, (pickupMap.get(p.varId) || 0) + counted);
-  }
-  return pickupMap;
-}
-
 /**
  * 💡【新設共通関数】
  * 指定された日付の Square レジ販売数をリアルタイム取得し、
  * バリエーションIDをキー、販売数量を値とした Map を返します。
  * * @param {string} targetDate - 'YYYY-MM-DD' 形式の日付
  * @param {object} env - Cloudflare Workers の環境変数 (env.SQUARE_ACCESS_TOKEN など)
- * @param {Array|null} salesEvents - 渡された場合、会計ごとの { varId, qty, closedAt } を追加する（受取済み分の照合用）
  * @returns {Promise<Map<string, number>>} squareSalesMap
  */
-async function fetchSquareSalesMap(targetDate, env, salesEvents = null) {
+async function fetchSquareSalesMap(targetDate, env) {
   const squareSalesMap = new Map();
 
   if (!env.SQUARE_ACCESS_TOKEN) {
@@ -2419,7 +2364,6 @@ async function fetchSquareSalesMap(targetDate, env, salesEvents = null) {
             // Mapに数量を累積
             const currentQty = squareSalesMap.get(varId) || 0;
             squareSalesMap.set(varId, currentQty + qty);
-            if (salesEvents) salesEvents.push({ varId, qty, closedAt: order.closed_at });
           }
         }
 
